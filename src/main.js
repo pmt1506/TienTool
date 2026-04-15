@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { connect, disconnect } from './database/mongodb.js';
@@ -16,11 +16,13 @@ if (started) {
 }
 
 let mainWindow = null;
-
 const createWindow = () => {
+  const display = screen.getPrimaryDisplay();
+  const { x, y, width } = display.workArea;
+
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 750,
+    width: 900,
+    height: 600,
     minWidth: 900,
     minHeight: 600,
     frame: false,
@@ -31,6 +33,9 @@ const createWindow = () => {
       contextIsolation: true,
       nodeIntegration: false,
     },
+
+    x: x + width - 900,
+    y: y,
   });
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -82,12 +87,11 @@ ipcMain.handle('accounts:delete', async (_event, id) => {
 app.whenReady().then(async () => {
   try {
     await connect();
+    createWindow();
     console.log('[App] MongoDB connected, creating window...');
   } catch (err) {
     console.error('[App] Failed to connect MongoDB:', err.message);
   }
-
-  createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
