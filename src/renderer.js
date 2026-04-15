@@ -35,7 +35,9 @@ const dom = {
   btnEdit: $('#btn-edit'),
   btnAddClone: $('#btn-add-clone'),
   btnDelete: $('#btn-delete'),
+  btnLoginLauncher: $('#btn-login-launcher'),
   toastContainer: $('#toast-container'),
+
   btnMinimize: $('#btn-minimize'),
   btnMaximize: $('#btn-maximize'),
   btnClose: $('#btn-close'),
@@ -307,9 +309,31 @@ dom.btnDelete.addEventListener('click', async () => {
   result.success ? (toast('Đã xóa.', 'success'), loadAccounts()) : toast(result.error, 'error');
 });
 
+// ── Login Launcher ─────────────────────────────────────────────
+dom.btnLoginLauncher.addEventListener('click', async () => {
+  const data = getFormData();
+  if (!data.username || !data.password || !data.server) {
+    return toast('Vui lòng chọn tài khoản và server hợp lệ.', 'error');
+  }
+
+  toast('Đang mở Launcher...', 'info');
+  try {
+    const result = await api.loginGame(data.username, data.password, data.server);
+    if (result.success) {
+      toast('Đã mở Game Launcher.', 'success');
+    } else {
+      toast(result.msg || 'Không thể đăng nhập game.', 'error');
+    }
+  } catch (err) {
+    toast('Lỗi khi mở Game Launcher.', 'error');
+  }
+});
+
 // ── Placeholder buttons ────────────────────────────────────────
+
 const placeholderIds = [
-  'btn-login-launcher', 'btn-flash-login', 'btn-sort', 'btn-kill-all',
+  'btn-flash-login', 'btn-sort', 'btn-kill-all',
+
   'btn-clipboard', 'btn-log', 'btn-config',
   'btn-import-json', 'btn-export-json', 'btn-export-txt',
   'btn-script-auto', 'btn-code-tuan', 'btn-nhan-all-code',

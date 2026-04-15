@@ -14,4 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createAccount: (data) => ipcRenderer.invoke('accounts:create', data),
   updateAccount: (id, data) => ipcRenderer.invoke('accounts:update', id, data),
   deleteAccount: (id) => ipcRenderer.invoke('accounts:delete', id),
+
+  // Game
+  loginGame: (username, password, serverId) => ipcRenderer.invoke('game:login', username, password, serverId),
 });

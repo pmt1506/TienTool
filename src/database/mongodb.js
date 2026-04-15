@@ -7,8 +7,6 @@ let db = null;
 export async function connect() {
   try {
     client = new MongoClient(config.mongodb.uri);
-    // print mongo uri connectstring
-    console.log(config.mongodb.uri);
     await client.connect();
     db = client.db(config.mongodb.dbName);
     console.log(`[MongoDB] Connected to ${config.mongodb.dbName}`);

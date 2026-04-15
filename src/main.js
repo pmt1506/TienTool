@@ -9,6 +9,8 @@ import {
   updateAccount,
   deleteAccount,
 } from './services/accountService.js';
+import { loginGame } from './services/loginService.js';
+
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -21,10 +23,10 @@ const createWindow = () => {
   const { x, y, width } = display.workArea;
 
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 600,
-    minWidth: 900,
-    minHeight: 600,
+    width: 800,
+    height: 500,
+    minWidth: 800,
+    minHeight: 500,
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#0a0a1a',
@@ -80,6 +82,11 @@ ipcMain.handle('accounts:update', async (_event, id, data) => {
 
 ipcMain.handle('accounts:delete', async (_event, id) => {
   return await deleteAccount(id);
+});
+
+// Game
+ipcMain.handle('game:login', async (_event, username, password, serverId) => {
+  return await loginGame(username, password, serverId);
 });
 
 // ─── App Lifecycle ──────────────────────────────────────────────
