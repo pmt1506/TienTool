@@ -10,6 +10,7 @@ import {
   deleteAccount,
 } from './services/accountService.js';
 import { loginGame } from './services/loginService.js';
+import * as koffiService from './koffiService.js';
 
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -23,10 +24,10 @@ const createWindow = () => {
   const { x, y, width } = display.workArea;
 
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 500,
-    minWidth: 800,
-    minHeight: 500,
+    width: 900,
+    height: 600,
+    minWidth: 900,
+    minHeight: 600,
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#0a0a1a',
@@ -87,6 +88,10 @@ ipcMain.handle('accounts:delete', async (_event, id) => {
 // Game
 ipcMain.handle('game:login', async (_event, username, password, serverId) => {
   return await loginGame(username, password, serverId);
+});
+
+ipcMain.handle('game:rename-window', async (_event, pid, newName) => {
+  return await koffiService.waitAndRename(pid, newName);
 });
 
 // ─── App Lifecycle ──────────────────────────────────────────────

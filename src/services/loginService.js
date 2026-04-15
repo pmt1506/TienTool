@@ -98,9 +98,7 @@ export async function loginGame(userName, password, serverID) {
 
         appPlayer.unref();
 
-        // The Handle and Rename Window C# logic has been skipped since native user32.dll calls
-        // require additional node modules like ffi-napi in Node.js.
-        return { success: true, msg: "Login game successfully" };
+        return { success: true, pid: appPlayer.pid, msg: "Login game successfully" };
     } catch (err) {
         return { success: false, msg: "Lỗi hệ thống: " + err.message };
     }

@@ -16,6 +16,7 @@ export default defineConfig({
         'aws4',
         'mongodb-client-encryption',
         'gcp-metadata',
+        'koffi',
       ],
     },
   },

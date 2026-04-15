@@ -8,4 +8,4 @@ export function getSerialNumber() {
     }
     return result;
 }
-
+

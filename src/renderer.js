@@ -113,13 +113,6 @@ async function loadServers() {
     }
   } catch (err) {
     console.error('[Renderer] Failed to fetch servers:', err);
-    // fallback
-    serverList = [
-      { Name: 'Gà Sát Thủ', serverId: 33 },
-      { Name: 'Gà Kiếm Khách', serverId: 32 },
-      { Name: 'Gà Sát Long', serverId: 31 },
-      { Name: 'Gà Không Gian', serverId: 1 },
-    ];
     populateServerDropdown();
   }
 }
@@ -143,9 +136,9 @@ function populateServerDropdown() {
 }
 
 // Get server display name from id
-function getServerName(serverId) {
-  const s = serverList.find((x) => x.serverId === serverId);
-  return s ? `${serverId}` : `${serverId}`;
+export function getServerName(serverId) {
+  const s = serverList.find((x) => String(x.serverId) === String(serverId));
+  return s ? s.Name : String(serverId);
 }
 
 // Load servers on startup
@@ -321,6 +314,8 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
     const result = await api.loginGame(data.username, data.password, data.server);
     if (result.success) {
       toast('Đã mở Game Launcher.', 'success');
+      const sName = getServerName(data.server);
+      await api.renameWindow(result.pid, `${data.username} - ${sName}`);
     } else {
       toast(result.msg || 'Không thể đăng nhập game.', 'error');
     }

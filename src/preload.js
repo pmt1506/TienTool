@@ -17,4 +17,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Game
   loginGame: (username, password, serverId) => ipcRenderer.invoke('game:login', username, password, serverId),
+  renameWindow: (pid, newName) => ipcRenderer.invoke('game:rename-window', pid, newName),
 });
