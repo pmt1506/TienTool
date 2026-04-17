@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, session } from 'electron';
 import path from 'node:path';
 import { exec } from 'node:child_process';
 import started from 'electron-squirrel-startup';
@@ -13,6 +13,7 @@ import {
 import { loginGame } from './services/loginService.js';
 import { getAllCode } from './services/autoService.js';
 import * as koffiService from './koffiService.js';
+import { getLoginToken } from './services/apiService.js';
 
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -113,11 +114,11 @@ let isAutoStopped = false;
 
 ipcMain.handle('auto:get-all-code', async (_event, keyId) => {
   isAutoStopped = false;
-  
+
   const onProgress = (data) => {
     mainWindow?.webContents.send('auto:progress', data);
   };
-  
+
   const checkStop = () => isAutoStopped;
 
   try {
@@ -133,6 +134,42 @@ ipcMain.handle('auto:stop-all-code', () => {
   isAutoStopped = true;
   return { success: true };
 });
+
+
+ipcMain.handle('auto:get-token-api', async (_event, username, password) => {
+  // if (checkStop && checkStop()) return null;
+  return await getLoginToken(username, password);
+});
+
+
+
+// Mở webshop
+ipcMain.handle('open-webshop', async (event, token) => {
+  const ses = session.defaultSession;
+
+  // url https://sv3.gnddt.com/cua-hang
+  await ses.cookies.set({
+    url: 'https://api3.gnddt.com', // domain API
+    name: 'Authorization',         // hoặc Token (tùy backend)
+    value: token,
+    path: '/',
+  });
+
+  // Mở cửa sổ mới
+  const win = new BrowserWindow({
+    // full screen
+    fullscreen: true,
+    webPreferences: {
+      session: ses, // quan trọng: dùng session đã set cookie
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  win.loadURL('https://sv3.gnddt.com/cua-hang');
+
+  return { success: true };
+})
 
 // ─── App Lifecycle ──────────────────────────────────────────────
 

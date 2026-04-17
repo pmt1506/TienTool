@@ -39,6 +39,7 @@ const dom = {
   btnScriptAuto: $('#btn-script-auto'),
   toastContainer: $('#toast-container'),
   btnNhanAllCode: $('#btn-nhan-all-code'),
+  btnOpenWebshop: $('#btn-open-webshop'),
   autoProgressContainer: $('#auto-progress-container'),
   autoProgressAcc: $('#auto-progress-acc'),
   autoProgressCode: $('#auto-progress-code'),
@@ -370,7 +371,7 @@ api.onAutoProgress((data) => {
     const accPercent = (data.accCurrent / data.accTotal) * 100;
     dom.autoProgressBar.style.width = `${accPercent}%`;
   }
-  
+
   if (data.codeCurrent && data.codeTotal) {
     dom.autoProgressCode.textContent = `Code: ${data.codeCurrent}/${data.codeTotal}`;
   } else {
@@ -425,6 +426,29 @@ dom.btnNhanAllCode.addEventListener('click', async () => {
       if (!isAutoRunning) dom.autoProgressContainer.classList.add('hidden');
     }, 5000);
   }
+});
+
+
+
+
+dom.btnOpenWebshop.addEventListener('click', async () => {
+  const data = getFormData();
+
+  if (!data.username || !data.password) {
+    return toast('Chọn tài khoản trước.', 'error');
+  }
+
+  toast('Đang mở webshop...', 'info');
+
+  const login = await api.getTokenApi(data.username, data.password);
+
+  if (!login.token) {
+    return toast('Login thất bại.', 'error');
+  }
+
+  await api.openWebshop(login.token);
+
+  toast('Đã mở webshop.', 'success');
 });
 
 // ── Helpers ────────────────────────────────────────────────────

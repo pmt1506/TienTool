@@ -20,8 +20,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   renameWindow: (pid, newName) => ipcRenderer.invoke('game:rename-window', pid, newName),
 
   // Auto
+  // get token api -- getLoginToken api service
+  getTokenApi: (username, password) => ipcRenderer.invoke('auto:get-token-api', username, password),
   openBatFile: () => ipcRenderer.invoke('auto:open-bat-file'),
   getAllCode: (keyId) => ipcRenderer.invoke('auto:get-all-code', keyId),
   stopGetAllCode: () => ipcRenderer.invoke('auto:stop-all-code'),
   onAutoProgress: (callback) => ipcRenderer.on('auto:progress', (_event, data) => callback(data)),
+
+  // Webshop
+  openWebshop: (token) => ipcRenderer.invoke('open-webshop', token),
 });
