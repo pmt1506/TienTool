@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import path from 'node:path';
+import { exec } from 'node:child_process';
 import started from 'electron-squirrel-startup';
 import { connect, disconnect } from './database/mongodb.js';
 import { loginByKey } from './services/authService.js';
@@ -92,6 +93,18 @@ ipcMain.handle('game:login', async (_event, username, password, serverId) => {
 
 ipcMain.handle('game:rename-window', async (_event, pid, newName) => {
   return await koffiService.waitAndRename(pid, newName);
+});
+
+ipcMain.handle('auto:open-bat-file', async () => {
+  const batPath = 'C:\\Tool Login\\Auto\\script_multiple.bat';
+
+  exec(`start "" "${batPath}"`, (error) => {
+    if (error) {
+      console.error(`[Main] Error executing bat: ${error.message}`);
+    }
+  });
+
+  return { success: true };
 });
 
 // ─── App Lifecycle ──────────────────────────────────────────────

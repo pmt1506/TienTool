@@ -36,6 +36,7 @@ const dom = {
   btnAddClone: $('#btn-add-clone'),
   btnDelete: $('#btn-delete'),
   btnLoginLauncher: $('#btn-login-launcher'),
+  btnScriptAuto: $('#btn-script-auto'),
   toastContainer: $('#toast-container'),
 
   btnMinimize: $('#btn-minimize'),
@@ -331,7 +332,7 @@ const placeholderIds = [
 
   'btn-clipboard', 'btn-log', 'btn-config',
   'btn-import-json', 'btn-export-json', 'btn-export-txt',
-  'btn-script-auto', 'btn-code-tuan', 'btn-nhan-all-code',
+  'btn-code-tuan', 'btn-nhan-all-code',
 ];
 placeholderIds.forEach((id) => {
   const el = document.getElementById(id);
@@ -349,6 +350,12 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     selectAccount(selectedIndex > 0 ? selectedIndex - 1 : accounts.length - 1);
   }
+});
+
+// btn-script-auto
+dom.btnScriptAuto.addEventListener('click', async () => {
+  toast('Đang chạy script auto...', 'info');
+  await api.openBatFile();
 });
 
 // ── Helpers ────────────────────────────────────────────────────
