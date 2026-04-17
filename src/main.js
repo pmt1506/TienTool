@@ -11,6 +11,7 @@ import {
   deleteAccount,
 } from './services/accountService.js';
 import { loginGame } from './services/loginService.js';
+import { getAllCode } from './services/autoService.js';
 import * as koffiService from './koffiService.js';
 
 
@@ -104,6 +105,32 @@ ipcMain.handle('auto:open-bat-file', async () => {
     }
   });
 
+  return { success: true };
+});
+
+// Auto nhận code
+let isAutoStopped = false;
+
+ipcMain.handle('auto:get-all-code', async (_event, keyId) => {
+  isAutoStopped = false;
+  
+  const onProgress = (data) => {
+    mainWindow?.webContents.send('auto:progress', data);
+  };
+  
+  const checkStop = () => isAutoStopped;
+
+  try {
+    await getAllCode(keyId, onProgress, checkStop);
+    return { success: true };
+  } catch (err) {
+    console.error('[Main] getAllCode error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('auto:stop-all-code', () => {
+  isAutoStopped = true;
   return { success: true };
 });
 

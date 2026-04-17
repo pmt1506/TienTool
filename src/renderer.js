@@ -38,6 +38,12 @@ const dom = {
   btnLoginLauncher: $('#btn-login-launcher'),
   btnScriptAuto: $('#btn-script-auto'),
   toastContainer: $('#toast-container'),
+  btnNhanAllCode: $('#btn-nhan-all-code'),
+  autoProgressContainer: $('#auto-progress-container'),
+  autoProgressAcc: $('#auto-progress-acc'),
+  autoProgressCode: $('#auto-progress-code'),
+  autoProgressBar: $('#auto-progress-bar'),
+  autoProgressMsg: $('#auto-progress-msg'),
 
   btnMinimize: $('#btn-minimize'),
   btnMaximize: $('#btn-maximize'),
@@ -332,7 +338,7 @@ const placeholderIds = [
 
   'btn-clipboard', 'btn-log', 'btn-config',
   'btn-import-json', 'btn-export-json', 'btn-export-txt',
-  'btn-code-tuan', 'btn-nhan-all-code',
+  'btn-code-tuan'
 ];
 placeholderIds.forEach((id) => {
   const el = document.getElementById(id);
@@ -352,10 +358,73 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// TAB AUTO
+
+let isAutoRunning = false;
+
+// Listen for progress updates from Main
+api.onAutoProgress((data) => {
+  if (data.accCurrent && data.accTotal) {
+    dom.autoProgressAcc.textContent = `Acc: ${data.accCurrent}/${data.accTotal} (${data.username})`;
+    // Update main progress bar based on accounts
+    const accPercent = (data.accCurrent / data.accTotal) * 100;
+    dom.autoProgressBar.style.width = `${accPercent}%`;
+  }
+  
+  if (data.codeCurrent && data.codeTotal) {
+    dom.autoProgressCode.textContent = `Code: ${data.codeCurrent}/${data.codeTotal}`;
+  } else {
+    dom.autoProgressCode.textContent = 'Code: --';
+  }
+
+  if (data.message) {
+    dom.autoProgressMsg.textContent = data.message;
+  }
+});
+
 // btn-script-auto
 dom.btnScriptAuto.addEventListener('click', async () => {
   toast('Đang chạy script auto...', 'info');
   await api.openBatFile();
+});
+
+// btn-nhan-all-code
+dom.btnNhanAllCode.addEventListener('click', async () => {
+  if (isAutoRunning) {
+    // STOP logic
+    const res = await api.stopGetAllCode();
+    if (res.success) {
+      toast('Đã gửi yêu cầu dừng...', 'info');
+    }
+    return;
+  }
+
+  // START logic
+  isAutoRunning = true;
+  dom.btnNhanAllCode.classList.add('bg-red-500', 'hover:bg-red-400');
+  dom.btnNhanAllCode.classList.remove('bg-surface');
+  dom.btnNhanAllCode.innerHTML = '<i data-lucide="square" class="w-3.5 h-3.5"></i> Dừng nhận code';
+  refreshIcons();
+
+  dom.autoProgressContainer.classList.remove('hidden');
+  dom.autoProgressMsg.textContent = 'Đang bắt đầu...';
+  dom.autoProgressBar.style.width = '0%';
+
+  try {
+    await api.getAllCode(currentKeyId);
+  } catch (err) {
+    toast('Lỗi khi chạy automation.', 'error');
+  } finally {
+    isAutoRunning = false;
+    dom.btnNhanAllCode.classList.remove('bg-red-500', 'hover:bg-red-400');
+    dom.btnNhanAllCode.classList.add('bg-surface');
+    dom.btnNhanAllCode.innerHTML = '<i data-lucide="gift" class="w-3.5 h-3.5"></i> Nhận all code';
+    refreshIcons();
+    toast('Tiến trình automation đã kết thúc.', 'info');
+    setTimeout(() => {
+      if (!isAutoRunning) dom.autoProgressContainer.classList.add('hidden');
+    }, 5000);
+  }
 });
 
 // ── Helpers ────────────────────────────────────────────────────

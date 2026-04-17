@@ -21,4 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Auto
   openBatFile: () => ipcRenderer.invoke('auto:open-bat-file'),
+  getAllCode: (keyId) => ipcRenderer.invoke('auto:get-all-code', keyId),
+  stopGetAllCode: () => ipcRenderer.invoke('auto:stop-all-code'),
+  onAutoProgress: (callback) => ipcRenderer.on('auto:progress', (_event, data) => callback(data)),
 });

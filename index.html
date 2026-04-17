@@ -203,6 +203,20 @@
               </button>
             </div>
 
+            <!-- Progress Status -->
+            <div id="auto-progress-container" class="hidden mt-auto p-3 bg-surface-dark/50 border border-brand-400/20 rounded-lg animate-fade-in">
+              <div class="flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                  <span id="auto-progress-acc" class="text-[10px] font-bold text-brand-300 uppercase">Acc: 0/0</span>
+                  <span id="auto-progress-code" class="text-[10px] font-bold text-blue-300 uppercase">Code: 0/0</span>
+                </div>
+                <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div id="auto-progress-bar" class="h-full bg-brand-400 transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div id="auto-progress-msg" class="text-[11px] text-gray-400 truncate">Sẵn sàng...</div>
+              </div>
+            </div>
+
             <!-- Bottom row -->
             <div class="grid grid-cols-3 gap-2">
               <button id="btn-script-auto" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
