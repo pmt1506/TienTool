@@ -4,7 +4,9 @@ on:
   push:
     branches:
       - main   # chỉ chạy khi push vào main
-
+permissions:
+  contents: write
+  
 jobs:
   build:
     runs-on: windows-latest

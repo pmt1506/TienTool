@@ -1,7 +1,7 @@
 {
   "name": "tientool-gunny2017",
   "productName": "Tientool-QLTK 2017",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Tientool-QLTK 2017",
   "main": ".vite/build/main.js",
   "build": {
