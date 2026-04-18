@@ -14,7 +14,7 @@ import { loginGame } from './services/loginService.js';
 import { getAllCode } from './services/autoService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
-
+import { autoUpdater } from 'electron-updater';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -42,6 +42,24 @@ const createWindow = () => {
 
     x: x + width - 900,
     y: y,
+  });
+
+  autoUpdater.checkForUpdatesAndNotify();
+
+  autoUpdater.on('update-available', () => {
+    dialog.showMessageBox({
+      type: 'info',
+      message: 'Có bản cập nhật mới, đang tải...',
+    });
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    dialog.showMessageBox({
+      type: 'info',
+      message: 'Đã tải xong bản cập nhật, khởi động lại để sử dụng',
+    }).then(() => {
+      autoUpdater.quitAndInstall();;
+    });
   });
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {

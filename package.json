@@ -1,12 +1,19 @@
 {
   "name": "tientool-gunny2017",
   "productName": "Tientool-QLTK 2017",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Tientool-QLTK 2017",
   "main": ".vite/build/main.js",
   "build": {
     "appId": "com.tientool.gunny",
     "productName": "Tientool-QLTK 2017",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "pmt1506",
+        "repo": "TienTool"
+      }
+    ],
     "asar": true,
     "files": [
       "dist/**",
@@ -16,6 +23,10 @@
     ],
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
     }
   },
   "private": true,
@@ -52,7 +63,9 @@
   },
   "dependencies": {
     "axios": "^1.15.0",
+    "electron-log": "^5.4.3",
     "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.8.3",
     "koffi": "^2.16.0",
     "lucide": "^1.8.0",
     "mongodb": "^7.1.1"
