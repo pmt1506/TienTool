@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, session } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, session, dialog } from 'electron';
 import path from 'node:path';
 import { exec } from 'node:child_process';
 import started from 'electron-squirrel-startup';
@@ -15,6 +15,12 @@ import { getAllCode } from './services/autoService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
 import { autoUpdater } from 'electron-updater';
+import log from 'electron-log';
+
+// Configure logging for auto-updater
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+log.info('App starting...');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -44,23 +50,44 @@ const createWindow = () => {
     y: y,
   });
 
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for update...');
+  });
 
-  autoUpdater.on('update-available', () => {
+  autoUpdater.on('update-available', (info) => {
+    log.info('Update available:', info);
     dialog.showMessageBox({
       type: 'info',
       message: 'Có bản cập nhật mới, đang tải...',
     });
   });
 
-  autoUpdater.on('update-downloaded', () => {
+  autoUpdater.on('update-not-available', (info) => {
+    log.info('Update not available:', info);
+  });
+
+  autoUpdater.on('error', (err) => {
+    log.error('Error in auto-updater:', err);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = "Download speed: " + progressObj.bytesPerSecond;
+    log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+    log.info(log_message);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info('Update downloaded:', info);
     dialog.showMessageBox({
       type: 'info',
       message: 'Đã tải xong bản cập nhật, khởi động lại để sử dụng',
     }).then(() => {
-      autoUpdater.quitAndInstall();;
+      autoUpdater.quitAndInstall();
     });
   });
+
+  autoUpdater.checkForUpdatesAndNotify();
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
