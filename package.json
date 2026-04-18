@@ -1,7 +1,7 @@
 {
   "name": "tientool-gunny2017",
   "productName": "Tientool-QLTK 2017",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Tientool-QLTK 2017",
   "main": ".vite/build/main.js",
   "build": {
@@ -35,7 +35,7 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "build": "vite build -c vite.main.config.mjs && vite build -c vite.preload.config.mjs && vite build -c vite.renderer.config.mjs",
-    "dist": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --publish=always",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\""
   },
