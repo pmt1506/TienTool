@@ -4,6 +4,7 @@
 import { createIcons, icons } from 'lucide';
 
 const api = window.electronAPI;
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 // ── State ──────────────────────────────────────────────────────
 let currentKeyId = null;
@@ -113,8 +114,9 @@ dom.togglePass.addEventListener('click', () => {
 // ══════════════════════════════════════════════════════════════
 async function loadServers() {
   try {
-    const res = await fetch(`${process.env.BASE_URL}/GetAllServer`);
+    const res = await fetch(`${BASE_URL}/GetAllServer`);
     const data = await res.json();
+    console.log(data);
     if (data.result && data.ListServer) {
       serverList = data.ListServer;
       populateServerDropdown();
