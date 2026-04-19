@@ -1,7 +1,7 @@
 {
   "name": "tientool-gunny2017",
   "productName": "Tientool-QLTK 2017",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Tientool-QLTK 2017",
   "main": ".vite/build/main.js",
   "build": {
@@ -32,12 +32,10 @@
   },
   "private": true,
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
+    "start": "npm run build && electron .",
+    "dev": "vite",
     "build": "vite build -c vite.main.config.mjs && vite build -c vite.preload.config.mjs && vite build -c vite.renderer.config.mjs",
     "dist": "npm run build && electron-builder --publish=always",
-    "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\""
   },
   "keywords": [],
@@ -47,13 +45,6 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@electron-forge/maker-deb": "^7.11.1",
-    "@electron-forge/maker-rpm": "^7.11.1",
-    "@electron-forge/maker-squirrel": "^7.11.1",
-    "@electron-forge/maker-zip": "^7.11.1",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.11.1",
-    "@electron-forge/plugin-fuses": "^7.11.1",
-    "@electron-forge/plugin-vite": "^7.11.1",
     "@electron/fuses": "^1.8.0",
     "autoprefixer": "^10.5.0",
     "electron": "41.2.0",
