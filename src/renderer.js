@@ -113,7 +113,7 @@ dom.togglePass.addEventListener('click', () => {
 // ══════════════════════════════════════════════════════════════
 async function loadServers() {
   try {
-    const res = await fetch('https://api3.gnddt.com/api/Function/GetAllServer');
+    const res = await fetch(`${process.env.BASE_URL}/GetAllServer`);
     const data = await res.json();
     if (data.result && data.ListServer) {
       serverList = data.ListServer;

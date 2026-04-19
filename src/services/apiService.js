@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CAPTCHA_API_KEY = 'FmaegsApMO/3vZ5dcO8aYw==0TsWexrKeDOUhT8a';
+const CAPTCHA_API_KEY = process.env.API_NINJA;
 const PARENT_DIR = __dirname;
 
 // ─────────────────────────────────────────────
@@ -165,7 +165,7 @@ export async function getLoginToken(username, password, checkStop) {
 }
 
 export async function getAllNickName(token) {
-    const apiUrl = 'https://api3.gnddt.com/api/Function/GetAllNickName';
+    const apiUrl = `${process.env.BASE_URL}/GetAllNickName`;
 
     const res = await fetch(apiUrl, {
         method: 'GET',
@@ -186,7 +186,7 @@ export async function getAllNickName(token) {
 }
 
 export async function setAccountDefault(token) {
-    const apiUrl = 'https://api3.gnddt.com/api/Function/SetAccountDefault';
+    const apiUrl = `${process.env.BASE_URL}/SetAccountDefault`;
 
     const defaultAccount = await getAllNickName(token)
 

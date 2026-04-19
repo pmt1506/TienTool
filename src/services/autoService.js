@@ -11,7 +11,7 @@ export async function getAccounts(keyId) {
 
 // xem list code có thể nhận
 export async function getAllGiftCodesAvailable(token) {
-    const apiUrl = 'https://api3.gnddt.com/api/Function/GetCodeEvent';
+    const apiUrl = `${process.env.BASE_URL}/GetCodeEvent`;
 
     try {
         const res = await fetch(apiUrl, {
@@ -65,7 +65,7 @@ export async function getAllGiftCodesAvailable(token) {
 
 // nhận all code
 export async function getAllCode(keyId, onProgress, checkStop) {
-    const apiUrl = 'https://api3.gnddt.com/api/Function/GiftAward';
+    const apiUrl = `${process.env.BASE_URL}/GiftAward`;
 
     if (onProgress) onProgress({ message: 'Đang tải danh sách tài khoản...' });
     const accounts = await getAccounts(keyId);
