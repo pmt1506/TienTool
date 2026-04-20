@@ -1,0 +1,66 @@
+﻿
+
+//login launcher
+
+//show all
+//quality low
+//50% kich thuoc
+
+getscreen
+
+
+if (pxl(471,252)  = 4224898 or pxl(471,252)  = 1056289)
+   wait(0.3)
+   
+   LCLICK(253,165)  // 16645629
+   
+   LCLICK(470,238) // bat dau
+   wait(0.2)
+end_if
+
+
+//skill rb
+if(pxl(353,255)  = 16775924 or pxl(353,255)  = 4210493)
+   wait(0.2)
+   LCLICK(354,256)  // 4210752  skill
+   $win = $win + 1
+   print($win)
+   wait(1)
+end_if
+
+//skill ho ly
+
+if(pxl(353,262)  = 3948608 or pxl(353,261)  = 13303807)
+   wait(0.2)
+   LCLICK(354,256)  // 4210752  skill
+   $win = $win + 1
+   print($win)
+   wait(1)
+end_if
+
+//Skill huyen vu
+if(pxl(353,259)  = 2636559 or pxl(354,259)  = 9607772)
+   wait(0.2)
+   LCLICK(354,256)  // 4210752  skill
+   $win = $win + 1
+   print($win)
+   wait(1)
+end_if
+
+//Skill huyen vu
+if(pxl(353,258)  = 2793459 or pxl(353,258)  = 665661)
+   wait(0.2)
+   LCLICK(354,256)  // 4210752  skill
+   $win = $win + 1
+   print($win)
+   wait(1)
+end_if
+
+
+if(pxl(261,116)  = 1094396 or pxl(254,107)  = 2964286)
+   keyPress(#p)
+   wait(0.1)
+end_if
+
+
+wait(0.1)  // Add a small delay (100ms) between each color check to prevent the program from lagging

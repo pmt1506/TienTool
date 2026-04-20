@@ -1,0 +1,60 @@
+﻿getscreen
+
+//ruong vang
+if(pxl(616,451) = 5912614 or pxl(613,456) = 3287075)
+for($var=0, $var<2, 1)           
+LCLICK(760,477)  // 2769251
+LCLICK(536,227)  // 1651798
+LCLICK(547,326)  // 1861030
+LCLICK(559,266)  // 3892615
+keyString(999)
+LCLICK(507,445)  // 4013423
+
+
+end_cyc
+end_if
+
+//the bai
+if(pxl(407,273) = 16777215 or pxl(407,273) = 4210752)
+for($i=0, $i<10, 1)
+//LCLICK(547,299)  // 2769251
+LCLICK(762,212)  // 2769251
+
+LCLICK(536,227)  // 1651798
+LCLICK(547,326)  // 1861030
+LCLICK(559,266)  // 3892615
+keyString(999)
+LCLICK(507,445)  // 4013423
+print($i)
+end_cyc
+end_if
+
+
+//mo ruong vang
+if_pixel_in(524,132,855,461,6437672)
+LCLICK($_return1, $_return2)
+wait(0.4)
+LCLICK($_return1, $_return2+50)
+wait(0.2)
+LCLICK(649,299)  // 1661829
+wait(0.2)
+LCLICK(399,354)  // 11138559
+wait(0.2)
+end_if
+
+
+//mo the bai
+if_pixel_in(524,132,855,461,1856713)
+LCLICK($_return1, $_return2)
+wait(0.4)
+LCLICK($_return1, $_return2+50)
+wait(0.1)
+LCLICK(649,299)  // 1661829
+wait(0.1)
+LCLICK(399,354)  // 11138559
+wait(0.2)
+end_if
+
+
+wait(0.1)
+  

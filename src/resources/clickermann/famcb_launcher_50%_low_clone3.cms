@@ -1,0 +1,27 @@
+﻿getscreen
+
+if(pxl(456,238)  = 5676016 or pxl(457,238)  = 1386811)
+   wait(2)
+   LCLICK(471,246)  // 604193    bat dau
+end_if
+
+
+if(pxl(261,116)  = 1094396 or pxl(254,107)  = 2964286)   
+   wait(0.2)
+   keyPress(#p)   
+end_if
+
+
+if(pxl(247,54)  = 1452602 or pxl(247,54)  = 5941478)
+   wait(1)
+   LCLICK(247,54)  // 5941478
+   wait(0.5)
+   LCLICK(251,158)  // 9422062
+   wait(0.5)
+   LCLICK(252,264)  // 4101067
+   wait(0.5)
+   LCLICK(209,171)  // 2189706
+   wait(0.5)
+end_if
+
+wait(0.1)

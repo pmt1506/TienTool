@@ -1,0 +1,39 @@
+﻿getscreen
+
+if(pxl(656,530) = 528152 or pxl(656,530) = 2178143)
+   LCLICK(488,306)  // 2704347
+   wait(0.5)
+end_if
+
+
+if(pxl(485,315) = 5987163 and pxl(657,537) != 2178143)
+   print("out")
+   wait(1.5)
+   LCLICK(701,33)  // 16777215
+   wait(0.3)
+   LCLICK(431,341)  // 4953776
+   wait(0.3)
+end_if
+
+
+if(pxl(898,201) = 11520986)   //tab trang bi
+   LCLICK(902,338)  // 3632549
+end_if
+
+
+if_pixel_in(517,125,856,458,1981473)
+   wait(0.6)
+   lclick($_return1, $_return2)
+   wait(0.6)
+   lclick($_return1 + 25, $_return2 + 25)
+   wait(0.2)
+end_if
+
+if_pixel_in(517,125,856,458,923139)
+   wait(0.6)
+   lclick($_return1, $_return2)
+   wait(0.6)
+   lclick($_return1 + 25, $_return2 + 25)
+   wait(0.2)
+end_if
+wait(0.1)

@@ -1,0 +1,37 @@
+﻿getscreen
+
+if(pxl(493,17)  = 4666 or pxl(493,17) = 150246)
+   print("found")
+   wait(5)
+//   for($i=0, $i < 30, 1)
+//      LCLICK(71,93)  // 136203
+//   end_cyc
+   for($y=0, $y < 30, 1)
+      LCLICK(298,147)  // 533540
+   end_cyc
+end_if
+
+
+if_picture_in(241,4,495,298,"boss 1h.bmp")
+   LCLICK($_return1, $_return2)
+end_if
+
+
+if(pxl(261,116)  = 1094396 or pxl(254,107)  = 2964286)
+   keyPress(#z)
+   keyPress(#x)
+   keyPress(#q)
+   keyPress(#u)
+   keyPress(#b)
+   keyPress(#1)
+   keyPress(#2)
+   keyPress(#2)
+   keyPress(#2)
+   keyPress(#3)
+   wait(0.1)
+   keyPress(#4)
+   keyDown(68)
+   waitms(1000)
+   keyUp(68)
+end_if
+wait(0.1)

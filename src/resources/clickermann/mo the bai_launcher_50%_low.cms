@@ -1,0 +1,25 @@
+﻿getscreen
+
+if_picture_in(259,63,426,230,"thebai_fc.bmp")
+   LCLICK($_return1,$_return2)
+   wait(0.8)
+   LCLICK($_return1+40, $_return2+30)
+   print($_return1+40, $_return2+30)
+   wait(0.3)
+   LCLICK(319,147)  // 3194350
+   LCLICK(198,174)  // 3511476
+   wait(0.2)
+end_if
+
+if_picture_in(259,63,426,230,"ruongvang_fc.bmp")
+   LCLICK($_return1,$_return2)
+   wait(0.8)
+   LCLICK($_return1+40, $_return2+30)
+   print($_return1+40, $_return2+30)
+   wait(0.3)
+   LCLICK(319,147)  // 3194350
+   LCLICK(198,174)  // 3511476
+   wait(0.2)
+end_if
+
+wait(0.1)

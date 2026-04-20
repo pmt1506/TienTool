@@ -88,10 +88,10 @@ export async function loginGame(userName, password, serverID) {
             "0"
         ];
 
-        const filePath = "C:/Tool Login/GunnyBrowser.exe";
+        const filePath = "C:/Program Files (x86)/gunnyclient/GunnyBrowser.exe";
 
         const appPlayer = spawn(filePath, args, {
-            cwd: "C:/Tool Login",
+            cwd: "C:/Program Files (x86)/gunnyclient",
             detached: true,
             stdio: "ignore"
         });

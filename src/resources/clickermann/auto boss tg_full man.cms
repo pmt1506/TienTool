@@ -1,0 +1,104 @@
+﻿getscreen
+
+$pos = 0
+$angle = 0
+
+sub(buyBuff)
+   
+   if(pxl(143,190)  = 732182 or pxl(143,190)  = 3125079)
+      for($c=0, $c < 40, 1)
+         LCLICK(146,192)  // 135939
+         print($c)
+      end_cyc
+      // boss img
+   end_if
+   if_picture_in(0,0,998,598,"boss 7h.bmp")
+      LCLICK($_return1, $_return2)
+      print($_return1, $_return2)
+   end_if
+end_sub
+
+sub(getPower)
+   
+   if(pxl(881,105)  = 3345408 or pxl(881,105)  = 13382400)
+      $power = 9
+   end_if
+   print("power:", $power)
+end_sub
+
+
+sub(getPosAndAngle)
+   
+   if(pxl(507,232)  = 372980 and pxl(517,219)  = 1848127)
+      $pos = 0
+      $angle = 10
+   else if(pxl(507,232)  = 372980 and pxl(517,219)  = 1848127)
+      $pos = 1
+      $angle = 5
+   end_if
+end_sub
+
+sub(getPosAndAngle7h)
+   
+   if(pxl(843,98)  = 13382400)
+      //   if(pxl(880,79)  = 13382400 and pxl(880,79)  = 3345408)
+      $pos = 10
+      $angle = 10
+      $duplicate = 0
+      print("$pos: ", $pos)
+   end_if
+   
+end_sub
+
+sub(rotate, $pos, $angle)
+   if($duplicate = 0)
+      keyPress(#d)
+      keyPress(#d)
+      keyPress(#d)
+      keyPress(#d)
+      //   for($c = 0, $c < $pos)
+      //      keyPress(#d)
+      //      print($pos)
+      //      $c = $c + 1
+      //   end_cyc
+      for($b = 0, $b < $angle, 1)
+         keyPress(38)
+      end_cyc
+   end_if
+   $duplicate = 1
+end_sub
+
+
+sub(dame, $power)
+   if(pxl(507,232)  = 372980 or pxl(517,219)  = 1848127)
+      keyPress(#z)
+      keyPress(#x)
+      keyPress(#q)
+      keyPress(#b)
+      keyPress(#3)
+      keyPress(#2)
+      keyPress(#2)
+      keyPress(#2)
+      keyPress(#3)
+      wait(0.1)
+      keyPress(#4)
+      keyDown(68)
+      waitms($power * 100)   //default 1000/1600
+      keyUp(68)
+   end_if
+end_sub
+
+
+if($_time_h < 14)
+   print("hi1")
+   buyBuff()
+else if($_time_h > 14)
+   print("19h")
+   buyBuff()
+   getPower()
+   getPosAndAngle7h()
+   rotate($pos, $angle)
+   //   dame($power)
+end_if
+
+wait(0.1)

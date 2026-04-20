@@ -1,7 +1,7 @@
 {
   "name": "tientool-gunny2017",
   "productName": "Tientool-QLTK 2017",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Tientool-QLTK 2017",
   "main": ".vite/build/main.js",
   "build": {
@@ -13,6 +13,12 @@
         "owner": "pmt1506",
         "repo": "TienTool",
         "releaseType": "release"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "src/resources/clickermann",
+        "to": "clickermann"
       }
     ],
     "asar": true,

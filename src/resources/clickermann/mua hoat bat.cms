@@ -1,0 +1,5 @@
+﻿getscreen
+
+LCLICK(53,48)
+waitms(50)
+keyPress(#enter)

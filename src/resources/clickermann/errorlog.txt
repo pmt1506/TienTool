@@ -1,0 +1,1 @@
+18-Apr-26 8:58:38 PM Cannot create file "C:\Program Files (x86)\gunnyclient\Auto\data\history_editor.txt". The process cannot access the file because it is being used by another process

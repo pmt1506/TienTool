@@ -1,0 +1,89 @@
+﻿getscreen
+
+if(pxl(456,238)  = 5676016 or pxl(457,238)  = 1386811)
+   wait(2)
+   LCLICK(471,246)  // 604193    bat dau
+   $count = $count + 1
+   print("count: ", $count)
+   
+end_if
+
+if($count=6)
+   halt
+   $count = 0
+end_if
+
+
+if(pxl(400,51) = 13382400 and pxl(261,116)  = 1094396 or pxl(254,107)  = 2964286)
+   $luc = 3700
+   
+else if(pxl(415,51) = 13382400 and pxl(261,116)  = 1094396 or pxl(254,107)  = 2964286) 
+   $luc = 2600
+end_if
+
+
+if(pxl(424,51) = 3345408 or pxl(424,51)  = 13382400)
+   $goc = 0
+else
+   $goc = 11   //ko len goc 
+end_if
+
+
+if(pxl(255,10)  = 999279 or pxl(228,14)  = 331032)
+   LCLICK(138,121)  // 5461858  kien
+   wait(0.1)
+   LCLICK(305,249)  // 1655399   thuong
+   wait(0.1)
+   LCLICK(378,91)  // 1728409     ai cuoi
+   wait(0.1)
+   LCLICK(249,282)  // 11138559
+   wait(0.5)
+   keyPress(#enter)
+end_if
+
+
+if(pxl(261,116)  = 1094396 or pxl(254,107)  = 2964286)
+   
+   $count = 0
+   
+   for($goc, $goc < 3, 1)
+      keyPress(38)
+   end_cyc
+   
+   wait(0.2)
+   keyPress(#2)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyDown(68)
+   waitms($luc)
+   keyUp(68)
+   
+end_if
+
+//if(pxl(447,59)  = 1847100 or pxl(447,59)  = 7388399)
+//   wait(1)
+//   LCLICK(447,59)  // 7388399
+//   wait(0.5)
+//   LCLICK(444,160)  // 3102352
+//   wait(0.5)
+//   LCLICK(452,246)  // 8043494
+//   wait(0.5)
+//   LCLICK(209,171)  // 2189706
+//   wait(0.5)
+//end_if
+
+
+wait(0.1)

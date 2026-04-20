@@ -1,0 +1,5 @@
+﻿C:\Program Files (x86)\gunnyclient\Auto\loatxt.cms
+C:\Program Files (x86)\gunnyclient\Auto\autoloa.cms
+C:\Program Files (x86)\gunnyclient\Auto\mua ruong vang_100%_low.cms
+C:\Program Files (x86)\gunnyclient\Auto\fam td_launcher_50%.cms
+C:\Program Files (x86)\gunnyclient\Auto\fam_kien_thuong_50%_low.cms

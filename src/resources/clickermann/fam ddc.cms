@@ -1,0 +1,24 @@
+﻿//login launcher
+
+//show all
+//quality low
+//50% kich thuoc
+
+getscreen
+
+if (pxl(471,252)  = 4224898 or pxl(471,252)  = 1056289)
+   wait(0.2)
+   LCLICK(470,238) // bat dau
+   wait(0.2)
+end_if
+
+
+
+if(pxl(261,116)  = 1094396 or pxl(254,107)  = 2964286)
+   wait(0.1)
+   LCLICK(354,256)  // 4210752  skill
+   keyPress(#p)
+end_if
+
+
+wait(0.1)  // Add a small delay (100ms) between each color check to prevent the program from lagging

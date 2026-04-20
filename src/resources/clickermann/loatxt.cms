@@ -1,0 +1,11 @@
+﻿for($var = 1, $var <= TFCount("text.txt"), 1)
+//for($var = 1, $var <= 100, 1)
+    keyPress(#enter)
+//    keyString( TFRead("text.txt", rnd($var, TFCount("text.txt"))) )
+        keyString( TFRead("text.txt", $var) )
+    keyPress(#enter)
+    print($var)
+    wait(15)
+end_cyc
+
+halt

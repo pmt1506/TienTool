@@ -1,0 +1,75 @@
+﻿getscreen
+
+
+//ss
+if (pxl(364,233)=67868 or pxl(368,228)=131198)
+   waitms(100)
+   
+//   LCLICK(194,131)  // 3679782   td
+   waitms(200)
+   LCLICK(368,174)  // 6270681 bat dau
+   waitms(200)
+   
+   //   keyPress(#q)
+   LCLICK(193,209)  // 1516585    #q
+   waitms(200)
+   
+   LCLICK(118,46)  // 16777215     nv truc tuyen
+   waitms(50)
+   LCLICK(256,204)  // 6004934       nhan
+   waitms(50)
+   LCLICK(249,76)  // 532531      thoat chon pt
+   waitms(200)
+   
+   LCLICK(123,142)  // 735341     nv hang ngay
+   waitms(50)
+   LCLICK(182,149)  // 2116199     chon pt
+   waitms(50)
+   LCLICK(244,200)  // 11974326     nhan
+   waitms(50)
+   LCLICK(249,76)  // 532531      thoat chon pt
+   waitms(200)
+   
+   LCLICK(117,164)  // 7183289     nv sk
+   waitms(50)
+   LCLICK(249,202)  // 5939397      nhan
+   waitms(50)
+   LCLICK(249,76)  // 532531      thoat chon pt
+   waitms(200)
+   
+   
+   
+   LCLICK(116,186)  // 11923711     nv  hang tuan
+   waitms(50)
+   LCLICK(207,148)  // 5808842      chon pt
+   waitms(50)
+   LCLICK(247,203)  // 5808067      nhan
+   waitms(50)
+   LCLICK(249,76)  // 532531      thoat chon pt
+   waitms(200)
+   
+   keyPress(#esc)
+   waitms(50)
+   keyPress(#esc)
+   
+   $win = $win + 1
+   print("win = ", $win)
+   waitms(1000)
+   
+end_if
+
+
+if (pxl(153, 132) = 462882)
+   waitms(100)
+   LCLICK(272,198)  // 12290178
+   waitms(50)
+   keypress(#p)
+   waitms(100)
+end_if
+if (pxl(153, 132) = 1917063)
+   waitms(100)
+   LCLICK(272,198)  // 12290178
+   waitms(50)
+   keypress(#p)
+   waitms(100)
+end_if
