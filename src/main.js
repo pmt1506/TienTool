@@ -29,6 +29,8 @@ if (started) {
 }
 
 let mainWindow = null;
+const activePids = [];
+
 const createWindow = () => {
   const display = screen.getPrimaryDisplay();
   const { x, y, width } = display.workArea;
@@ -136,11 +138,74 @@ ipcMain.handle('accounts:delete', async (_event, id) => {
 
 // Game
 ipcMain.handle('game:login', async (_event, username, password, serverId) => {
-  return await loginGame(username, password, serverId);
+  const result = await loginGame(username, password, serverId);
+  if (result.success && result.pid) {
+    activePids.push(result.pid);
+  }
+  return result;
 });
 
 ipcMain.handle('game:rename-window', async (_event, pid, newName) => {
   return await koffiService.waitAndRename(pid, newName);
+});
+
+ipcMain.handle('game:arrange-launchers', async () => {
+  // Filter out PIDs that might have been closed (non-existent HWND)
+  const validPids = activePids.filter(pid => {
+    const rect = koffiService.getWindowRectByPid(pid);
+    return rect !== null;
+  });
+
+  if (validPids.length === 0) return { success: false, msg: 'Chưa có launcher nào mở.' };
+
+  const displays = screen.getAllDisplays();
+  
+  // Group PIDs by monitor
+  const monitorGroups = {}; // displayId -> [pids]
+  
+  validPids.forEach(pid => {
+    const rect = koffiService.getWindowRectByPid(pid);
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    const display = screen.getDisplayMatching({ x: rect.left, y: rect.top, width: rect.width, height: rect.height });
+    const dId = display.id;
+    if (!monitorGroups[dId]) monitorGroups[dId] = [];
+    monitorGroups[dId].push(pid);
+  });
+
+  // Arrange for each monitor
+  for (const display of displays) {
+    const pidsInMonitor = monitorGroups[display.id];
+    if (!pidsInMonitor || pidsInMonitor.length === 0) continue;
+
+    const count = pidsInMonitor.length;
+    let cols = 2;
+    if (count > 4) cols = 3;
+
+    // Start at "10 o'clock" position (offset from top-left)
+    const START_X = 50;
+    const START_Y = 50;
+    
+    // Fixed steps for positioning (matching typical 50% scale launchers)
+    const STEP_X = 650;
+    const STEP_Y = 350;
+
+    const workArea = display.workArea;
+
+    pidsInMonitor.forEach((pid, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      
+      const x = workArea.x + START_X + (col * STEP_X);
+      const y = workArea.y + START_Y + (row * STEP_Y);
+      
+      // useSize = false to preserve current dimensions
+      koffiService.moveWindowByPid(pid, x, y, 0, 0, false);
+    });
+  }
+
+  return { success: true };
 });
 
 ipcMain.handle('auto:open-bat-file', async () => {
@@ -166,20 +231,27 @@ ipcMain.handle('auto:open-bat-file', async () => {
       console.error('[Main] Could not update history.txt:', fsErr.message);
     }
 
-    // Replace hardcoded "C:\\Program Files (x86)\\GunnyClient\\Auto" in bat if it's there
+    // Replace placeholders or legacy paths in bat files
     try {
-      let batContent = await fs.readFile(batPath, 'utf8');
-      if (batContent.includes('C:\\Program Files (x86)\\GunnyClient\\Auto')) {
-        batContent = batContent.replace(/C:\\Program Files (x86)\\GunnyClient\\Auto/g, clickermannDir);
-        await fs.writeFile(batPath, batContent, 'utf8');
-      }
+      const placeholder = '__CLICKERMANN_DIR__';
+      const patchBat = async (p) => {
+        let content = await fs.readFile(p, 'utf8');
+        let changed = false;
+        if (content.includes(placeholder)) {
+          content = content.replaceAll(placeholder, clickermannDir);
+          changed = true;
+        }
+        // Fallback for any lingering legacy paths (case-insensitive)
+        const legacyRegex = /C:\\Program Files \(x86\)\\[Gg]unny[Cc]lient\\Auto/g;
+        if (legacyRegex.test(content)) {
+          content = content.replace(legacyRegex, clickermannDir);
+          changed = true;
+        }
+        if (changed) await fs.writeFile(p, content, 'utf8');
+      };
 
-      const scriptBatPath = path.join(clickermannDir, 'script.bat');
-      let scriptBatContent = await fs.readFile(scriptBatPath, 'utf8');
-      if (scriptBatContent.includes('C:\\Program Files (x86)\\GunnyClient\\Auto')) {
-        scriptBatContent = scriptBatContent.replace(/C:\\Program Files (x86)\\GunnyClient\\Auto/g, clickermannDir);
-        await fs.writeFile(scriptBatPath, scriptBatContent, 'utf8');
-      }
+      await patchBat(batPath);
+      await patchBat(path.join(clickermannDir, 'script.bat'));
     } catch (batErr) {
       console.error('[Main] Could not update bat file:', batErr.message);
     }

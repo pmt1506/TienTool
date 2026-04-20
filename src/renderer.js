@@ -47,6 +47,8 @@ const dom = {
   autoProgressBar: $('#auto-progress-bar'),
   autoProgressMsg: $('#auto-progress-msg'),
 
+  btnArrangeLauncher: $('#btn-arrange-launcher'),
+
   btnMinimize: $('#btn-minimize'),
   btnMaximize: $('#btn-maximize'),
   btnClose: $('#btn-close'),
@@ -331,6 +333,17 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
     }
   } catch (err) {
     toast('Lỗi khi mở Game Launcher.', 'error');
+  }
+});
+
+// ── Arrange Launchers ──────────────────────────────────────────
+dom.btnArrangeLauncher.addEventListener('click', async () => {
+  toast('Đang sắp xếp cửa sổ...', 'info');
+  const result = await api.arrangeLaunchers();
+  if (result.success) {
+    toast('Đã sắp xếp xong.', 'success');
+  } else {
+    toast(result.msg || 'Không thể sắp xếp.', 'error');
   }
 });
 

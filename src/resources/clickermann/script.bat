@@ -1,8 +1,8 @@
 @echo off
 
-set CLICKERMANN_PATH="C:\Program Files (x86)\gunnyclient\Auto\Clickermann.exe"
-set CONFIG_DIR="C:\Program Files (x86)\gunnyclient\Auto\data"
-set HISTORY_DIR="C:\Program Files (x86)\gunnyclient\Auto\data"
+set CLICKERMANN_PATH="__CLICKERMANN_DIR__\Clickermann.exe"
+set CONFIG_DIR="__CLICKERMANN_DIR__\data"
+set HISTORY_DIR="__CLICKERMANN_DIR__\data"
 
 for %%i in (1 2 3 4) do (
     copy /y %CONFIG_DIR%\config%%i.ini %CONFIG_DIR%\config.ini
