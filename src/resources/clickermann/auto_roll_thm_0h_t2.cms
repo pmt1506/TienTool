@@ -1,0 +1,175 @@
+﻿getscreen
+
+//neu bi ket o loading screen
+
+
+if(pxl(1228,345)  = 14651713)
+   $var = $var + 1
+   print($var)
+   wait(5)
+end_if
+
+if($var = 10)
+   LCLICK(1853,251)  // 16379616
+   LCLICK(1624,251)  // 16379616
+   $var = 0
+end_if
+
+//vua ga
+
+if(pxl(929,337) = 801133)
+   LCLICK(1190,336)  // 13369343
+   wait(0.5)
+   LCLICK(998,306)  // 1148138
+   wait(0.5)
+   LCLICK(587,380)  // 16033527
+end_if
+
+//if !proc("fl.exe")
+//   LCLICK(1632, 247)  // Click at coordinates (1632, 247)
+//   wait(4000)
+//end_if
+
+
+if(pxl(938,551)  = 9570)
+   LCLICK(940,559)  // 863135
+   wait(3)
+   LCLICK(989,306)  // 594220
+   wait(0.5)
+   LCLICK(593,390)  // 2839989
+end_if
+
+
+if(pxl(913,312)  = 799587)
+   
+   
+   wait(0.5)
+   LCLICK(723,484)  // 1586534
+   LCLICK(1073,783)  // 1652932
+   wait(0.5)
+   LCLICK(732,519)  // 2964544
+   LCLICK(1061,783)  // 4079216
+   wait(0.5)
+   LCLICK(739,550)  // 1385261
+   LCLICK(1073,781)  // 2441675
+   wait(0.5)
+   LCLICK(734,584)  // 396569
+   LCLICK(1069,780)  // 16515071
+   wait(0.5)
+   LCLICK(1304,313)  // 275008  thoat
+   
+   wait(0.5)
+   LCLICK(647,368)  // 12840191
+   
+end_if
+
+
+if(pxl(905,321)  = 1457770)
+   
+   LCLICK(913,764)  // 3137791
+   LCLICK(782,458)  // 13434879
+   LCLICK(1142,745)  // 1190486   10
+   
+   LCLICK(926,764)  // 5819903
+   LCLICK(926,764)  // 5819903
+   LCLICK(744,406)  // 3235446
+   LCLICK(1071,737)  // 12856462    2/5
+   
+   LCLICK(923,758)  // 4974079
+   LCLICK(923,758)  // 4974079
+   LCLICK(923,758)  // 4974079
+   LCLICK(767,516)  // 13434879
+   LCLICK(999,743)  // 15281286     10
+   
+   LCLICK(921,759)  // 1661057
+   LCLICK(921,758)  // 1676227
+   LCLICK(921,758)  // 1676227
+   LCLICK(812,666)  // 13434879
+   LCLICK(1192,740)  // 16676534    20
+   
+   
+   LCLICK(1320,321)  // 1646228
+   
+   wait(0.5)
+   keyPress(#e)
+end_if
+
+
+if(pxl(964,356)  = 16776586)
+   LCLICK(1336,578)  // 9460528
+   wait(0.2)
+   LCLICK(1205,728)  // 4207116
+   wait(0.5)
+   // Using the specified FOR loop syntax for repeated LCLICKs with slight variation
+   FOR ($i = 1, $i <= 5, 1)
+      LCLICK(1112,724)  // 2691591
+      wait(1.2)
+      LCLICK(1209,461)  // 8283167
+      wait(0.2)
+   END_CYC
+   
+   
+   LCLICK(1381,343)  // 8217374
+   wait(1)
+   
+   LCLICK(1156,826)  // 2893865
+   wait(1)
+   LCLICK(1351,585)  // 9
+   
+   $var = 0
+   
+   
+   //   $S_CORR = 0
+   //
+   //   waitms(2143 + $S_CORR)
+   //   keyDown(164)
+   //   waitms(0 + $S_CORR)
+   //   keyDown(18)
+   //   waitms(540 + $S_CORR)
+   //   keyDown(44)
+   //   waitms(108 + $S_CORR)
+   //   keyUp(44)
+   //   waitms(189 + $S_CORR)
+   //   keyUp(164)
+   //   waitms(0 + $S_CORR)
+   //   keyUp(18)
+   //   waitms(1409 + $S_CORR)
+   //
+   //   waitms(1323 + $S_CORR)
+   //   lDown(1613,1059)
+   //   waitms(83 + $S_CORR)
+   //   lUp(1613,1059)
+   //   waitms(459 + $S_CORR)
+   //   keyDown(162)
+   //   waitms(1 + $S_CORR)
+   //   keyDown(17)
+   //   waitms(393 + $S_CORR)
+   //   keyDown(86)
+   //   waitms(116 + $S_CORR)
+   //   keyUp(86)
+   //   waitms(7 + $S_CORR)
+   //   keyUp(17)
+   //   waitms(0 + $S_CORR)
+   //   keyUp(162)
+   //   waitms(2486 + $S_CORR)
+   //   keyDown(13)
+   //   waitms(90 + $S_CORR)
+   //   keyUp(13)
+   //   waitms(1324 + $S_CORR)
+   //
+   //   LCLICK(1861,256)  // 16379616
+   //   LCLICK(1822,208)  // 16379616
+   
+end_if
+
+if(pxl(1359,603)  = 11783644)
+   getscreen
+   SCREENSHOT
+   LCLICK(1861,256)  // 16379616  kill
+   LCLICK(1822,208)  // 16379616  xoa
+   LCLICK(1641,255)  // 16379616  login
+   
+end_if
+
+
+wait(0.1)

@@ -1,0 +1,65 @@
+﻿getscreen
+
+if(pxl(456,238)  = 5676016 or pxl(457,238)  = 1386811)
+   wait(2)
+   LCLICK(471,246)  // 604193    bat dau
+   $count = $count + 1
+   print("count: ", $count)
+   
+end_if
+
+if($count=6)
+   halt
+   $count = 0
+end_if
+
+
+if(pxl(255,10)  = 999279 or pxl(228,14)  = 331032)
+   LCLICK(202,118)  // 3356213  gcgc
+   wait(0.1)
+   LCLICK(343,249)  // 1451564  kho
+   wait(0.1)
+   LCLICK(378,91)  // 1728409     ai cuoi
+   wait(0.1)
+   LCLICK(249,282)  // 11138559
+   wait(0.5)
+   keyPress(#enter)
+end_if
+
+
+if(pxl(297,25)  = 3947580 or pxl(297,25)  = 15658734)
+   keyPress(#right)
+   wait(1)
+end_if
+
+
+if(pxl(261,116)  = 1094396 or pxl(254,107)  = 2964286)
+   
+   $count = 0
+   
+   
+   wait(0.2)
+   keyPress(#2)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyPress(#4)
+   wait(0.1)
+   keyDown(68)
+   waitms(rnd(1800,2200))
+   keyUp(68)
+   
+end_if
+
+
+wait(0.1)

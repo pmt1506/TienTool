@@ -15,6 +15,12 @@
         "releaseType": "release"
       }
     ],
+    "extraResources": [
+      {
+        "from": "src/resources/clickermann",
+        "to": "clickermann"
+      }
+    ],
     "asar": true,
     "files": [
       "dist/**",

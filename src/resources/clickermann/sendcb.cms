@@ -1,0 +1,31 @@
+﻿//launcher
+//low
+//100%
+
+getscreen
+
+wait(2)
+
+if_picture_in(504,47,926,563,"cb21.bmp")
+   LCLICK($_return1,$_return2)
+   waitms(400)
+   LCLICK(267,333)  // 3029308
+   
+   waitms(200)
+   LCLICK(179,107)  // 2241081
+   waitms(200)
+   keyString("Warriors")
+   
+   LCLICK(130,534)  // 136220
+   wait(2)
+   $c = $c + 1
+   print($c)
+end_if
+
+if(pxl(486,293)  = 14474460)
+LCLICK(500,295)  // 15329769
+end_if
+
+//if($c = 35)
+//   halt
+//end_if

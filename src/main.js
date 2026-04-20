@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen, session, dialog } from 'electron';
 import path from 'node:path';
 import { exec } from 'node:child_process';
+import fs from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
 import { connect, disconnect } from './database/mongodb.js';
 import { loginByKey } from './services/authService.js';
@@ -143,15 +144,57 @@ ipcMain.handle('game:rename-window', async (_event, pid, newName) => {
 });
 
 ipcMain.handle('auto:open-bat-file', async () => {
-  const batPath = 'C:\\Tool Login\\Auto\\script_multiple.bat';
+  try {
+    const clickermannDir = app.isPackaged
+      ? path.join(process.resourcesPath, 'clickermann')
+      : path.join(__dirname, '..', 'src', 'resources', 'clickermann');
 
-  exec(`start "" "${batPath}"`, (error) => {
-    if (error) {
-      console.error(`[Main] Error executing bat: ${error.message}`);
+    const historyFile = path.join(clickermannDir, 'data', 'history.txt');
+    const batPath = path.join(clickermannDir, 'script_multiple.bat');
+
+    // Dynamically update history.txt pathways
+    try {
+      const historyData = await fs.readFile(historyFile, 'utf8');
+      const lines = historyData.split(/\r?\n/).filter(line => line.trim().length > 0);
+      const newLines = lines.map(line => {
+        const fileName = path.basename(line.trim());
+        return path.join(clickermannDir, fileName);
+      });
+      await fs.writeFile(historyFile, newLines.join('\r\n'), 'utf8');
+      console.log('[Main] Updated history.txt with dynamic paths:', clickermannDir);
+    } catch (fsErr) {
+      console.error('[Main] Could not update history.txt:', fsErr.message);
     }
-  });
 
-  return { success: true };
+    // Replace hardcoded "C:\\Program Files (x86)\\GunnyClient\\Auto" in bat if it's there
+    try {
+      let batContent = await fs.readFile(batPath, 'utf8');
+      if (batContent.includes('C:\\Program Files (x86)\\GunnyClient\\Auto')) {
+        batContent = batContent.replace(/C:\\Program Files (x86)\\GunnyClient\\Auto/g, clickermannDir);
+        await fs.writeFile(batPath, batContent, 'utf8');
+      }
+
+      const scriptBatPath = path.join(clickermannDir, 'script.bat');
+      let scriptBatContent = await fs.readFile(scriptBatPath, 'utf8');
+      if (scriptBatContent.includes('C:\\Program Files (x86)\\GunnyClient\\Auto')) {
+        scriptBatContent = scriptBatContent.replace(/C:\\Program Files (x86)\\GunnyClient\\Auto/g, clickermannDir);
+        await fs.writeFile(scriptBatPath, scriptBatContent, 'utf8');
+      }
+    } catch (batErr) {
+      console.error('[Main] Could not update bat file:', batErr.message);
+    }
+
+    exec(`start "" "${batPath}"`, { cwd: clickermannDir }, (error) => {
+      if (error) {
+        console.error(`[Main] Error executing bat: ${error.message}`);
+      }
+    });
+
+    return { success: true };
+  } catch (err) {
+    console.error('[Main] Error in auto:open-bat-file:', err);
+    return { success: false, error: err.message };
+  }
 });
 
 // Auto nhận code

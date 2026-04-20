@@ -1,0 +1,11 @@
+﻿keyPress(#enter)
+keyPress(40)
+keyPress(#enter)
+$c = $c + 1
+print($c)
+wait(15)
+
+
+if($c = 50)
+halt
+end_if

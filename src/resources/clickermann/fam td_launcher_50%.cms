@@ -1,0 +1,151 @@
+﻿
+
+//login launcher
+
+//show all
+//quality low
+//50% kich thuoc
+
+getscreen
+
+
+if (pxl(471,252)  = 4224898 or pxl(471,252)  = 1056289)
+   wait(0.3)
+   
+
+   LCLICK(253,165)  // 16645629
+//   LCLICK(234,126)  // 4299487 BOT
+   
+   //LCLICK(470,238) // bat dau
+   LCLICK(253,269)  // 5016732    nv
+   wait(0.2)
+end_if
+
+
+if(pxl(246,22)  = 1325412 or pxl(246,22)  = 331289)
+   LCLICK(132,39)  // 741764   nv chinh
+   waitms(10)
+   
+   LCLICK(147,153)  // 6335416 nv phu
+   waitms(10)
+   LCLICK(262,148)  // 3624051 manh vua ga
+//   LCLICK(312,152)  // 5063719    man ga con
+      
+   waitms(10)
+   LCLICK(266,196)  // 3103867   chon nqua
+   waitms(10)
+   LCLICK(328,264)  // 11716121  nhan qua
+   waitms(10)
+  
+   
+   LCLICK(323,259)  // 3890154     nhan thuong
+   waitms(10)
+   LCLICK(148,185)  // 618927   nv hang ngay
+   waitms(10)
+   LCLICK(275,192)  // 10283775  chon qua
+//LCLICK(328,188)  // 1184321
+
+   waitms(10)
+   LCLICK(332,265)  // 12381369  nhan thuong
+   waitms(10)
+   LCLICK(196,167)  // 3118516   full huy chuong
+   waitms(10)
+   
+   
+   LCLICK(149,209)  // 1452884    nvsk
+   waitms(10)
+   LCLICK(264,194)
+   waitms(10)
+   LCLICK(323,259)  // 3890154     nhan thuong
+   waitms(10)
+   LCLICK(196,167)  // 3118516   full huy chuong
+   waitms(10)
+   LCLICK(327,95)  // 14614527    tat menu chon
+   waitms(10)
+   LCLICK(151,173)  // 1586534    nv thu 2
+   waitms(10)
+   LCLICK(325,265)  // 16777215   nhan thuong
+   waitms(10)
+   LCLICK(196,167)  // 3118516   full huy chuong
+   
+   waitms(10)
+   LCLICK(327,95)  // 14614527    tat menu chon
+   waitms(10)
+   LCLICK(140,196)  // 1586534  nv thu 3
+   waitms(10)
+   LCLICK(325,265)  // 16777215   nhan thuong
+   waitms(10)
+   LCLICK(196,167)  // 3118516   full huy chuong
+   LCLICK(328,98)  // 2941951 thoat menu chon qua
+   
+   waitms(10)
+   LCLICK(327,95)  // 14614527    tat menu chon
+   waitms(10)
+   LCLICK(146,211)  // 4878486
+   waitms(10)
+   LCLICK(325,265)  // 16777215   nhan thuong
+   waitms(10)
+   LCLICK(196,167)  // 3118516   full huy chuong
+   LCLICK(328,98)  // 2941951 thoat menu chon qua
+   
+   wait(0.2)
+   
+   LCLICK(158,239)  // 1862831  nv hang tuan
+   waitms(10)
+   LCLICK(275,190)  // 3235454  chon nv
+   waitms(10)
+   LCLICK(334,265)  // 2647336   nhan thuong
+   waitms(10)
+   LCLICK(196,167)  // 3118516   full huy chuong
+   waitms(10)
+   LCLICK(434,18)  // 15597567   tat nv
+   
+   keyPress(#esc)
+   wait(0.1)
+   keyPress(#esc)
+   
+   LCLICK(470,238) // bat dau
+   
+   wait(0.5)
+end_if
+
+//skill rb
+if(pxl(353,255)  = 16775924 or pxl(353,255)  = 4210493)
+   wait(0.2)
+   LCLICK(354,256)  // 4210752  skill
+end_if
+
+//skill ho ly
+
+if(pxl(353,262)  = 3948608 or pxl(353,261)  = 13303807)
+   wait(0.2)
+   LCLICK(354,256)  // 4210752  skill
+end_if
+
+//Skill huyen vu
+if(pxl(353,259)  = 2636559 or pxl(354,259)  = 9607772)
+   wait(0.2)
+   LCLICK(354,256)  // 4210752  skill
+end_if
+
+//Skill huyen vu
+if(pxl(353,258)  = 2793459 or pxl(353,258)  = 665661)
+   wait(0.2)
+   LCLICK(354,256)  // 4210752  skill
+end_if
+
+
+if(pxl(261,116)  = 1094396 or pxl(254,107)  = 2964286)
+   keyPress(#p)
+   wait(0.1)
+end_if
+
+
+if(pxl(290,118) = 4510203)
+$win = $win + 1
+wait(2)
+print($win)
+wait(2)
+end_if
+
+wait(0.1)  // Add a small delay (100ms) between each color check to prevent the program from lagging

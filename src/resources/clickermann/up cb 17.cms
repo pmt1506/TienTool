@@ -1,0 +1,16 @@
+﻿getscreen
+
+
+if_picture_in(528,138,851,454,"cb17.bmp")
+wait(0.1)
+lclick($_return1, $_return2)
+wait(0.2)
+LCLICK(443,257)  // 1328754
+wait(0.1)
+LCLICK(701,507)  // 2581545 hop thanh all
+keyString("yes")
+wait(0.1)
+keyPress(#enter)
+wait(0.1)
+keyPress(#enter)
+end_if
