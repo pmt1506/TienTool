@@ -165,7 +165,7 @@ export async function getLoginToken(username, password, checkStop) {
 }
 
 export async function getAllNickName(token) {
-    const apiUrl = `${process.env.VITE_BASE_URL}/GetAllNickName`;
+    const apiUrl = `https://api3.gnddt.com/api/Function/GetAllNickName`;
 
     const res = await fetch(apiUrl, {
         method: 'GET',
@@ -186,7 +186,7 @@ export async function getAllNickName(token) {
 }
 
 export async function setAccountDefault(token) {
-    const apiUrl = `${process.env.VITE_BASE_URL}/SetAccountDefault`;
+    const apiUrl = `https://api3.gnddt.com/api/Function/SetAccountDefault`;
 
     const defaultAccount = await getAllNickName(token)
 
