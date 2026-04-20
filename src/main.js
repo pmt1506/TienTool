@@ -188,8 +188,8 @@ ipcMain.handle('game:arrange-launchers', async () => {
     const START_Y = 50;
     
     // Fixed steps for positioning (matching typical 50% scale launchers)
-    const STEP_X = 650;
-    const STEP_Y = 350;
+    const STEP_X = 500 ;
+    const STEP_Y = 400;
 
     const workArea = display.workArea;
 
@@ -214,22 +214,27 @@ ipcMain.handle('auto:open-bat-file', async () => {
       ? path.join(process.resourcesPath, 'clickermann')
       : path.join(__dirname, '..', 'src', 'resources', 'clickermann');
 
-    const historyFile = path.join(clickermannDir, 'data', 'history.txt');
-    const batPath = path.join(clickermannDir, 'script_multiple.bat');
+    const patchHistory = async (fileName) => {
+      const filePath = path.join(clickermannDir, 'data', fileName);
+      try {
+        const historyData = await fs.readFile(filePath, 'utf8');
+        const lines = historyData.split(/\r?\n/).filter(line => line.trim().length > 0);
+        const newLines = lines.map(line => {
+          const baseName = path.basename(line.trim());
+          return path.join(clickermannDir, baseName);
+        });
+        await fs.writeFile(filePath, newLines.join('\r\n'), 'utf8');
+        console.log(`[Main] Updated ${fileName} with dynamic paths:`, clickermannDir);
+      } catch (fsErr) {
+        console.error(`[Main] Could not update ${fileName}:`, fsErr.message);
+      }
+    };
 
-    // Dynamically update history.txt pathways
-    try {
-      const historyData = await fs.readFile(historyFile, 'utf8');
-      const lines = historyData.split(/\r?\n/).filter(line => line.trim().length > 0);
-      const newLines = lines.map(line => {
-        const fileName = path.basename(line.trim());
-        return path.join(clickermannDir, fileName);
-      });
-      await fs.writeFile(historyFile, newLines.join('\r\n'), 'utf8');
-      console.log('[Main] Updated history.txt with dynamic paths:', clickermannDir);
-    } catch (fsErr) {
-      console.error('[Main] Could not update history.txt:', fsErr.message);
-    }
+    await patchHistory('history.txt');
+    await patchHistory('history1.txt');
+    await patchHistory('history_editor.txt');
+
+    const batPath = path.join(clickermannDir, 'script_multiple.bat');
 
     // Replace placeholders or legacy paths in bat files
     try {

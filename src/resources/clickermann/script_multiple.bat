@@ -36,9 +36,12 @@ if %END_NUMBER% gtr 8 (
 )
 
 :: Set paths for Clickermann and config/history files
-set CLICKERMANN_PATH="__CLICKERMANN_DIR__\Clickermann.exe"
-set CONFIG_DIR="__CLICKERMANN_DIR__\data"
-set HISTORY_DIR="__CLICKERMANN_DIR__\data"
+set "CLICKERMANN_DIR=__CLICKERMANN_DIR__"
+if "%CLICKERMANN_DIR%"=="__CLICKERMANN_DIR__" set "CLICKERMANN_DIR=%~dp0"
+
+set "CLICKERMANN_PATH=%CLICKERMANN_DIR%\Clickermann.exe"
+set "CONFIG_DIR=%CLICKERMANN_DIR%\data"
+set "HISTORY_DIR=%CLICKERMANN_DIR%\data"
 
 :: Loop to open the specified number of windows starting from the specified odd number
 for /l %%i in (%START_NUMBER%,1,%END_NUMBER%) do (
