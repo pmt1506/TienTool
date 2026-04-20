@@ -12,7 +12,7 @@ import {
   deleteAccount,
 } from './services/accountService.js';
 import { loginGame } from './services/loginService.js';
-import { getAllCode } from './services/autoService.js';
+import { getAllCode, getWeeklyCode } from './services/autoService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
 import { autoUpdater } from 'electron-updater';
@@ -295,6 +295,51 @@ ipcMain.handle('auto:stop-all-code', () => {
   return { success: true };
 });
 
+let isWeeklyAutoStopped = false;
+
+ipcMain.handle('auto:open-weekly-code-txt', async () => {
+  const txtPath = path.join(app.getPath('userData'), 'weekly_codes.txt');
+  try {
+    await fs.access(txtPath);
+  } catch {
+    await fs.writeFile(txtPath, '', 'utf8');
+  }
+
+  return new Promise((resolve) => {
+    exec(`start /wait notepad "${txtPath}"`, async (error) => {
+      try {
+        const content = await fs.readFile(txtPath, 'utf8');
+        const codes = content.split(/\r?\n/).map(c => c.trim()).filter(c => c.length > 0);
+        resolve({ success: true, codes });
+      } catch (err) {
+        resolve({ success: false, msg: err.message });
+      }
+    });
+  });
+});
+
+ipcMain.handle('auto:get-weekly-code', async (_event, keyId, codes) => {
+  isWeeklyAutoStopped = false;
+
+  const onProgress = (data) => {
+    mainWindow?.webContents.send('auto:progress', data);
+  };
+
+  const checkStop = () => isWeeklyAutoStopped;
+
+  try {
+    await getWeeklyCode(keyId, codes, onProgress, checkStop);
+    return { success: true };
+  } catch (err) {
+    console.error('[Main] getWeeklyCode error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('auto:stop-weekly-code', () => {
+  isWeeklyAutoStopped = true;
+  return { success: true };
+});
 
 ipcMain.handle('auto:get-token-api', async (_event, username, password) => {
   // if (checkStop && checkStop()) return null;

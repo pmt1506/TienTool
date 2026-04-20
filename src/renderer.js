@@ -40,6 +40,7 @@ const dom = {
   btnScriptAuto: $('#btn-script-auto'),
   toastContainer: $('#toast-container'),
   btnNhanAllCode: $('#btn-nhan-all-code'),
+  btnCodeTuan: $('#btn-code-tuan'),
   btnOpenWebshop: $('#btn-open-webshop'),
   autoProgressContainer: $('#auto-progress-container'),
   autoProgressAcc: $('#auto-progress-acc'),
@@ -353,8 +354,7 @@ const placeholderIds = [
   'btn-flash-login', 'btn-sort', 'btn-kill-all',
 
   'btn-clipboard', 'btn-log', 'btn-config',
-  'btn-import-json', 'btn-export-json', 'btn-export-txt',
-  'btn-code-tuan'
+  'btn-import-json', 'btn-export-json', 'btn-export-txt'
 ];
 placeholderIds.forEach((id) => {
   const el = document.getElementById(id);
@@ -438,7 +438,54 @@ dom.btnNhanAllCode.addEventListener('click', async () => {
     refreshIcons();
     toast('Tiến trình automation đã kết thúc.', 'info');
     setTimeout(() => {
-      if (!isAutoRunning) dom.autoProgressContainer.classList.add('hidden');
+      if (!isAutoRunning && !isWeeklyAutoRunning) dom.autoProgressContainer.classList.add('hidden');
+    }, 5000);
+  }
+});
+
+let isWeeklyAutoRunning = false;
+
+dom.btnCodeTuan.addEventListener('click', async () => {
+  if (isWeeklyAutoRunning) {
+    const res = await api.stopGetWeeklyCode();
+    if (res.success) toast('Đã gửi yêu cầu dừng code tuần...', 'info');
+    return;
+  }
+
+  toast('Đang mở file txt, vui lòng điền code -> lưu lại -> ĐÓNG file txt...', 'info');
+  const txtRes = await api.openWeeklyCodeTxt();
+  if (!txtRes.success) {
+    return toast('Không mở được file txt.', 'error');
+  }
+
+  const { codes } = txtRes;
+  if (!codes || codes.length === 0) {
+    return toast('Danh sách code trống, đã hủy!', 'error');
+  }
+
+  isWeeklyAutoRunning = true;
+  dom.btnCodeTuan.classList.add('bg-red-500', 'hover:bg-red-400');
+  dom.btnCodeTuan.classList.remove('bg-surface');
+  dom.btnCodeTuan.innerHTML = '<i data-lucide="square" class="w-3.5 h-3.5"></i> Dừng Code tuần';
+  refreshIcons();
+
+  dom.autoProgressContainer.classList.remove('hidden');
+  dom.autoProgressMsg.textContent = `Đang bắt đầu... (Có ${codes.length} mã code)`;
+  dom.autoProgressBar.style.width = '0%';
+
+  try {
+    await api.getWeeklyCode(currentKeyId, codes);
+  } catch (err) {
+    toast('Lỗi khi chạy code tuần.', 'error');
+  } finally {
+    isWeeklyAutoRunning = false;
+    dom.btnCodeTuan.classList.remove('bg-red-500', 'hover:bg-red-400');
+    dom.btnCodeTuan.classList.add('bg-surface');
+    dom.btnCodeTuan.innerHTML = '<i data-lucide="calendar" class="w-3.5 h-3.5"></i> Code tuần';
+    refreshIcons();
+    toast('Tiến trình Code tuần đã kết thúc.', 'info');
+    setTimeout(() => {
+      if (!isAutoRunning && !isWeeklyAutoRunning) dom.autoProgressContainer.classList.add('hidden');
     }, 5000);
   }
 });

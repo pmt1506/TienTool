@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openBatFile: () => ipcRenderer.invoke('auto:open-bat-file'),
   getAllCode: (keyId) => ipcRenderer.invoke('auto:get-all-code', keyId),
   stopGetAllCode: () => ipcRenderer.invoke('auto:stop-all-code'),
+  openWeeklyCodeTxt: () => ipcRenderer.invoke('auto:open-weekly-code-txt'),
+  getWeeklyCode: (keyId, codes) => ipcRenderer.invoke('auto:get-weekly-code', keyId, codes),
+  stopGetWeeklyCode: () => ipcRenderer.invoke('auto:stop-weekly-code'),
   onAutoProgress: (callback) => ipcRenderer.on('auto:progress', (_event, data) => callback(data)),
 
   // Webshop
