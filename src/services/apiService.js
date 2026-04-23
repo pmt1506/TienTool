@@ -5,13 +5,17 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { app } from 'electron';
 
 // fix __dirname cho ES module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const CAPTCHA_API_KEY = process.env.API_NINJA;
-const PARENT_DIR = __dirname;
+// PARENT_DIR should be resolved inside functions to ensure app is ready
+function getParentDir() {
+    return app ? app.getPath('userData') : __dirname;
+}
 
 // ─────────────────────────────────────────────
 // 🖼️ Get Captcha Image
@@ -30,7 +34,7 @@ export async function getCaptchaImage() {
 
     const buffer = Buffer.from(base64, 'base64');
 
-    const filePath = path.join(PARENT_DIR, 'download.png');
+    const filePath = path.join(getParentDir(), 'download.png');
 
     await fs.writeFile(filePath, buffer);
 
@@ -177,12 +181,13 @@ export async function getAllNickName(token) {
         }),
     });
 
-    const json = res.json()
+    const json = await res.json()
 
     // check nếu json.result = true và array ListNickName chỉ có 1 
-    if (json.result === true && json.ListNickName.length === 1) {
+    if (json.result === true && Array.isArray(json.ListNickName) && json.ListNickName.length > 0) {
         return json.ListNickName[0];
     }
+    return null;
 }
 
 export async function setAccountDefault(token) {
@@ -198,7 +203,7 @@ export async function setAccountDefault(token) {
         body: JSON.stringify({ "ServerId": defaultAccount.ServerId, "UserId": defaultAccount.UserId, "Otp": "", "Code": "", "Money": 0, "Captcha": "" }),
     });
 
-    const json = res.json()
+    const json = await res.json()
 
     return json.msg;
 } 

@@ -1,7 +1,7 @@
 {
   "name": "tientool-gunny2017",
   "productName": "Tientool-QLTK 2017",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "Tientool-QLTK 2017",
   "main": ".vite/build/main.js",
   "build": {
@@ -39,7 +39,7 @@
   "private": true,
   "scripts": {
     "start": "npm run build && electron .",
-    "dev": "vite",
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electronmon .\"",
     "build": "vite build -c vite.main.config.mjs && vite build -c vite.preload.config.mjs && vite build -c vite.renderer.config.mjs",
     "dist": "npm run build && electron-builder --publish=always",
     "lint": "echo \"No linting configured\""
@@ -53,11 +53,14 @@
   "devDependencies": {
     "@electron/fuses": "^1.8.0",
     "autoprefixer": "^10.5.0",
+    "concurrently": "^9.2.1",
     "electron": "41.2.0",
     "electron-builder": "^26.8.1",
+    "electronmon": "^2.0.4",
     "postcss": "^8.5.9",
     "tailwindcss": "^3.4.19",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "wait-on": "^9.0.5"
   },
   "dependencies": {
     "axios": "^1.15.0",

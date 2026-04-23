@@ -159,15 +159,15 @@ ipcMain.handle('game:arrange-launchers', async () => {
   if (validPids.length === 0) return { success: false, msg: 'Chưa có launcher nào mở.' };
 
   const displays = screen.getAllDisplays();
-  
+
   // Group PIDs by monitor
   const monitorGroups = {}; // displayId -> [pids]
-  
+
   validPids.forEach(pid => {
     const rect = koffiService.getWindowRectByPid(pid);
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
-    
+
     const display = screen.getDisplayMatching({ x: rect.left, y: rect.top, width: rect.width, height: rect.height });
     const dId = display.id;
     if (!monitorGroups[dId]) monitorGroups[dId] = [];
@@ -186,20 +186,21 @@ ipcMain.handle('game:arrange-launchers', async () => {
     // Start at "10 o'clock" position (offset from top-left)
     const START_X = 50;
     const START_Y = 50;
-    
-    // Fixed steps for positioning (matching typical 50% scale launchers)
-    const STEP_X = 500 ;
-    const STEP_Y = 400;
+
+    const rectSample = koffiService.getWindowRectByPid(pidsInMonitor[0]);
+
+    const STEP_X = rectSample.width + 50;   // tăng số này để giãn ngang
+    const STEP_Y = rectSample.height + 50;  // giãn dọc
 
     const workArea = display.workArea;
 
     pidsInMonitor.forEach((pid, index) => {
       const col = index % cols;
       const row = Math.floor(index / cols);
-      
+
       const x = workArea.x + START_X + (col * STEP_X);
       const y = workArea.y + START_Y + (row * STEP_Y);
-      
+
       // useSize = false to preserve current dimensions
       koffiService.moveWindowByPid(pid, x, y, 0, 0, false);
     });

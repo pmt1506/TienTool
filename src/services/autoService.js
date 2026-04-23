@@ -23,6 +23,7 @@ export async function getAllGiftCodesAvailable(token) {
         });
 
         if (!res.ok) {
+            console.log(`[getAllGiftCodesAvailable] HTTP error: ${res.status}`);
             return null;
         }
 
@@ -32,8 +33,11 @@ export async function getAllGiftCodesAvailable(token) {
         try {
             data = JSON.parse(text);
         } catch {
+            console.log(`[getAllGiftCodesAvailable] JSON parse failed`);
             return null;
         }
+
+        console.log(`[getAllGiftCodesAvailable] infos count: ${data?.infos?.length ?? 'N/A'}, result: ${data?.result}`);
 
         const now = new Date();
 
@@ -53,10 +57,15 @@ export async function getAllGiftCodesAvailable(token) {
 
                 const code = info?.GiftCode;
 
+                if (!isExist || !isValidDate || !code) {
+                    console.log(`[filter] skip code=${code}, isExist=${isExist}, isValidDate=${isValidDate}, endDate=${endDateStr}`);
+                }
+
                 return isExist && isValidDate && code;
             })
             .map((info) => info.GiftCode);
 
+        console.log(`[getAllGiftCodesAvailable] FINAL validCodes count: ${validCodes.length}`);
         return validCodes;
     } catch (err) {
         return null;
@@ -106,7 +115,9 @@ export async function getAllCode(keyId, onProgress, checkStop) {
             accCurrent, accTotal, username: account.username
         });
 
+        console.log(`[getAllCode] Calling getAllGiftCodesAvailable for token: ${token.substring(0, 10)}...`);
         const giftCodes = await getAllGiftCodesAvailable(token);
+        console.log(`[getAllCode] Got ${giftCodes?.length ?? 0} codes for ${account.username}`);
 
         if (!giftCodes || giftCodes.length === 0) {
             if (onProgress) onProgress({
@@ -159,16 +170,26 @@ export async function getAllCode(keyId, onProgress, checkStop) {
                     const json = await res.json();
 
 
-                    // ❌ fail → retry lại chính code này
+                    // ❌ fail
                     if (json?.result === false) {
-                        continue;
+                        const msg = json.msg || '';
+
+                        if (msg.includes('Mã bảo vệ không đúng')) {
+                            // Captcha sai -> Thử lại mã code này với captcha mới
+                            continue;
+                        }
+                        else {
+                            // Lỗi khác: Code đã nhận, code hết hạn, v.v.. -> Nhảy sang tiếp code sau
+                            break;
+                        }
                     }
 
                     // ✅ success → sang code tiếp theo
                     break;
 
                 } catch (err) {
-                    continue;
+                    // Nếu lỗi do mạng, vẫn nên bỏ qua sang code khác thay vì kẹt vĩnh viễn
+                    break;
                 }
             }
         }
