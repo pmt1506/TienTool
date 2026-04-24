@@ -33,13 +33,15 @@ const activePids = [];
 
 const createWindow = () => {
   const display = screen.getPrimaryDisplay();
-  const { x, y, width } = display.workArea;
+  const { x, y, width, height } = display.workArea;
+
+  const windowWidth = 700;
+  const windowHeight = 500;
+  const margin = 5; // khoảng cách với mép màn hình
 
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 600,
-    minWidth: 900,
-    minHeight: 600,
+    width: windowWidth,
+    height: windowHeight,
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#0a0a1a',
@@ -49,8 +51,9 @@ const createWindow = () => {
       nodeIntegration: false,
     },
 
-    x: x + width - 900,
-    y: y,
+    // góc phải trên + margin
+    x: x + width - windowWidth - margin,
+    y: y + margin,
   });
 
   autoUpdater.on('checking-for-update', () => {
@@ -184,13 +187,13 @@ ipcMain.handle('game:arrange-launchers', async () => {
     if (count > 4) cols = 3;
 
     // Start at "10 o'clock" position (offset from top-left)
-    const START_X = 50;
-    const START_Y = 50;
+    const START_X = 30;
+    const START_Y = 30;
 
     const rectSample = koffiService.getWindowRectByPid(pidsInMonitor[0]);
 
-    const STEP_X = rectSample.width + 50;   // tăng số này để giãn ngang
-    const STEP_Y = rectSample.height + 50;  // giãn dọc
+    const STEP_X = rectSample.width + 15;   // tăng số này để giãn ngang
+    const STEP_Y = rectSample.height + 15;  // giãn dọc
 
     const workArea = display.workArea;
 
