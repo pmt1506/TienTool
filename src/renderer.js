@@ -49,6 +49,7 @@ const dom = {
   autoProgressMsg: $('#auto-progress-msg'),
 
   btnArrangeLauncher: $('#btn-arrange-launcher'),
+  btnArrangeLauncher100: $('#btn-arrange-launcher-100'),
 
   btnMinimize: $('#btn-minimize'),
   btnMaximize: $('#btn-maximize'),
@@ -233,7 +234,25 @@ function renderAccounts() {
     .map(
       (acc, i) => `
     <tr data-index="${i}" class="cursor-pointer transition-colors hover:bg-brand-400/10 ${i === selectedIndex ? 'selected' : ''} ${i % 2 === 0 ? '' : 'bg-white/[0.02]'}">
-      <td class="px-2 py-1 border-b border-white/[0.03] text-brand-400 text-[10px] font-bold">${i === selectedIndex ? '▶' : ''}</td>
+      <td class="px-2 py-1 border-b border-white/[0.03] text-center w-6" onclick="event.stopPropagation()">
+        <input
+          type="checkbox"
+          class="acc-chk cursor-pointer
+                w-4 h-4
+                rounded-md
+                border border-white/30
+                bg-white/5
+                text-brand-500
+                checked:bg-brand-500
+                checked:border-brand-500
+                focus:ring-2
+                focus:ring-brand-400/40
+                focus:ring-offset-0
+                transition-all duration-200"
+          data-index="${i}"
+          ${acc.isChecked ? 'checked' : ''}
+        />
+      </td>
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs truncate" title="${esc(acc.username)}">${esc(acc.username)}</td>
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs">${acc.server}</td>
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs truncate text-gray-400" title="${esc(acc.note || '')}">${esc(acc.note || '')}</td>
@@ -248,6 +267,13 @@ dom.accountsTbody.addEventListener('click', (e) => {
   const tr = e.target.closest('tr[data-index]');
   if (!tr) return;
   selectAccount(parseInt(tr.dataset.index, 10));
+});
+
+dom.accountsTbody.addEventListener('change', (e) => {
+  if (e.target.classList.contains('acc-chk')) {
+    const idx = parseInt(e.target.dataset.index, 10);
+    accounts[idx].isChecked = e.target.checked;
+  }
 });
 
 function selectAccount(idx) {
@@ -317,6 +343,46 @@ dom.btnDelete.addEventListener('click', async () => {
 
 // ── Login Launcher ─────────────────────────────────────────────
 dom.btnLoginLauncher.addEventListener('click', async () => {
+  const checkedAccounts = accounts.filter(acc => acc.isChecked);
+
+  if (checkedAccounts.length > 0) {
+    toast(`Đang login ${checkedAccounts.length} account...`, 'info');
+    let loggedInPids = [];
+
+    dom.btnLoginLauncher.disabled = true;
+    for (let acc of checkedAccounts) {
+      if (!acc.server) {
+        toast(`Account ${acc.username} chưa có server.`, 'error');
+        continue;
+      }
+      try {
+        const result = await api.loginGame(acc.username, acc.password, acc.server);
+        if (result.success) {
+          const sName = getServerName(acc.server);
+          await api.renameWindow(result.pid, `${acc.username} - ${sName}`);
+          loggedInPids.push(result.pid);
+        } else {
+          toast(`Lỗi log ${acc.username}: ${result.msg}`, 'error');
+        }
+      } catch (err) {
+        toast(`Lỗi log ${acc.username}.`, 'error');
+      }
+    }
+    dom.btnLoginLauncher.disabled = false;
+
+    toast(`Đã mở ${loggedInPids.length} game.`, 'success');
+
+    if (loggedInPids.length === 4) {
+      toast('Đang dàn 4 khung 100%...', 'info');
+      await api.arrangeLaunchers100(loggedInPids);
+    }
+
+    // Reset ticks
+    accounts.forEach(a => a.isChecked = false);
+    renderAccounts();
+    return;
+  }
+
   const data = getFormData();
   if (!data.username || !data.password || !data.server) {
     return toast('Vui lòng chọn tài khoản và server hợp lệ.', 'error');
@@ -339,14 +405,26 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
 
 // ── Arrange Launchers ──────────────────────────────────────────
 dom.btnArrangeLauncher.addEventListener('click', async () => {
-  toast('Đang sắp xếp cửa sổ...', 'info');
+  toast('Đang sắp xếp cửa sổ 50%...', 'info');
   const result = await api.arrangeLaunchers();
   if (result.success) {
-    toast('Đã sắp xếp xong.', 'success');
+    toast('Đã sắp xếp 50% xong.', 'success');
   } else {
     toast(result.msg || 'Không thể sắp xếp.', 'error');
   }
 });
+
+if (dom.btnArrangeLauncher100) {
+  dom.btnArrangeLauncher100.addEventListener('click', async () => {
+    toast('Đang sắp xếp cửa sổ 100% (4 góc)...', 'info');
+    const result = await api.arrangeLaunchers100();
+    if (result.success) {
+      toast('Đã sắp xếp 100% xong.', 'success');
+    } else {
+      toast(result.msg || 'Không thể sắp xếp.', 'error');
+    }
+  });
+}
 
 // ── Placeholder buttons ────────────────────────────────────────
 

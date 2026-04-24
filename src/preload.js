@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loginGame: (username, password, serverId) => ipcRenderer.invoke('game:login', username, password, serverId),
   renameWindow: (pid, newName) => ipcRenderer.invoke('game:rename-window', pid, newName),
   arrangeLaunchers: () => ipcRenderer.invoke('game:arrange-launchers'),
+  arrangeLaunchers100: (pids) => ipcRenderer.invoke('game:arrange-launchers-100', pids),
 
   // Auto
   // get token api -- getLoginToken api service

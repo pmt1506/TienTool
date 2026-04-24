@@ -212,6 +212,52 @@ ipcMain.handle('game:arrange-launchers', async () => {
   return { success: true };
 });
 
+ipcMain.handle('game:arrange-launchers-100', async (_event, targetPids) => {
+  let pidsToArrange = targetPids;
+  if (!pidsToArrange || pidsToArrange.length === 0) {
+    pidsToArrange = activePids.filter(pid => {
+      const rect = koffiService.getWindowRectByPid(pid);
+      return rect !== null;
+    });
+  }
+
+  const validPids = pidsToArrange.filter(pid => {
+    const rect = koffiService.getWindowRectByPid(pid);
+    return rect !== null;
+  });
+
+  if (validPids.length === 0) return { success: false, msg: 'Chưa có launcher nào mở.' };
+
+  const display = screen.getPrimaryDisplay();
+  const workArea = display.workArea;
+
+  validPids.forEach((pid, index) => {
+    if (index >= 4) return;
+    
+    const rect = koffiService.getWindowRectByPid(pid);
+    if (!rect) return;
+
+    let x = workArea.x;
+    let y = workArea.y;
+
+    // Index 0: Top-Left
+    // Index 1: Top-Right
+    if (index === 1 || index === 3) {
+      x = workArea.x + workArea.width - rect.width;
+    }
+    // Index 2: Bottom-Left
+    // Index 3: Bottom-Right
+    if (index === 2 || index === 3) {
+      y = workArea.y + workArea.height - rect.height;
+    }
+
+    // useSize = false to keep current dimensions
+    koffiService.moveWindowByPid(pid, x, y, 0, 0, false);
+  });
+
+  return { success: true };
+});
+
 ipcMain.handle('auto:open-bat-file', async () => {
   try {
     const clickermannDir = app.isPackaged
