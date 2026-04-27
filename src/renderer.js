@@ -24,6 +24,7 @@ const dom = {
   loginError: $('#login-error'),
   btnLogout: $('#btn-logout'),
   accountCount: $('#account-count'),
+  inputSearchAccount: $('#search-account'),
   accountsTbody: $('#accounts-tbody'),
   formId: $('#form-id'),
   formUsername: $('#form-username'),
@@ -223,44 +224,36 @@ async function loadAccounts() {
 }
 
 function renderAccounts() {
-  dom.accountCount.textContent = `Danh sách (${accounts.length})`;
+  const query = dom.inputSearchAccount.value.trim().toLowerCase();
+  const filteredAccounts = accounts.filter(acc => acc.username.toLowerCase().includes(query));
 
-  if (accounts.length === 0) {
+  dom.accountCount.textContent = `Danh sách (${filteredAccounts.length})`;
+
+  if (filteredAccounts.length === 0) {
     dom.accountsTbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-gray-500 text-sm">Chưa có tài khoản nào.</td></tr>`;
     return;
   }
 
-  dom.accountsTbody.innerHTML = accounts
+  dom.accountsTbody.innerHTML = filteredAccounts
     .map(
-      (acc, i) => `
-    <tr data-index="${i}" class="cursor-pointer transition-colors hover:bg-brand-400/10 ${i === selectedIndex ? 'selected' : ''} ${i % 2 === 0 ? '' : 'bg-white/[0.02]'}">
-      <td class="px-2 py-1 border-b border-white/[0.03] text-center w-6" onclick="event.stopPropagation()">
-        <input
-          type="checkbox"
-          class="acc-chk cursor-pointer
-                w-4 h-4
-                rounded-md
-                border border-white/30
-                bg-white/5
-                text-brand-500
-                checked:bg-brand-500
-                checked:border-brand-500
-                focus:ring-2
-                focus:ring-brand-400/40
-                focus:ring-offset-0
-                transition-all duration-200"
-          data-index="${i}"
-          ${acc.isChecked ? 'checked' : ''}
-        />
-      </td>
+      (acc, i) => {
+        const originalIndex = accounts.indexOf(acc);
+        return `
+    <tr data-index="${originalIndex}" class="cursor-pointer transition-colors hover:bg-brand-400/10 ${originalIndex === selectedIndex ? 'selected' : ''} ${i % 2 === 0 ? '' : 'bg-white/[0.02]'}">
+      <td class="px-2 py-1 border-b border-white/[0.03] text-brand-400 text-[10px] font-bold">${originalIndex === selectedIndex ? '▶' : ''}</td>
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs truncate" title="${esc(acc.username)}">${esc(acc.username)}</td>
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs">${acc.server}</td>
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs truncate text-gray-400" title="${esc(acc.note || '')}">${esc(acc.note || '')}</td>
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs text-gray-400">${acc.accountType}</td>
-    </tr>`
+    </tr>`;
+      }
     )
     .join('');
 }
+
+dom.inputSearchAccount.addEventListener('input', () => {
+  renderAccounts();
+});
 
 // ── Table click → select row ───────────────────────────────────
 dom.accountsTbody.addEventListener('click', (e) => {

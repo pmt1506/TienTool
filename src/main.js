@@ -447,6 +447,11 @@ app.whenReady().then(async () => {
       createWindow();
     }
   });
+
+  // Periodically check and auto-close the IP Vietnam alert
+  setInterval(() => {
+    koffiService.autoCloseAlertByTitle('Javascript Alert');
+  }, 2000);
 });
 
 app.on('window-all-closed', async () => {
