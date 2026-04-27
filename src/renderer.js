@@ -24,6 +24,7 @@ const dom = {
   loginError: $('#login-error'),
   btnLogout: $('#btn-logout'),
   accountCount: $('#account-count'),
+  inputSearchAccount: $('#search-account'),
   accountsTbody: $('#accounts-tbody'),
   formId: $('#form-id'),
   formUsername: $('#form-username'),
@@ -223,17 +224,22 @@ async function loadAccounts() {
 }
 
 function renderAccounts() {
-  dom.accountCount.textContent = `Danh sách (${accounts.length})`;
+  const query = dom.inputSearchAccount?.value.trim().toLowerCase() || '';
+  const filteredAccounts = accounts.filter(acc => acc.username.toLowerCase().includes(query));
 
-  if (accounts.length === 0) {
+  dom.accountCount.textContent = `Danh sách (${filteredAccounts.length})`;
+
+  if (filteredAccounts.length === 0) {
     dom.accountsTbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-gray-500 text-sm">Chưa có tài khoản nào.</td></tr>`;
     return;
   }
 
-  dom.accountsTbody.innerHTML = accounts
+  dom.accountsTbody.innerHTML = filteredAccounts
     .map(
-      (acc, i) => `
-    <tr data-index="${i}" class="cursor-pointer transition-colors hover:bg-brand-400/10 ${i === selectedIndex ? 'selected' : ''} ${i % 2 === 0 ? '' : 'bg-white/[0.02]'}">
+      (acc, idx) => {
+        const i = accounts.indexOf(acc);
+        return `
+    <tr data-index="${i}" class="cursor-pointer transition-colors hover:bg-brand-400/10 ${i === selectedIndex ? 'selected' : ''} ${idx % 2 === 0 ? '' : 'bg-white/[0.02]'}">
       <td class="px-2 py-1 border-b border-white/[0.03] text-center w-6" onclick="event.stopPropagation()">
         <input
           type="checkbox"
@@ -257,12 +263,19 @@ function renderAccounts() {
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs">${acc.server}</td>
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs truncate text-gray-400" title="${esc(acc.note || '')}">${esc(acc.note || '')}</td>
       <td class="px-2 py-1 border-b border-white/[0.03] text-xs text-gray-400">${acc.accountType}</td>
-    </tr>`
+    </tr>`;
+      }
     )
     .join('');
 }
 
 // ── Table click → select row ───────────────────────────────────
+if (dom.inputSearchAccount) {
+  dom.inputSearchAccount.addEventListener('input', () => {
+    renderAccounts();
+  });
+}
+
 dom.accountsTbody.addEventListener('click', (e) => {
   const tr = e.target.closest('tr[data-index]');
   if (!tr) return;

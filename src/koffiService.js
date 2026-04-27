@@ -13,6 +13,10 @@ const SetWindowPos = user32.func("bool __stdcall SetWindowPos(void* hwnd, void* 
 const GetWindowRect = user32.func("bool __stdcall GetWindowRect(void* hwnd, _Out_ int* lpRect)");
 const IsWindowVisible = user32.func("bool __stdcall IsWindowVisible(void* hwnd)");
 const GetWindowTextLengthW = user32.func("int __stdcall GetWindowTextLengthW(void* hwnd)");
+const GetWindowTextW = user32.func("int __stdcall GetWindowTextW(void* hwnd, _Out_ uint16_t* lpString, int nMaxCount)");
+const SendMessageW = user32.func("intptr __stdcall SendMessageW(void* hwnd, uint32 msg, uintptr wParam, intptr lParam)");
+const FindWindowW = user32.func("void* __stdcall FindWindowW(str16 lpClassName, str16 lpWindowName)");
+const GetClassNameW = user32.func("int __stdcall GetClassNameW(void* hwnd, _Out_ uint16_t* lpClassName, int nMaxCount)");
 
 const SWP_NOZORDER = 0x0004;
 const SWP_SHOWWINDOW = 0x0040;
@@ -106,5 +110,37 @@ export function getWindowRectByPid(pid) {
         }
     }
     return null;
+}
+const WM_CLOSE = 0x0010;
+
+export function autoCloseAlertByTitle(titleSubstring) {
+    let closedCount = 0;
+    const lowerSubstring = titleSubstring.toLowerCase();
+
+    const callback = koffi.register((hwnd, lParam) => {
+        if (IsWindowVisible(hwnd)) {
+            const titleLen = GetWindowTextLengthW(hwnd);
+            if (titleLen > 0) {
+                const buf = Buffer.alloc((titleLen + 1) * 2);
+                const actualTitleLen = GetWindowTextW(hwnd, buf, titleLen + 1);
+                const title = buf.toString("utf16le", 0, actualTitleLen * 2);
+
+                if (title.toLowerCase().includes(lowerSubstring)) {
+                    const classBuf = Buffer.alloc(512);
+                    const classLen = GetClassNameW(hwnd, classBuf, 256);
+                    const className = classBuf.toString("utf16le", 0, classLen * 2);
+
+                    console.log(`[AutoClose] Found alert window: "${title}" (Class: ${className}), closing...`);
+                    SendMessageW(hwnd, WM_CLOSE, 0, 0);
+                    closedCount++;
+                }
+            }
+        }
+        return true;
+    }, koffi.pointer(EnumWindowsProc));
+
+    EnumWindows(callback, 0);
+    koffi.unregister(callback);
+    return closedCount;
 }
 // ─────────────────────────────────────────────────────────────────
