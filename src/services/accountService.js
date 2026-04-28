@@ -11,9 +11,23 @@ export async function getAccounts(keyId) {
   try {
     const accounts = await col()
       .find({ keyId: new ObjectId(keyId) })
-      .sort({ accountType: 1, server: 1, username: 1 })
+      .sort({ accountType: 1, server: 1 })
       .toArray();
 
+    accounts.sort((a, b) => {
+      if (a.accountType !== b.accountType) {
+        return a.accountType - b.accountType;
+      }
+
+      if (a.server !== b.server) {
+        return a.server - b.server;
+      }
+
+      return a.username.localeCompare(b.username, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
 
     return {
       success: true,
