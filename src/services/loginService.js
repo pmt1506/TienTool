@@ -2,6 +2,7 @@ import axios from "axios";
 import { spawn } from "child_process";
 import path from "path";
 import { getSerialNumber } from "../utils.js";
+import { ensureCharacterExists } from "./registerService.js";
 
 
 export async function loginApi(userName, password, serialNumber) {
@@ -69,7 +70,7 @@ export async function loginApi(userName, password, serialNumber) {
     }
 }
 
-export async function loginGame(userName, password, serverID) {
+export async function loginGame(userName, password, serverID, accountType, prefix, maxLength) {
     const serialNumber = getSerialNumber();
     const apiResult = await loginApi(userName, password, serialNumber);
 
@@ -79,6 +80,19 @@ export async function loginGame(userName, password, serverID) {
 
     try {
         const token = apiResult.token;
+        
+        // 1. Ensure character exists (Auto Register if not)
+        if (accountType === 2 || accountType === "2") {
+            console.log(`[Login] Checking/Creating character for clone account ${userName}...`);
+            const ensureRes = await ensureCharacterExists(userName, token, serverID, prefix, maxLength);
+            if (!ensureRes.success) {
+                return { success: false, msg: ensureRes.msg };
+            }
+        } else {
+            console.log(`[Login] Skipping character check for main account ${userName}`);
+        }
+
+        // 2. Launch GunnyBrowser
         const args = [
             userName,
             token,

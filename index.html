@@ -216,20 +216,20 @@
             </div> -->
 
           <!-- Debug -->
-          <!-- <div class="flex flex-col gap-1.5">
-              <span class="text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/[0.06] pb-1">Debug</span>
-              <div class="grid grid-cols-3 gap-2">
-                <button id="btn-clipboard" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                  <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i> Clipboard
-                </button>
-                <button id="btn-log" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Log
-                </button>
-                <button id="btn-config" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                  <i data-lucide="settings" class="w-3.5 h-3.5"></i> Config
-                </button>
-              </div>
-            </div> -->
+          <div class="flex flex-col gap-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/[0.06] pb-1">Debug</span>
+            <div class="grid grid-cols-3 gap-2">
+              <button id="btn-clipboard" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+                <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i> Clipboard
+              </button>
+              <button id="btn-log" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Log
+              </button>
+              <button id="btn-config" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+                <i data-lucide="settings" class="w-3.5 h-3.5"></i> Config
+              </button>
+            </div>
+          </div>
 
           <!-- Import / Export -->
           <div class="grid grid-cols-3 gap-2">
@@ -309,6 +309,36 @@
 
   <!-- Toast container -->
   <div id="toast-container" class="fixed bottom-4 right-4 flex flex-col gap-1.5 z-[3000]"></div>
+
+  <!-- Config Modal -->
+  <div id="modal-config" class="hidden fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div class="bg-surface border border-white/10 rounded-xl shadow-2xl w-[360px] flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-white/[0.06]">
+        <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+          <i data-lucide="settings" class="w-4 h-4 text-brand-400"></i>
+          Cấu hình
+        </h3>
+        <button id="btn-close-config" class="text-gray-500 hover:text-white transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div class="p-4 flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Prefix Đăng Ký</label>
+          <input type="text" id="input-reg-prefix" class="w-full px-3 py-2 bg-surface-dark border border-white/[0.08] rounded-md text-sm text-gray-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25 transition-all" value="GNLM" spellcheck="false" autocomplete="off" />
+          <span class="text-[10px] text-gray-500">Mặc định: GNLM</span>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Giới hạn kí tự (Max Length)</label>
+          <input type="number" id="input-reg-max-length" class="w-full px-3 py-2 bg-surface-dark border border-white/[0.08] rounded-md text-sm text-gray-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25 transition-all" value="14" min="4" max="20" />
+          <span class="text-[10px] text-gray-500">Tối đa 14 kí tự. Kí tự sinh ra = Max Length - Prefix.length</span>
+        </div>
+      </div>
+      <div class="px-4 py-3 bg-surface-dark border-t border-white/[0.06] flex justify-end gap-2">
+        <button id="btn-save-config" class="px-4 py-1.5 bg-brand-400 hover:bg-brand-300 text-white text-sm font-medium rounded-md transition-colors">Lưu lại</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="/src/renderer.js"></script>
 </body>

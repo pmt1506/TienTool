@@ -12,6 +12,7 @@ import {
   deleteAccount,
 } from './services/accountService.js';
 import { loginGame } from './services/loginService.js';
+import { registerCharacter } from './services/registerService.js';
 import { getAllCode, getWeeklyCode } from './services/autoService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
@@ -140,12 +141,16 @@ ipcMain.handle('accounts:delete', async (_event, id) => {
 });
 
 // Game
-ipcMain.handle('game:login', async (_event, username, password, serverId) => {
-  const result = await loginGame(username, password, serverId);
+ipcMain.handle('game:login', async (_event, username, password, serverId, accountType, prefix, maxLength) => {
+  const result = await loginGame(username, password, serverId, accountType, prefix, maxLength);
   if (result.success && result.pid) {
     activePids.push(result.pid);
   }
   return result;
+});
+
+ipcMain.handle('game:register-character', async (_event, username, password, serverId, prefix, maxLength) => {
+  return await registerCharacter(username, password, serverId, prefix, maxLength);
 });
 
 ipcMain.handle('game:rename-window', async (_event, pid, newName) => {

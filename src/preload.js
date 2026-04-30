@@ -16,10 +16,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteAccount: (id) => ipcRenderer.invoke('accounts:delete', id),
 
   // Game
-  loginGame: (username, password, serverId) => ipcRenderer.invoke('game:login', username, password, serverId),
+  loginGame: (username, password, serverId, accountType, prefix, maxLength) => ipcRenderer.invoke('game:login', username, password, serverId, accountType, prefix, maxLength),
   renameWindow: (pid, newName) => ipcRenderer.invoke('game:rename-window', pid, newName),
   arrangeLaunchers: () => ipcRenderer.invoke('game:arrange-launchers'),
   arrangeLaunchers100: (pids) => ipcRenderer.invoke('game:arrange-launchers-100', pids),
+  registerCharacter: (username, password, serverId, prefix, maxLength) => ipcRenderer.invoke('game:register-character', username, password, serverId, prefix, maxLength),
 
   // Auto
   // get token api -- getLoginToken api service

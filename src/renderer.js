@@ -52,10 +52,26 @@ const dom = {
   btnArrangeLauncher: $('#btn-arrange-launcher'),
   btnArrangeLauncher100: $('#btn-arrange-launcher-100'),
 
+  btnConfig: $('#btn-config'),
+  modalConfig: $('#modal-config'),
+  btnCloseConfig: $('#btn-close-config'),
+  btnSaveConfig: $('#btn-save-config'),
+  inputRegPrefix: $('#input-reg-prefix'),
+  inputRegMaxLength: $('#input-reg-max-length'),
+
   btnMinimize: $('#btn-minimize'),
   btnMaximize: $('#btn-maximize'),
   btnClose: $('#btn-close'),
 };
+
+// ── Load Config ────────────────────────────────────────────────
+let config = { regPrefix: 'GNLM', regMaxLength: 14 };
+try {
+  const saved = localStorage.getItem('tt_config');
+  if (saved) config = { ...config, ...JSON.parse(saved) };
+} catch (e) {
+  console.error('Lỗi tải config:', e);
+}
 
 // ── Init Lucide Icons ──────────────────────────────────────────
 function refreshIcons() {
@@ -387,7 +403,7 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
         continue;
       }
       try {
-        const result = await api.loginGame(acc.username, acc.password, acc.server);
+        const result = await api.loginGame(acc.username, acc.password, acc.server, acc.accountType, config.regPrefix, config.regMaxLength);
         if (result.success) {
           const sName = getServerName(acc.server);
           await api.renameWindow(result.pid, `${acc.username} - ${sName}`);
@@ -421,7 +437,7 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
 
   toast('Đang mở Launcher...', 'info');
   try {
-    const result = await api.loginGame(data.username, data.password, data.server);
+    const result = await api.loginGame(data.username, data.password, data.server, data.accountType || 2, config.regPrefix, config.regMaxLength);
     if (result.success) {
       toast('Đã mở Game Launcher.', 'success');
       const sName = getServerName(data.server);
@@ -457,12 +473,31 @@ if (dom.btnArrangeLauncher100) {
   });
 }
 
+// ── Config Modal ───────────────────────────────────────────────
+dom.btnConfig.addEventListener('click', () => {
+  dom.inputRegPrefix.value = config.regPrefix;
+  dom.inputRegMaxLength.value = config.regMaxLength;
+  dom.modalConfig.classList.remove('hidden');
+});
+
+dom.btnCloseConfig.addEventListener('click', () => {
+  dom.modalConfig.classList.add('hidden');
+});
+
+dom.btnSaveConfig.addEventListener('click', () => {
+  config.regPrefix = dom.inputRegPrefix.value.trim() || 'GNLM';
+  config.regMaxLength = parseInt(dom.inputRegMaxLength.value, 10) || 14;
+  localStorage.setItem('tt_config', JSON.stringify(config));
+  dom.modalConfig.classList.add('hidden');
+  toast('Đã lưu cấu hình.', 'success');
+});
+
 // ── Placeholder buttons ────────────────────────────────────────
 
 const placeholderIds = [
   'btn-flash-login', 'btn-sort', 'btn-kill-all',
 
-  'btn-clipboard', 'btn-log', 'btn-config',
+  'btn-clipboard', 'btn-log', 
   'btn-import-json', 'btn-export-json', 'btn-export-txt'
 ];
 placeholderIds.forEach((id) => {
