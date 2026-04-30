@@ -32,7 +32,7 @@ const dom = {
   formServer: $('#form-server'),
   formNote: $('#form-note'),
   formAccountType: $('#form-accountType'),
-  togglePass: $('#toggle-pass'),
+  copyPass: $('#copy-pass'),
   btnAdd: $('#btn-add'),
   btnEdit: $('#btn-edit'),
   btnAddClone: $('#btn-add-clone'),
@@ -101,16 +101,34 @@ function toast(message, type = 'info') {
   setTimeout(() => el.remove(), 3000);
 }
 
-// ── Toggle Password ────────────────────────────────────────────
-dom.togglePass.addEventListener('click', () => {
+// ── Copy Password ────────────────────────────────────────────
+dom.copyPass.addEventListener('click', async () => {
   const input = dom.formPassword;
-  const isPass = input.type === 'password';
-  input.type = isPass ? 'text' : 'password';
-  // swap icon
-  const iconEl = dom.togglePass.querySelector('i, svg');
-  if (iconEl) {
-    iconEl.setAttribute('data-lucide', isPass ? 'eye-off' : 'eye');
-    refreshIcons();
+  const password = input.value;
+
+  if (!password) return;
+
+  try {
+    await navigator.clipboard.writeText(password);
+
+    // optional: đổi icon / feedback
+    const iconEl = dom.copyPass.querySelector('i, svg');
+    if (iconEl) {
+      iconEl.setAttribute('data-lucide', 'check'); // icon check khi copy thành công
+      refreshIcons();
+
+      // đổi lại icon sau 1.5s
+      setTimeout(() => {
+        iconEl.setAttribute('data-lucide', 'copy');
+        refreshIcons();
+      }, 1500);
+    }
+
+    toast('Copy mật khẩu thành công', 'success')
+
+  } catch (err) {
+    toast('Copy mật khẩu thất bại', 'error')
+    console.error('Copy failed:', err);
   }
 });
 
