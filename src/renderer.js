@@ -42,6 +42,7 @@ const dom = {
   toastContainer: $('#toast-container'),
   btnNhanAllCode: $('#btn-nhan-all-code'),
   btnCodeTuan: $('#btn-code-tuan'),
+  btnResetAn: $('#btn-reset-an'),
   btnOpenWebshop: $('#btn-open-webshop'),
   autoProgressContainer: $('#auto-progress-container'),
   autoProgressAcc: $('#auto-progress-acc'),
@@ -634,8 +635,54 @@ dom.btnCodeTuan.addEventListener('click', async () => {
   }
 });
 
+// ── Reset Ấn ────────────────────────────────────────────────────
+let isResetMarkRunning = false;
 
+dom.btnResetAn.addEventListener('click', async () => {
+  if (isResetMarkRunning) {
+    const res = await api.stopResetMark();
+    if (res.success) toast('Đã gửi yêu cầu dừng reset ấn...', 'info');
+    return;
+  }
 
+  const checkedAccounts = accounts.filter(acc => acc.isChecked);
+  if (checkedAccounts.length === 0) {
+    return toast('Vui lòng chọn ít nhất 1 tài khoản để reset ấn.', 'warning');
+  }
+
+  isResetMarkRunning = true;
+  dom.btnResetAn.classList.add('bg-red-500', 'hover:bg-red-400');
+  dom.btnResetAn.classList.remove('bg-surface');
+  dom.btnResetAn.innerHTML = '<i data-lucide="square" class="w-3.5 h-3.5"></i> Dừng reset ấn';
+  refreshIcons();
+
+  dom.autoProgressContainer.classList.remove('hidden');
+  dom.autoProgressMsg.textContent = 'Đang bắt đầu reset ấn...';
+  dom.autoProgressBar.style.width = '0%';
+  dom.autoProgressAcc.textContent = `Acc: 0/${checkedAccounts.length}`;
+  dom.autoProgressCode.textContent = 'Ấn: --';
+
+  try {
+    const res = await api.resetMark(checkedAccounts);
+    if (!res.success) {
+        toast(`Lỗi: ${res.error}`, 'error');
+    }
+  } catch (err) {
+    toast('Lỗi khi chạy reset ấn.', 'error');
+  } finally {
+    isResetMarkRunning = false;
+    dom.btnResetAn.classList.remove('bg-red-500', 'hover:bg-red-400');
+    dom.btnResetAn.classList.add('bg-surface');
+    dom.btnResetAn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reset ấn V15';
+    refreshIcons();
+    toast('Tiến trình reset ấn đã kết thúc.', 'info');
+    setTimeout(() => {
+      if (!isAutoRunning && !isWeeklyAutoRunning && !isResetMarkRunning) {
+        dom.autoProgressContainer.classList.add('hidden');
+      }
+    }, 5000);
+  }
+});
 
 dom.btnOpenWebshop.addEventListener('click', async () => {
   const data = getFormData();

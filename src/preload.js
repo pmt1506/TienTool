@@ -31,6 +31,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openWeeklyCodeTxt: () => ipcRenderer.invoke('auto:open-weekly-code-txt'),
   getWeeklyCode: (keyId, codes) => ipcRenderer.invoke('auto:get-weekly-code', keyId, codes),
   stopGetWeeklyCode: () => ipcRenderer.invoke('auto:stop-weekly-code'),
+  
+  // Reset Mark
+  resetMark: (accounts) => ipcRenderer.invoke('game:reset-mark', accounts),
+  stopResetMark: () => ipcRenderer.invoke('game:stop-reset-mark'),
+
   onAutoProgress: (callback) => ipcRenderer.on('auto:progress', (_event, data) => callback(data)),
 
   // Webshop

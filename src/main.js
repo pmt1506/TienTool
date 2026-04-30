@@ -13,7 +13,7 @@ import {
 } from './services/accountService.js';
 import { loginGame } from './services/loginService.js';
 import { registerCharacter } from './services/registerService.js';
-import { getAllCode, getWeeklyCode } from './services/autoService.js';
+import { startResetMark } from './services/resetMarkService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
 import { autoUpdater } from 'electron-updater';
@@ -435,6 +435,32 @@ ipcMain.handle('open-webshop', async (event, token) => {
 
   return { success: true };
 })
+
+// Reset Mark (Reset Ấn V15)
+let stopResetMarkFlag = false;
+
+ipcMain.handle('game:reset-mark', async (event, accounts) => {
+  stopResetMarkFlag = false;
+  try {
+    await startResetMark(
+      accounts,
+      (progressData) => {
+        // Use existing auto:progress channel
+        event.sender.send('auto:progress', progressData);
+      },
+      () => stopResetMarkFlag
+    );
+    return { success: true };
+  } catch (err) {
+    console.error('game:reset-mark error', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('game:stop-reset-mark', async () => {
+  stopResetMarkFlag = true;
+  return { success: true };
+});
 
 // ─── App Lifecycle ──────────────────────────────────────────────
 

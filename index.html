@@ -97,7 +97,9 @@
           <!-- Search Bar -->
           <div class="px-3 py-2 border-b border-white/[0.06]">
             <div class="relative">
-              <input type="text" id="search-account" placeholder="Tìm kiếm tài khoản..." class="w-full px-3 py-1.5 pl-8 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-200 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400/20 transition-all" spellcheck="false" autocomplete="off" />
+              <input type="text" id="search-account" placeholder="Tìm kiếm tài khoản..."
+                class="w-full px-3 py-1.5 pl-8 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-200 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400/20 transition-all"
+                spellcheck="false" autocomplete="off" />
               <i data-lucide="search" class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500"></i>
             </div>
           </div>
@@ -217,22 +219,28 @@
 
           <!-- Debug -->
           <div class="flex flex-col gap-1.5">
-            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/[0.06] pb-1">Debug</span>
-            <div class="grid grid-cols-3 gap-2">
-              <button id="btn-clipboard" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+            <span
+              class="text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/[0.06] pb-1">Debug</span>
+            <div class="grid grid-cols-2 gap-2">
+              <!-- <button id="btn-clipboard" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
                 <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i> Clipboard
               </button>
               <button id="btn-log" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
                 <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Log
+              </button> -->
+              <button id="btn-script-auto"
+                class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+                <i data-lucide="bot" class="w-3.5 h-3.5"></i> Script Auto
               </button>
-              <button id="btn-config" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+              <button id="btn-config"
+                class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
                 <i data-lucide="settings" class="w-3.5 h-3.5"></i> Config
               </button>
             </div>
           </div>
 
           <!-- Import / Export -->
-          <div class="grid grid-cols-3 gap-2">
+          <!-- <div class="grid grid-cols-3 gap-2">
             <button id="btn-import-json"
               class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
               <i data-lucide="upload" class="w-3.5 h-3.5"></i> Import JSON
@@ -245,63 +253,59 @@
               class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
               <i data-lucide="file-down" class="w-3.5 h-3.5"></i> Export TXT
             </button>
-          </div>
-
-          <!-- Progress Status -->
-          <div id="auto-progress-container"
-            class="hidden mt-auto p-3 bg-surface-dark/50 border border-brand-400/20 rounded-lg animate-fade-in">
-            <div class="flex flex-col gap-2">
-              <div class="flex justify-between items-center">
-                <span id="auto-progress-acc" class="text-[10px] font-bold text-brand-300 uppercase">Acc: 0/0</span>
-                <span id="auto-progress-code" class="text-[10px] font-bold text-blue-300 uppercase">Code: 0/0</span>
-              </div>
-              <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                <div id="auto-progress-bar" class="h-full bg-brand-400 transition-all duration-300" style="width: 0%">
+          </div> -->
+          <div class="flex flex-col gap-1.5">
+            <span
+              class="text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/[0.06] pb-1">Tiện ích</span>
+            <!-- Progress Status -->
+            <div id="auto-progress-container"
+              class="hidden mt-auto p-3 bg-surface-dark/50 border border-brand-400/20 rounded-lg animate-fade-in">
+              <div class="flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                  <span id="auto-progress-acc" class="text-[10px] font-bold text-brand-300 uppercase">Acc: 0/0</span>
+                  <span id="auto-progress-code" class="text-[10px] font-bold text-blue-300 uppercase">Code: 0/0</span>
                 </div>
+                <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div id="auto-progress-bar" class="h-full bg-brand-400 transition-all duration-300" style="width: 0%">
+                  </div>
+                </div>
+                <div id="auto-progress-msg" class="text-[11px] text-gray-400 truncate">Sẵn sàng...</div>
               </div>
-              <div id="auto-progress-msg" class="text-[11px] text-gray-400 truncate">Sẵn sàng...</div>
             </div>
-          </div>
 
-          <!-- Bottom row -->
-          <div class="grid grid-cols-3 gap-2">
-            <button id="btn-script-auto"
-              class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-              <i data-lucide="bot" class="w-3.5 h-3.5"></i> Script Auto
-            </button>
-            <button id="btn-code-tuan"
-              class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-              <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Code tuần
-            </button>
-            <button id="btn-nhan-all-code"
-              class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-              <i data-lucide="gift" class="w-3.5 h-3.5"></i> Nhận all code
-            </button>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2">
-            <button id="btn-arrange-launcher"
-              class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-              <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i> Sắp xếp 50%
-            </button>
-            <button id="btn-arrange-launcher-100"
-              class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-brand-300 rounded-md transition-all font-semibold">
-              <i data-lucide="grid" class="w-3.5 h-3.5"></i> Sắp xếp 100%
-            </button>
-            <!-- <button id="btn-code-tuan" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+            <!-- Bottom row -->
+            <div class="grid grid-cols-3 gap-2">
+              <button id="btn-code-tuan"
+                class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
                 <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Code tuần
               </button>
-              <button id="btn-nhan-all-code" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+              <button id="btn-reset-an"
+                class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reset ấn V15
+              </button>
+              <button id="btn-nhan-all-code"
+                class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
                 <i data-lucide="gift" class="w-3.5 h-3.5"></i> Nhận all code
-              </button> -->
-          </div>
+              </button>
+            </div>
 
-          <!-- <div class="">
+            <div class="grid grid-cols-2 gap-2">
+              <button id="btn-arrange-launcher"
+                class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+                <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i> Sắp xếp 50%
+              </button>
+              <button id="btn-arrange-launcher-100"
+                class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-brand-300 rounded-md transition-all font-semibold">
+                <i data-lucide="grid" class="w-3.5 h-3.5"></i> Sắp xếp 100%
+              </button>
+            </div>
+
+            <!-- <div class="">
               <button id="btn-open-webshop" class="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
                 <i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i> Mở webshop
               </button>
             </div> -->
-
+          </div>
         </div>
       </div>
     </div>
@@ -311,7 +315,8 @@
   <div id="toast-container" class="fixed bottom-4 right-4 flex flex-col gap-1.5 z-[3000]"></div>
 
   <!-- Config Modal -->
-  <div id="modal-config" class="hidden fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+  <div id="modal-config"
+    class="hidden fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
     <div class="bg-surface border border-white/10 rounded-xl shadow-2xl w-[360px] flex flex-col overflow-hidden">
       <div class="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-white/[0.06]">
         <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
@@ -325,17 +330,24 @@
       <div class="p-4 flex flex-col gap-4">
         <div class="flex flex-col gap-1.5">
           <label class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Prefix Đăng Ký</label>
-          <input type="text" id="input-reg-prefix" class="w-full px-3 py-2 bg-surface-dark border border-white/[0.08] rounded-md text-sm text-gray-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25 transition-all" value="GNLM" spellcheck="false" autocomplete="off" />
+          <input type="text" id="input-reg-prefix"
+            class="w-full px-3 py-2 bg-surface-dark border border-white/[0.08] rounded-md text-sm text-gray-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25 transition-all"
+            value="GNLM" spellcheck="false" autocomplete="off" />
           <span class="text-[10px] text-gray-500">Mặc định: GNLM</span>
         </div>
         <div class="flex flex-col gap-1.5">
-          <label class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Giới hạn kí tự (Max Length)</label>
-          <input type="number" id="input-reg-max-length" class="w-full px-3 py-2 bg-surface-dark border border-white/[0.08] rounded-md text-sm text-gray-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25 transition-all" value="14" min="4" max="20" />
+          <label class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Giới hạn kí tự (Max
+            Length)</label>
+          <input type="number" id="input-reg-max-length"
+            class="w-full px-3 py-2 bg-surface-dark border border-white/[0.08] rounded-md text-sm text-gray-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25 transition-all"
+            value="14" min="4" max="20" />
           <span class="text-[10px] text-gray-500">Tối đa 14 kí tự. Kí tự sinh ra = Max Length - Prefix.length</span>
         </div>
       </div>
       <div class="px-4 py-3 bg-surface-dark border-t border-white/[0.06] flex justify-end gap-2">
-        <button id="btn-save-config" class="px-4 py-1.5 bg-brand-400 hover:bg-brand-300 text-white text-sm font-medium rounded-md transition-colors">Lưu lại</button>
+        <button id="btn-save-config"
+          class="px-4 py-1.5 bg-brand-400 hover:bg-brand-300 text-white text-sm font-medium rounded-md transition-colors">Lưu
+          lại</button>
       </div>
     </div>
   </div>

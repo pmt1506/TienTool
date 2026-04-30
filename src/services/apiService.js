@@ -172,7 +172,7 @@ export async function getAllNickName(token) {
     const apiUrl = `https://api3.gnddt.com/api/Function/GetAllNickName`;
 
     const res = await fetch(apiUrl, {
-        method: 'GET',
+        method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
