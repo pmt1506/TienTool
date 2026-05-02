@@ -1,13 +1,5 @@
 @echo off
 
-:: Request Admin Privileges
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo Requesting administrative privileges...
-    powershell -Command "Start-Process -FilePath '%0' -Verb RunAs"
-    exit /b
-)
-
 :START
 :: Prompt user for the number of windows
 set /p NUM_WINDOWS="Enter the number of windows to open (1 to 4): "

@@ -43,7 +43,7 @@ const createWindow = () => {
   const { x, y, width, height } = display.workArea;
 
   const windowWidth = 700;
-  const windowHeight = 600;
+  const windowHeight = 550;
   const margin = 5; // khoảng cách với mép màn hình
 
   mainWindow = new BrowserWindow({
