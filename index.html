@@ -199,16 +199,20 @@
           <div class="flex flex-col gap-1.5 pt-2 border-t border-white/[0.06]">
             <span class="text-[10px] font-bold uppercase tracking-widest text-gray-600">Template</span>
             <div class="flex items-center gap-2">
-              <select id="template-select" class="flex-1 px-3 py-1.5 bg-surface-dark border border-white/10 rounded-md text-sm text-gray-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/20 transition-all cursor-pointer">
+              <select id="template-select"
+                class="flex-1 px-3 py-1.5 bg-surface-dark border border-white/10 rounded-md text-sm text-gray-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/20 transition-all cursor-pointer">
                 <option value="">-- Chọn template --</option>
               </select>
-              <button id="btn-create-template" title="Tạo Template từ các acc đã tick" class="flex items-center justify-center px-2.5 py-1.5 bg-surface border border-white/10 hover:border-brand-400/40 hover:bg-surface-card text-gray-300 rounded-md transition-all">
+              <button id="btn-create-template" title="Tạo Template từ các acc đã tick"
+                class="flex items-center justify-center px-2.5 py-1.5 bg-surface border border-white/10 hover:border-brand-400/40 hover:bg-surface-card text-gray-300 rounded-md transition-all">
                 <i data-lucide="save" class="w-4 h-4"></i>
               </button>
-              <button id="btn-rename-template" title="Đổi tên Template đang chọn" class="flex items-center justify-center px-2.5 py-1.5 bg-surface border border-white/10 hover:border-brand-400/40 hover:bg-surface-card text-blue-300 rounded-md transition-all hidden">
+              <button id="btn-rename-template" title="Đổi tên Template đang chọn"
+                class="flex items-center justify-center px-2.5 py-1.5 bg-surface border border-white/10 hover:border-brand-400/40 hover:bg-surface-card text-blue-300 rounded-md transition-all hidden">
                 <i data-lucide="pencil" class="w-4 h-4"></i>
               </button>
-              <button id="btn-delete-template" title="Xóa Template đang chọn" class="flex items-center justify-center px-2.5 py-1.5 bg-surface border border-red-500/20 hover:border-red-500/50 hover:bg-red-500/10 text-red-400 rounded-md transition-all hidden">
+              <button id="btn-delete-template" title="Xóa Template đang chọn"
+                class="flex items-center justify-center px-2.5 py-1.5 bg-surface border border-red-500/20 hover:border-red-500/50 hover:bg-red-500/10 text-red-400 rounded-md transition-all hidden">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
@@ -239,21 +243,20 @@
           <!-- Debug -->
           <div class="flex flex-col gap-1.5">
             <span
-              class="text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/[0.06] pb-1">Debug</span>
-            <div class="grid grid-cols-2 gap-2">
-              <!-- <button id="btn-clipboard" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i> Clipboard
-              </button>
-              <button id="btn-log" class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Log
-              </button> -->
-              <button id="btn-script-auto"
+              class="text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/[0.06] pb-1">Tiện
+              ích API</span>
+            <div class="grid grid-cols-3 gap-2">
+              <button id="btn-code-tuan"
                 class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                <i data-lucide="bot" class="w-3.5 h-3.5"></i> Script Auto
+                <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Code tuần
               </button>
-              <button id="btn-config"
+              <button id="btn-reset-an"
                 class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                <i data-lucide="settings" class="w-3.5 h-3.5"></i> Config
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reset ấn V15
+              </button>
+              <button id="btn-nhan-all-code"
+                class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
+                <i data-lucide="gift" class="w-3.5 h-3.5"></i> Nhận all code
               </button>
             </div>
           </div>
@@ -275,7 +278,8 @@
           </div> -->
           <div class="flex flex-col gap-1.5">
             <span
-              class="text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/[0.06] pb-1">Tiện ích</span>
+              class="text-[10px] font-bold uppercase tracking-widest text-gray-600 border-b border-white/[0.06] pb-1">Tiện
+              ích</span>
             <!-- Progress Status -->
             <div id="auto-progress-container"
               class="hidden mt-auto p-3 bg-surface-dark/50 border border-brand-400/20 rounded-lg animate-fade-in">
@@ -293,18 +297,16 @@
             </div>
 
             <!-- Bottom row -->
-            <div class="grid grid-cols-3 gap-2">
-              <button id="btn-code-tuan"
+
+
+            <div class="grid grid-cols-2 gap-2">
+              <button id="btn-script-auto"
                 class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Code tuần
+                <i data-lucide="bot" class="w-3.5 h-3.5"></i> Script Auto
               </button>
-              <button id="btn-reset-an"
+              <button id="btn-config"
                 class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reset ấn V15
-              </button>
-              <button id="btn-nhan-all-code"
-                class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
-                <i data-lucide="gift" class="w-3.5 h-3.5"></i> Nhận all code
+                <i data-lucide="settings" class="w-3.5 h-3.5"></i> Config
               </button>
             </div>
 
@@ -392,7 +394,8 @@
         <button id="btn-cancel-prompt"
           class="px-3 py-1.5 bg-surface border border-white/10 hover:bg-surface-card text-gray-300 text-sm font-medium rounded-md transition-colors">Hủy</button>
         <button id="btn-submit-prompt"
-          class="px-4 py-1.5 bg-brand-400 hover:bg-brand-300 text-white text-sm font-medium rounded-md transition-colors">Xác nhận</button>
+          class="px-4 py-1.5 bg-brand-400 hover:bg-brand-300 text-white text-sm font-medium rounded-md transition-colors">Xác
+          nhận</button>
       </div>
     </div>
   </div>
