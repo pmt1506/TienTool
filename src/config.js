@@ -5,6 +5,7 @@ const config = {
     collections: {
       keys: 'keys',
       accounts: 'accounts',
+      templates: 'templates',
     },
   },
   app: {

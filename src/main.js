@@ -11,6 +11,12 @@ import {
   updateAccount,
   deleteAccount,
 } from './services/accountService.js';
+import {
+  getTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
+} from './services/templateService.js';
 import { loginGame } from './services/loginService.js';
 import { registerCharacter } from './services/registerService.js';
 import { startResetMark } from './services/resetMarkService.js';
@@ -138,6 +144,23 @@ ipcMain.handle('accounts:update', async (_event, id, data) => {
 
 ipcMain.handle('accounts:delete', async (_event, id) => {
   return await deleteAccount(id);
+});
+
+// Templates CRUD
+ipcMain.handle('templates:list', async (_event, keyId) => {
+  return await getTemplates(keyId);
+});
+
+ipcMain.handle('templates:create', async (_event, data) => {
+  return await createTemplate(data);
+});
+
+ipcMain.handle('templates:update', async (_event, id, data) => {
+  return await updateTemplate(id, data);
+});
+
+ipcMain.handle('templates:delete', async (_event, id) => {
+  return await deleteTemplate(id);
 });
 
 // Game

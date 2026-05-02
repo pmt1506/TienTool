@@ -15,6 +15,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateAccount: (id, data) => ipcRenderer.invoke('accounts:update', id, data),
   deleteAccount: (id) => ipcRenderer.invoke('accounts:delete', id),
 
+  // Templates
+  getTemplates: (keyId) => ipcRenderer.invoke('templates:list', keyId),
+  createTemplate: (data) => ipcRenderer.invoke('templates:create', data),
+  updateTemplate: (id, data) => ipcRenderer.invoke('templates:update', id, data),
+  deleteTemplate: (id) => ipcRenderer.invoke('templates:delete', id),
+
   // Game
   loginGame: (username, password, serverId, accountType, prefix, maxLength) => ipcRenderer.invoke('game:login', username, password, serverId, accountType, prefix, maxLength),
   renameWindow: (pid, newName) => ipcRenderer.invoke('game:rename-window', pid, newName),

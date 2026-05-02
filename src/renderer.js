@@ -9,6 +9,7 @@ const BASE_URL = import.meta.env.VITE_BASE_URL;
 // ── State ──────────────────────────────────────────────────────
 let currentKeyId = null;
 let accounts = [];
+let templates = [];
 let selectedIndex = -1;
 let serverList = [];
 
@@ -37,6 +38,13 @@ const dom = {
   btnEdit: $('#btn-edit'),
   btnAddClone: $('#btn-add-clone'),
   btnDelete: $('#btn-delete'),
+  
+  // Templates
+  templateSelect: $('#template-select'),
+  btnCreateTemplate: $('#btn-create-template'),
+  btnRenameTemplate: $('#btn-rename-template'),
+  btnDeleteTemplate: $('#btn-delete-template'),
+
   btnLoginLauncher: $('#btn-login-launcher'),
   btnScriptAuto: $('#btn-script-auto'),
   toastContainer: $('#toast-container'),
@@ -63,6 +71,14 @@ const dom = {
   btnMinimize: $('#btn-minimize'),
   btnMaximize: $('#btn-maximize'),
   btnClose: $('#btn-close'),
+
+  // Custom Prompt
+  modalPrompt: $('#modal-prompt'),
+  promptTitle: $('#prompt-title'),
+  inputPrompt: $('#input-prompt'),
+  btnClosePrompt: $('#btn-close-prompt'),
+  btnCancelPrompt: $('#btn-cancel-prompt'),
+  btnSubmitPrompt: $('#btn-submit-prompt'),
 };
 
 // ── Load Config ────────────────────────────────────────────────
@@ -250,6 +266,7 @@ async function loadAccounts() {
       selectedIndex = -1;
       clearForm();
       renderAccounts();
+      loadTemplates();
     } else {
       toast(result.error, 'error');
     }
@@ -257,6 +274,165 @@ async function loadAccounts() {
     toast('Không thể tải dữ liệu.', 'error');
   }
 }
+
+// ══════════════════════════════════════════════════════════════
+//  TEMPLATES
+// ══════════════════════════════════════════════════════════════
+async function loadTemplates() {
+  try {
+    const result = await api.getTemplates(currentKeyId);
+    if (result.success) {
+      templates = result.data;
+      renderTemplates();
+    } else {
+      console.error('Failed to load templates:', result.error);
+    }
+  } catch (err) {
+    console.error('Failed to load templates:', err);
+  }
+}
+
+function renderTemplates() {
+  dom.templateSelect.innerHTML = '<option value="">-- Chọn template --</option>';
+  templates.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t._id;
+    opt.textContent = `${t.name} (${t.accountIds.length} acc)`;
+    dom.templateSelect.appendChild(opt);
+  });
+  dom.btnDeleteTemplate.classList.add('hidden');
+  dom.btnRenameTemplate.classList.add('hidden');
+  dom.btnCreateTemplate.classList.remove('hidden');
+}
+
+// ── Custom Prompt ───────────────────────────────────────────────
+// ── Custom Prompt ───────────────────────────────────────────────
+function asyncPrompt(title, defaultValue = '') {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-prompt');
+    const titleEl = document.getElementById('prompt-title');
+    const inputEl = document.getElementById('input-prompt');
+    const btnClose = document.getElementById('btn-close-prompt');
+    const btnCancel = document.getElementById('btn-cancel-prompt');
+    const btnSubmit = document.getElementById('btn-submit-prompt');
+
+    if (!modal) {
+      console.error('Modal prompt element not found!');
+      return resolve(prompt(title, defaultValue)); // fallback
+    }
+
+    titleEl.textContent = title;
+    inputEl.value = defaultValue;
+    modal.classList.remove('hidden');
+    inputEl.focus();
+    inputEl.select();
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      btnClose.removeEventListener('click', onCancel);
+      btnCancel.removeEventListener('click', onCancel);
+      btnSubmit.removeEventListener('click', onSubmit);
+      inputEl.removeEventListener('keydown', onKeydown);
+    };
+
+    const onCancel = () => { cleanup(); resolve(null); };
+    const onSubmit = () => { cleanup(); resolve(inputEl.value); };
+    const onKeydown = (e) => {
+      if (e.key === 'Enter') onSubmit();
+      if (e.key === 'Escape') onCancel();
+    };
+
+    btnClose.addEventListener('click', onCancel);
+    btnCancel.addEventListener('click', onCancel);
+    btnSubmit.addEventListener('click', onSubmit);
+    inputEl.addEventListener('keydown', onKeydown);
+  });
+}
+
+dom.templateSelect.addEventListener('change', () => {
+  const selectedId = dom.templateSelect.value;
+  if (!selectedId) {
+    dom.btnDeleteTemplate.classList.add('hidden');
+    dom.btnRenameTemplate.classList.add('hidden');
+    dom.btnCreateTemplate.classList.remove('hidden');
+    accounts.forEach(a => a.isChecked = false);
+    renderAccounts();
+    return;
+  }
+
+  dom.btnDeleteTemplate.classList.remove('hidden');
+  dom.btnRenameTemplate.classList.remove('hidden');
+  dom.btnCreateTemplate.classList.add('hidden');
+  const t = templates.find(x => x._id === selectedId);
+  if (t) {
+    accounts.forEach(a => {
+      a.isChecked = t.accountIds.includes(a._id);
+    });
+    renderAccounts();
+  }
+});
+
+dom.btnCreateTemplate.addEventListener('click', async () => {
+  const checkedAccounts = accounts.filter(acc => acc.isChecked);
+
+  if (checkedAccounts.length === 0) {
+    return toast('Vui lòng tick chọn ít nhất 1 account để tạo template.', 'warning');
+  }
+
+  const name = await asyncPrompt(`Nhập tên template (${checkedAccounts.length} acc):`);
+  
+  if (!name || !name.trim()) return;
+
+  const data = {
+    keyId: currentKeyId,
+    name: name.trim(),
+    accountIds: checkedAccounts.map(a => a._id)
+  };
+
+  const result = await api.createTemplate(data);
+  if (result.success) {
+    toast(`Tạo template "${data.name}" thành công!`, 'success');
+    accounts.forEach(a => a.isChecked = false);
+    renderAccounts();
+    loadTemplates();
+  } else {
+    toast(result.error, 'error');
+  }
+});
+
+dom.btnDeleteTemplate.addEventListener('click', async () => {
+  const selectedId = dom.templateSelect.value;
+  if (!selectedId) return;
+
+  if (!confirm('Bạn có chắc muốn xóa template này?')) return;
+
+  const result = await api.deleteTemplate(selectedId);
+  if (result.success) {
+    toast('Đã xóa template.', 'success');
+    loadTemplates();
+  } else {
+    toast(result.error, 'error');
+  }
+});
+
+dom.btnRenameTemplate.addEventListener('click', async () => {
+  const selectedId = dom.templateSelect.value;
+  if (!selectedId) return;
+
+  const t = templates.find(x => x._id === selectedId);
+  if (!t) return;
+
+  const newName = await asyncPrompt(`Nhập tên mới cho template:`, t.name);
+  if (!newName || !newName.trim() || newName.trim() === t.name) return;
+
+  const result = await api.updateTemplate(selectedId, { name: newName.trim() });
+  if (result.success) {
+    toast('Đã đổi tên template.', 'success');
+    loadTemplates();
+  } else {
+    toast(result.error, 'error');
+  }
+});
 
 function renderAccounts() {
   const query = dom.inputSearchAccount?.value.trim().toLowerCase() || '';
