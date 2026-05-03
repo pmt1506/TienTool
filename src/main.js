@@ -22,6 +22,7 @@ import { registerCharacter } from './services/registerService.js';
 import { startResetMark } from './services/resetMarkService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
+import { getAllCode, getWeeklyCode } from './services/autoService.js';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 
