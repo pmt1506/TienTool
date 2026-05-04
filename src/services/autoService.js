@@ -205,7 +205,7 @@ export async function getAllCode(keyId, onProgress, checkStop) {
 }
 
 export async function getWeeklyCode(keyId, codesInput, onProgress, checkStop) {
-    const apiUrl = `https://api3.gnddt.com/api/Function/Function/GiftCodeAward`;
+    const apiUrl = `https://api3.gnddt.com/api/Function/GiftCodeAward`;
     // Use a copy of the input array since we will remove codes
     let codesList = [...codesInput];
 
@@ -285,6 +285,7 @@ export async function getWeeklyCode(keyId, codesInput, onProgress, checkStop) {
                 });
 
                 const text = await res.text();
+                console.log(`[getWeeklyCode] Code: ${code} - Response: ${text}`);
                 let json;
                 try {
                     json = JSON.parse(text);
@@ -296,6 +297,7 @@ export async function getWeeklyCode(keyId, codesInput, onProgress, checkStop) {
 
                 if (json?.result === false) {
                     const msg = json.msg || '';
+                    console.log(`[getWeeklyCode] Code: ${code} - Failed: ${msg}`);
 
                     if (msg.includes('Mã bảo vệ không đúng')) {
                         // Thử lại mã code này với captcha mới
@@ -319,6 +321,7 @@ export async function getWeeklyCode(keyId, codesInput, onProgress, checkStop) {
                     }
                 } else {
                     // Thành công
+                    console.log(`[getWeeklyCode] Code: ${code} - Success! json:`, json);
                     // Đã nhận code xong => Loại khỏi list và chuyển qua tài khoản khác
                     codesList.splice(codeIndex, 1);
                     nextAccount = true;
