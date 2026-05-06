@@ -289,22 +289,45 @@ ipcMain.handle('game:arrange-launchers-100', async (_event, targetPids) => {
 
 ipcMain.handle('auto:open-bat-file', async () => {
   try {
+    // Source: bundled clickermann in resources (install dir) — gets overwritten on updates
     const sourceClickermannDir = app.isPackaged
       ? path.join(process.resourcesPath, 'clickermann')
-      : path.join(__dirname, '..', 'src', 'resources', 'clickermann');
+      : path.join(app.getAppPath(), 'src', 'resources', 'clickermann');
 
+    // Destination: persistent copy in userData — survives updates
     const clickermannDir = path.join(app.getPath('userData'), 'clickermann');
+    const clickermannExe = path.join(clickermannDir, 'Clickermann.exe');
 
+    log.info(`[Main] Source clickermann: ${sourceClickermannDir}`);
+    log.info(`[Main] Target clickermann: ${clickermannDir}`);
+
+    // Check if Clickermann.exe exists (not just folder) to detect partial/missing copies
+    let needsFullCopy = false;
     try {
-      await fs.access(clickermannDir);
+      await fs.access(clickermannExe);
+      log.info('[Main] Clickermann.exe found in userData — skipping full copy.');
     } catch {
-      console.log('[Main] Đang copy Clickermann sang thư mục userData (chạy lần đầu)...');
+      needsFullCopy = true;
+    }
+
+    if (needsFullCopy) {
+      log.info('[Main] Clickermann.exe not found in userData — performing initial copy...');
       try {
+        // Ensure target dir exists
+        await fs.mkdir(clickermannDir, { recursive: true });
         await fs.cp(sourceClickermannDir, clickermannDir, { recursive: true });
-        console.log('[Main] Copy Clickermann thành công!');
+        log.info('[Main] Full copy of Clickermann completed successfully!');
       } catch (cpErr) {
-        console.error('[Main] Lỗi khi copy Clickermann:', cpErr);
-        // Fallback to source directory if copy fails for some reason
+        log.error('[Main] Error copying Clickermann:', cpErr);
+        // If copy fails, try to use the source dir directly as fallback
+      }
+    } else {
+      // Merge: copy only new files from source that don't already exist in userData
+      // This handles app updates that may ship new/updated scripts without overwriting user customizations
+      try {
+        await mergeClickermann(sourceClickermannDir, clickermannDir);
+      } catch (mergeErr) {
+        log.warn('[Main] Merge copy failed (non-critical):', mergeErr.message);
       }
     }
 
@@ -318,9 +341,9 @@ ipcMain.handle('auto:open-bat-file', async () => {
           return path.join(clickermannDir, baseName);
         });
         await fs.writeFile(filePath, newLines.join('\r\n'), 'utf8');
-        console.log(`[Main] Updated ${fileName} with dynamic paths:`, clickermannDir);
+        log.info(`[Main] Updated ${fileName} with dynamic paths: ${clickermannDir}`);
       } catch (fsErr) {
-        console.error(`[Main] Could not update ${fileName}:`, fsErr.message);
+        log.warn(`[Main] Could not update ${fileName}: ${fsErr.message}`);
       }
     };
 
@@ -352,21 +375,55 @@ ipcMain.handle('auto:open-bat-file', async () => {
       await patchBat(batPath);
       await patchBat(path.join(clickermannDir, 'script.bat'));
     } catch (batErr) {
-      console.error('[Main] Could not update bat file:', batErr.message);
+      log.error('[Main] Could not update bat file:', batErr.message);
     }
 
     exec(`start "" "${batPath}"`, { cwd: clickermannDir }, (error) => {
       if (error) {
-        console.error(`[Main] Error executing bat: ${error.message}`);
+        log.error(`[Main] Error executing bat: ${error.message}`);
       }
     });
 
     return { success: true };
   } catch (err) {
-    console.error('[Main] Error in auto:open-bat-file:', err);
+    log.error('[Main] Error in auto:open-bat-file:', err);
     return { success: false, error: err.message };
   }
 });
+
+/**
+ * Merge files from source → destination without overwriting existing files.
+ * Only copies files that don't exist in the destination yet.
+ * This preserves user-customized scripts while allowing new files from updates.
+ */
+async function mergeClickermann(srcDir, destDir) {
+  let entries;
+  try {
+    entries = await fs.readdir(srcDir, { withFileTypes: true });
+  } catch {
+    return; // source doesn't exist (dev mode without resources folder)
+  }
+
+  await fs.mkdir(destDir, { recursive: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+
+    if (entry.isDirectory()) {
+      await mergeClickermann(srcPath, destPath);
+    } else {
+      try {
+        await fs.access(destPath);
+        // File already exists in userData — do NOT overwrite
+      } catch {
+        // File doesn't exist — copy it from source
+        await fs.copyFile(srcPath, destPath);
+        log.info(`[Main] Merged new file: ${entry.name}`);
+      }
+    }
+  }
+}
 
 // Auto nhận code
 let isAutoStopped = false;
