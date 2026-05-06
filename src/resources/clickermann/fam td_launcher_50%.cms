@@ -16,7 +16,7 @@ if (pxl(471,252)  = 4224898 or pxl(471,252)  = 1056289)
    LCLICK(253,165)  // 16645629
 //   LCLICK(234,126)  // 4299487 BOT
    
-   //LCLICK(470,238) // bat dau
+   LCLICK(470,238) // bat dau
    LCLICK(253,269)  // 5016732    nv
    wait(0.2)
 end_if
@@ -104,7 +104,7 @@ if(pxl(246,22)  = 1325412 or pxl(246,22)  = 331289)
    wait(0.1)
    keyPress(#esc)
    
-   LCLICK(470,238) // bat dau
+   //LCLICK(470,238) // bat dau
    
    wait(0.5)
 end_if

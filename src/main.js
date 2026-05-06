@@ -289,9 +289,24 @@ ipcMain.handle('game:arrange-launchers-100', async (_event, targetPids) => {
 
 ipcMain.handle('auto:open-bat-file', async () => {
   try {
-    const clickermannDir = app.isPackaged
+    const sourceClickermannDir = app.isPackaged
       ? path.join(process.resourcesPath, 'clickermann')
       : path.join(__dirname, '..', 'src', 'resources', 'clickermann');
+
+    const clickermannDir = path.join(app.getPath('userData'), 'clickermann');
+
+    try {
+      await fs.access(clickermannDir);
+    } catch {
+      console.log('[Main] Đang copy Clickermann sang thư mục userData (chạy lần đầu)...');
+      try {
+        await fs.cp(sourceClickermannDir, clickermannDir, { recursive: true });
+        console.log('[Main] Copy Clickermann thành công!');
+      } catch (cpErr) {
+        console.error('[Main] Lỗi khi copy Clickermann:', cpErr);
+        // Fallback to source directory if copy fails for some reason
+      }
+    }
 
     const patchHistory = async (fileName) => {
       const filePath = path.join(clickermannDir, 'data', fileName);
