@@ -351,32 +351,19 @@ ipcMain.handle('auto:open-bat-file', async () => {
     await patchHistory('history1.txt');
     await patchHistory('history_editor.txt');
 
-    const batPath = path.join(clickermannDir, 'script_multiple.bat');
-
-    // Replace placeholders or legacy paths in bat files
+    // Always update bat files from source (they use %~dp0, not user-customizable)
     try {
-      const placeholder = '__CLICKERMANN_DIR__';
-      const patchBat = async (p) => {
-        let content = await fs.readFile(p, 'utf8');
-        let changed = false;
-        if (content.includes(placeholder)) {
-          content = content.replaceAll(placeholder, clickermannDir);
-          changed = true;
-        }
-        // Fallback for any lingering legacy paths (case-insensitive)
-        const legacyRegex = /C:\\Program Files \(x86\)\\[Gg]unny[Cc]lient\\Auto/g;
-        if (legacyRegex.test(content)) {
-          content = content.replace(legacyRegex, clickermannDir);
-          changed = true;
-        }
-        if (changed) await fs.writeFile(p, content, 'utf8');
-      };
-
-      await patchBat(batPath);
-      await patchBat(path.join(clickermannDir, 'script.bat'));
-    } catch (batErr) {
-      log.error('[Main] Could not update bat file:', batErr.message);
+      for (const batName of ['script_multiple.bat', 'script.bat']) {
+        const srcBat = path.join(sourceClickermannDir, batName);
+        const destBat = path.join(clickermannDir, batName);
+        await fs.copyFile(srcBat, destBat);
+      }
+      log.info('[Main] Updated bat files from source.');
+    } catch (batCopyErr) {
+      log.warn('[Main] Could not update bat files from source:', batCopyErr.message);
     }
+
+    const batPath = path.join(clickermannDir, 'script_multiple.bat');
 
     exec(`start "" "${batPath}"`, { cwd: clickermannDir }, (error) => {
       if (error) {
