@@ -70,7 +70,7 @@ export async function loginApi(userName, password, serialNumber) {
     }
 }
 
-export async function loginGame(userName, password, serverID, accountType, prefix, maxLength) {
+export async function loginGame(userName, password, serverID, accountType, prefix, maxLength, checkReg = true) {
     const serialNumber = getSerialNumber();
     const apiResult = await loginApi(userName, password, serialNumber);
 
@@ -82,7 +82,7 @@ export async function loginGame(userName, password, serverID, accountType, prefi
         const token = apiResult.token;
         
         // 1. Ensure character exists (Auto Register if not)
-        if (accountType === 2 || accountType === "2") {
+        if ((accountType === 2 || accountType === "2") && checkReg !== false) {
             console.log(`[Login] Checking/Creating character for clone account ${userName}...`);
             const ensureRes = await ensureCharacterExists(userName, token, serverID, prefix, maxLength);
             if (!ensureRes.success) {

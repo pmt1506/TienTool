@@ -226,8 +226,8 @@ ipcMain.handle('templates:delete', async (_event, id) => {
 });
 
 // Game
-ipcMain.handle('game:login', async (_event, username, password, serverId, accountType, prefix, maxLength) => {
-  const result = await loginGame(username, password, serverId, accountType, prefix, maxLength);
+ipcMain.handle('game:login', async (_event, username, password, serverId, accountType, prefix, maxLength, checkReg) => {
+  const result = await loginGame(username, password, serverId, accountType, prefix, maxLength, checkReg);
   if (result.success && result.pid) {
     activePids.push(result.pid);
   }

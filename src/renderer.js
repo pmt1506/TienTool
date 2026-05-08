@@ -66,7 +66,7 @@ const dom = {
   btnCloseConfig: $('#btn-close-config'),
   btnSaveConfig: $('#btn-save-config'),
   inputRegPrefix: $('#input-reg-prefix'),
-  inputRegMaxLength: $('#input-reg-max-length'),
+  inputRegCheckEnable: $('#input-reg-check-enable'),
 
   btnLog: $('#btn-log'),
 
@@ -84,7 +84,7 @@ const dom = {
 };
 
 // ── Load Config ────────────────────────────────────────────────
-let config = { regPrefix: 'GNLM', regMaxLength: 14 };
+let config = { regPrefix: 'GNLM', regCheckEnable: true };
 try {
   const saved = localStorage.getItem('tt_config');
   if (saved) config = { ...config, ...JSON.parse(saved) };
@@ -582,7 +582,7 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
         continue;
       }
       try {
-        const result = await api.loginGame(acc.username, acc.password, acc.server, acc.accountType, config.regPrefix, config.regMaxLength);
+        const result = await api.loginGame(acc.username, acc.password, acc.server, acc.accountType, config.regPrefix, 14, config.regCheckEnable);
         if (result.success) {
           const sName = getServerName(acc.server);
           await api.renameWindow(result.pid, `${acc.username} - ${sName}`);
@@ -616,7 +616,7 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
 
   toast('Đang mở Launcher...', 'info');
   try {
-    const result = await api.loginGame(data.username, data.password, data.server, data.accountType || 2, config.regPrefix, config.regMaxLength);
+    const result = await api.loginGame(data.username, data.password, data.server, data.accountType || 2, config.regPrefix, 14, config.regCheckEnable);
     if (result.success) {
       toast('Đã mở Game Launcher.', 'success');
       const sName = getServerName(data.server);
@@ -655,7 +655,7 @@ if (dom.btnArrangeLauncher100) {
 // ── Config Modal ───────────────────────────────────────────────
 dom.btnConfig.addEventListener('click', () => {
   dom.inputRegPrefix.value = config.regPrefix;
-  dom.inputRegMaxLength.value = config.regMaxLength;
+  if (dom.inputRegCheckEnable) dom.inputRegCheckEnable.checked = config.regCheckEnable !== false;
   dom.modalConfig.classList.remove('hidden');
 });
 
@@ -665,7 +665,7 @@ dom.btnCloseConfig.addEventListener('click', () => {
 
 dom.btnSaveConfig.addEventListener('click', () => {
   config.regPrefix = dom.inputRegPrefix.value.trim() || 'GNLM';
-  config.regMaxLength = parseInt(dom.inputRegMaxLength.value, 10) || 14;
+  if (dom.inputRegCheckEnable) config.regCheckEnable = dom.inputRegCheckEnable.checked;
   localStorage.setItem('tt_config', JSON.stringify(config));
   dom.modalConfig.classList.add('hidden');
   toast('Đã lưu cấu hình.', 'success');

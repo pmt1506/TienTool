@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteTemplate: (id) => ipcRenderer.invoke('templates:delete', id),
 
   // Game
-  loginGame: (username, password, serverId, accountType, prefix, maxLength) => ipcRenderer.invoke('game:login', username, password, serverId, accountType, prefix, maxLength),
+  loginGame: (username, password, serverId, accountType, prefix, maxLength, checkReg) => ipcRenderer.invoke('game:login', username, password, serverId, accountType, prefix, maxLength, checkReg),
   renameWindow: (pid, newName) => ipcRenderer.invoke('game:rename-window', pid, newName),
   arrangeLaunchers: () => ipcRenderer.invoke('game:arrange-launchers'),
   arrangeLaunchers100: (pids) => ipcRenderer.invoke('game:arrange-launchers-100', pids),
