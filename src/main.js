@@ -37,7 +37,34 @@ if (started) {
 }
 
 let mainWindow = null;
+let logWindow = null;
 const activePids = [];
+
+// Patch console to send logs to renderer
+const originalLog = console.log;
+const originalError = console.error;
+
+function sendLogToWindow(level, args) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+    mainWindow.webContents.send('app:log', `[${level}] ${msg}`);
+  }
+  if (logWindow && !logWindow.isDestroyed()) {
+    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+    logWindow.webContents.send('app:log', `[${level}] ${msg}`);
+  }
+}
+
+console.log = (...args) => {
+  originalLog(...args);
+  sendLogToWindow('INFO', args);
+};
+
+console.error = (...args) => {
+  originalError(...args);
+  sendLogToWindow('ERROR', args);
+};
+
 
 const createWindow = () => {
   const display = screen.getPrimaryDisplay();
@@ -124,6 +151,40 @@ ipcMain.handle('window:maximize', () => {
   }
 });
 ipcMain.handle('window:close', () => mainWindow?.close());
+
+ipcMain.handle('window:open-log', () => {
+  if (logWindow) {
+    if (logWindow.isMinimized()) logWindow.restore();
+    logWindow.focus();
+    return;
+  }
+
+  logWindow = new BrowserWindow({
+    width: 650,
+    height: 450,
+    title: 'TienTool - Logs',
+    frame: false,
+    backgroundColor: '#0d1117',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    logWindow.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}?page=log`);
+  } else {
+    logWindow.loadFile(
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+      { search: 'page=log' }
+    );
+  }
+
+  logWindow.on('closed', () => {
+    logWindow = null;
+  });
+});
 
 // Auth
 ipcMain.handle('auth:login', async (_event, key) => {

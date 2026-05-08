@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
+  openLogWindow: () => ipcRenderer.invoke('window:open-log'),
 
   // Auth
   login: (key) => ipcRenderer.invoke('auth:login', key),
@@ -43,6 +44,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopResetMark: () => ipcRenderer.invoke('game:stop-reset-mark'),
 
   onAutoProgress: (callback) => ipcRenderer.on('auto:progress', (_event, data) => callback(data)),
+  onAppLog: (callback) => ipcRenderer.on('app:log', (_event, msg) => callback(msg)),
 
   // Webshop
   openWebshop: (token) => ipcRenderer.invoke('open-webshop', token),

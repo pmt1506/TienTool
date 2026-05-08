@@ -68,6 +68,8 @@ const dom = {
   inputRegPrefix: $('#input-reg-prefix'),
   inputRegMaxLength: $('#input-reg-max-length'),
 
+  btnLog: $('#btn-log'),
+
   btnMinimize: $('#btn-minimize'),
   btnMaximize: $('#btn-maximize'),
   btnClose: $('#btn-close'),
@@ -669,12 +671,17 @@ dom.btnSaveConfig.addEventListener('click', () => {
   toast('Đã lưu cấu hình.', 'success');
 });
 
+// ── Log Window ──────────────────────────────────────────────────
+dom.btnLog.addEventListener('click', async () => {
+  await api.openLogWindow();
+});
+
 // ── Placeholder buttons ────────────────────────────────────────
 
 const placeholderIds = [
   'btn-flash-login', 'btn-sort', 'btn-kill-all',
 
-  'btn-clipboard', 'btn-log', 
+  'btn-clipboard', 
   'btn-import-json', 'btn-export-json', 'btn-export-txt'
 ];
 placeholderIds.forEach((id) => {
