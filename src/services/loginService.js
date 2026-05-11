@@ -13,7 +13,7 @@ export async function loginApi(userName, password, serialNumber) {
         params.append("PublicKey", "PublicKey-" + serialNumber);
 
         const response = await axios.post(
-            "http://api3.gnddt.com/api/Launcher/LauncherWebV566",
+            "http://api.gnddt.com/api/Launcher/LauncherWebV566",
             params.toString(),
             {
                 headers: {
@@ -80,7 +80,7 @@ export async function loginGame(userName, password, serverID, accountType, prefi
 
     try {
         const token = apiResult.token;
-        
+
         // 1. Ensure character exists (Auto Register if not)
         if ((accountType === 2 || accountType === "2") && checkReg !== false) {
             console.log(`[Login] Checking/Creating character for clone account ${userName}...`);

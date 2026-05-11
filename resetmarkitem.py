@@ -11,7 +11,7 @@ username = 'thanhhai1995'
 password = 'Anhhai1995@'
 
 def getImage():
-    api_url = 'https://api3.gnddt.com/api/oauth/GetCaptcha'
+    api_url = 'https://api.gnddt.com/api/oauth/GetCaptcha'
     imgstring = requests.post(api_url).json()
     imgdata = base64.b64decode(imgstring)
     with open('download.png', 'wb') as f:
@@ -37,7 +37,7 @@ def getCaptcha(filename):
             time.sleep(1)
 
 def getLoginToken(username, password):
-    api_url = 'https://api3.gnddt.com/api/oauth/Token'
+    api_url = 'https://api.gnddt.com/api/oauth/Token'
     while True:
         getImage()
         Captcha = getCaptcha('download.png')
@@ -60,7 +60,7 @@ def getLoginToken(username, password):
     return response['Token']
 
 def getUserInfo(token):
-    api_url = 'https://api3.gnddt.com/api/oauth/GetUserInfo'
+    api_url = 'https://api.gnddt.com/api/oauth/GetUserInfo'
     headers = {
         "Authorization": token,
         "Accept": "application/json"
@@ -72,7 +72,7 @@ def getUserInfo(token):
         return None
 
 def getMarkItem(token, user_id, server_id, curr_page=1):
-    api_url = 'https://api3.gnddt.com/api/Function/GetMarkItem'
+    api_url = 'https://api.gnddt.com/api/Function/GetMarkItem'
     data = {
         "UserID": user_id,
         "ServerId": server_id,
@@ -120,7 +120,7 @@ def getMarkItemList(token, user_id, server_id):
     return all_item_ids
 
 def callGetAllMarkItemIds(token, user_id, server_id):
-    api_url = 'https://api3.gnddt.com/api/Function/getAllMarkItemIds'
+    api_url = 'https://api.gnddt.com/api/Function/getAllMarkItemIds'
     data = {
         "UserID": user_id,
         "ServerId": server_id
@@ -135,7 +135,7 @@ def callGetAllMarkItemIds(token, user_id, server_id):
     return response.json()
 
 def resetMarkItem(token, user_id, server_id, item_id):
-    api_url = 'https://api3.gnddt.com/api/Function/ResetMarkItem'
+    api_url = 'https://api.gnddt.com/api/Function/ResetMarkItem'
     data = {
         "UserID": user_id,
         "ServerId": server_id,

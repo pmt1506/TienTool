@@ -323,7 +323,7 @@ ipcMain.handle('game:arrange-launchers-100', async (_event, targetPids) => {
 
   validPids.forEach((pid, index) => {
     if (index >= 4) return;
-    
+
     const rect = koffiService.getWindowRectByPid(pid);
     if (!rect) return;
 
@@ -558,7 +558,7 @@ ipcMain.handle('open-webshop', async (event, token) => {
 
   // url https://sv3.gnddt.com/cua-hang
   await ses.cookies.set({
-    url: 'https://api3.gnddt.com', // domain API
+    url: 'https://api.gnddt.com', // domain API
     name: 'Authorization',         // hoặc Token (tùy backend)
     value: token,
     path: '/',

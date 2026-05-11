@@ -1,13 +1,13 @@
 import { getLoginToken } from './apiService.js';
 
 export async function getMarkItem(token, userId, serverId, currPage = 1) {
-    const apiUrl = 'https://api3.gnddt.com/api/Function/GetMarkItem';
+    const apiUrl = 'https://api.gnddt.com/api/Function/GetMarkItem';
     const data = {
         UserID: userId,
         ServerId: serverId,
         currPage: currPage
     };
-    
+
     const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -22,13 +22,13 @@ export async function getMarkItem(token, userId, serverId, currPage = 1) {
 
 export async function getMarkItemList(token, userId, serverId) {
     const allItemIds = [];
-    
+
     const firstPage = await getMarkItem(token, userId, serverId, 1);
     const totalPage = firstPage?.pageModel?.totalPage || 1;
-    
+
     for (let page = 1; page <= totalPage; page++) {
         let pageData = page === 1 ? firstPage : await getMarkItem(token, userId, serverId, page);
-        
+
         const items = pageData?.items || [];
         for (const item of items) {
             if (item.ItemId) {
@@ -38,22 +38,22 @@ export async function getMarkItemList(token, userId, serverId) {
                 });
             }
         }
-        
+
         if (page < totalPage) {
             await new Promise(resolve => setTimeout(resolve, 500));
         }
     }
-    
+
     return allItemIds;
 }
 
 export async function callGetAllMarkItemIds(token, userId, serverId) {
-    const apiUrl = 'https://api3.gnddt.com/api/Function/getAllMarkItemIds';
+    const apiUrl = 'https://api.gnddt.com/api/Function/getAllMarkItemIds';
     const data = {
         UserID: userId,
         ServerId: serverId
     };
-    
+
     const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -63,13 +63,13 @@ export async function callGetAllMarkItemIds(token, userId, serverId) {
         },
         body: JSON.stringify(data)
     });
-    
+
     console.log(`[ResetMark] Đã Trigger getAllMarkItemIds`);
     return await res.json();
 }
 
 export async function callResetAllMarkItem(token, userId, serverId) {
-    const apiUrl = 'https://api3.gnddt.com/api/Function/ResetAllMarkItem';
+    const apiUrl = 'https://api.gnddt.com/api/Function/ResetAllMarkItem';
     const data = {
         currPage: 1,
         rowPage: 10,
@@ -79,7 +79,7 @@ export async function callResetAllMarkItem(token, userId, serverId) {
         Otp: "",
         ItemId: 0
     };
-    
+
     const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -89,19 +89,19 @@ export async function callResetAllMarkItem(token, userId, serverId) {
         },
         body: JSON.stringify(data)
     });
-    
+
     console.log(`[ResetMark] Đã Trigger Reset Vip15 (ResetAllMarkItem)`);
     return await res.json();
 }
 
 export async function resetMarkItem(token, userId, serverId, itemId) {
-    const apiUrl = 'https://api3.gnddt.com/api/Function/ResetMarkItem';
+    const apiUrl = 'https://api.gnddt.com/api/Function/ResetMarkItem';
     const data = {
         UserID: userId,
         ServerId: serverId,
         ItemId: itemId
     };
-    
+
     const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -148,7 +148,7 @@ export async function startResetMark(accounts, onProgress, checkStop) {
         });
 
         let allItems = await getMarkItemList(token, userId, serverId);
-        
+
         if (!allItems || allItems.length === 0) {
             if (onProgress) onProgress({
                 message: `Danh sách rỗng, đang gọi API getAllMarkItemIds...`,
@@ -156,7 +156,7 @@ export async function startResetMark(accounts, onProgress, checkStop) {
             });
             await callGetAllMarkItemIds(token, userId, serverId);
             allItems = await getMarkItemList(token, userId, serverId);
-            
+
             if (!allItems || allItems.length === 0) {
                 if (onProgress) onProgress({
                     message: `Danh sách vẫn rỗng, tiến hành ResetAllMarkItem (Vip15)...`,
@@ -177,7 +177,7 @@ export async function startResetMark(accounts, onProgress, checkStop) {
         }
 
         const itemTotal = allItems.length;
-        
+
         for (let j = 0; j < itemTotal; j++) {
             if (checkStop && checkStop()) break;
 
@@ -198,9 +198,9 @@ export async function startResetMark(accounts, onProgress, checkStop) {
 
             await new Promise(resolve => setTimeout(resolve, 300));
         }
-        
+
         if (onProgress && !(checkStop && checkStop())) {
-             onProgress({
+            onProgress({
                 message: `✅ Đã reset thành công ${itemTotal} ấn cho ${account.username}`,
                 accCurrent, accTotal, username: account.username,
                 codeCurrent: itemTotal, codeTotal: itemTotal
