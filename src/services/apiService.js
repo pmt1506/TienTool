@@ -5,7 +5,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { app } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 
 // fix __dirname cho ES module
 const __filename = fileURLToPath(import.meta.url);
@@ -141,9 +141,84 @@ export async function getLoginToken(username, password, checkStop) {
                 // check nếu ko có nhân vật mặc định thì set mặc định
 
                 if (data?.UserInfo?.UserIdDefault === 0 && data?.UserInfo?.ServerIdDefault === 0) {
-                    const result = await setAccountDefault(token);
-                    if (result) {
-                        console.log(`✅ Set default account successful for ${username}`);
+                    const characters = await getAllNickName(token);
+                    
+                    if (characters && characters.length > 0) {
+                        let selectedChar = null;
+                        
+                        // Mở popup cho user chọn
+                        selectedChar = await new Promise((resolve) => {
+                            const win = new BrowserWindow({
+                                width: 400,
+                                height: 300,
+                                alwaysOnTop: true,
+                                title: 'Chọn nhân vật mặc định',
+                                autoHideMenuBar: true,
+                                webPreferences: {
+                                    nodeIntegration: true,
+                                    contextIsolation: false
+                                }
+                            });
+
+                            const optionsHtml = characters.map((c, i) => {
+                                const safeName = c.NickName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                return `<option value="${i}">${safeName} (Server ${c.ServerId})</option>`;
+                            }).join('');
+
+                            const html = `
+                                <html>
+                                    <body style="background: #1e1e1e; color: white; font-family: sans-serif; padding: 20px; text-align: center;">
+                                        <h3>Chọn nhân vật mặc định cho ${username}</h3>
+                                        <select id="charSelect" style="width: 100%; padding: 8px; margin-bottom: 20px; font-size: 16px;">
+                                            ${optionsHtml}
+                                        </select>
+                                        <button id="btnSelect" style="padding: 10px 20px; cursor: pointer; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 4px;">Chọn làm mặc định</button>
+                                        <script>
+                                            const { ipcRenderer } = require('electron');
+                                            document.getElementById('btnSelect').onclick = () => {
+                                                const idx = document.getElementById('charSelect').value;
+                                                ipcRenderer.send('select-character-done', idx);
+                                            };
+                                        </script>
+                                    </body>
+                                </html>
+                            `;
+
+                            win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+
+                            const handler = (event, idx) => {
+                                if (event.sender === win.webContents) {
+                                    ipcMain.removeListener('select-character-done', handler);
+                                    win.close();
+                                    resolve(characters[parseInt(idx)]);
+                                }
+                            };
+
+                            ipcMain.on('select-character-done', handler);
+
+                            win.on('closed', () => {
+                                ipcMain.removeListener('select-character-done', handler);
+                                resolve(null);
+                            });
+                        });
+
+                        if (selectedChar) {
+                            try {
+                                const result = await setAccountDefault(token, selectedChar);
+                                console.log(`✅ Set default account successful for ${username}: ${result}`);
+                                
+                                // Cập nhật lại userId và serverId để trả về
+                                return {
+                                    token: token,
+                                    userId: selectedChar.UserId,
+                                    serverId: selectedChar.ServerId
+                                };
+                            } catch (setErr) {
+                                console.log(`❌ Lỗi khi set nhân vật mặc định: ${setErr.message}`);
+                            }
+                        } else {
+                            console.log(`⚠️ Người dùng đã huỷ chọn nhân vật cho ${username}`);
+                        }
                     }
                 }
 
@@ -175,35 +250,48 @@ export async function getAllNickName(token) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': token,
         },
         body: JSON.stringify({
             Token: token,
         }),
     });
 
-    const json = await res.json()
-
-    // check nếu json.result = true và array ListNickName chỉ có 1 
-    if (json.result === true && Array.isArray(json.ListNickName) && json.ListNickName.length > 0) {
-        return json.ListNickName[0];
+    const text = await res.text();
+    let json;
+    try {
+        json = JSON.parse(text);
+    } catch (e) {
+        console.log(`[getAllNickName] Phản hồi không phải JSON: ${text}`);
+        return [];
     }
-    return null;
+
+    // check nếu json.result = true 
+    if (json.result === true && Array.isArray(json.ListNickName)) {
+        return json.ListNickName;
+    }
+    return [];
 }
 
-export async function setAccountDefault(token) {
+export async function setAccountDefault(token, defaultAccount) {
     const apiUrl = `https://api.gnddt.com/api/Function/SetAccountDefault`;
-
-    const defaultAccount = await getAllNickName(token)
 
     const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': token,
         },
         body: JSON.stringify({ "ServerId": defaultAccount.ServerId, "UserId": defaultAccount.UserId, "Otp": "", "Code": "", "Money": 0, "Captcha": "" }),
     });
 
-    const json = await res.json()
+    const text = await res.text();
+    let json;
+    try {
+        json = JSON.parse(text);
+    } catch (e) {
+        throw new Error(`Phản hồi không phải JSON: ${text}`);
+    }
 
     return json.msg;
-} 
+}
