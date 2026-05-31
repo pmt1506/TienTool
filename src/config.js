@@ -1,6 +1,10 @@
+import dotenv from 'dotenv';
+
+dotenv.config();
+
 const config = {
   mongodb: {
-    uri: 'mongodb://pmt1506:inEiUEzZNEXcOB9q@ac-lwlclos-shard-00-00.ladph0b.mongodb.net:27017,ac-lwlclos-shard-00-01.ladph0b.mongodb.net:27017,ac-lwlclos-shard-00-02.ladph0b.mongodb.net:27017/?ssl=true&replicaSet=atlas-84ahc7-shard-0&authSource=admin&appName=qltk',
+    uri: process.env.MONGODB_URI,
     dbName: 'qltk',
     collections: {
       keys: 'keys',
