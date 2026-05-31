@@ -41,20 +41,21 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: true, message: 'Not an incoming transfer' });
     }
 
-    // 2. Only process if amount >= 59,000
-    if (transferAmount < 59000) {
-      return res.status(200).json({ success: true, message: 'Amount less than required (59,000)' });
-    }
+    // 2. Tạm thời bỏ qua việc check số tiền (comment lại theo yêu cầu)
+    // if (transferAmount < 59000) {
+    //   return res.status(200).json({ success: true, message: 'Amount less than required (59,000)' });
+    // }
 
     // 3. Extract the KEY from the content
-    // We expect the user to send "GH <KEY>" or something containing "GH <KEY>"
-    const match = content.match(/GH\s+([A-Za-z0-9_-]+)/i);
+    // We expect the user to send "GH <KEY>" or "DK <KEY>"
+    const match = content.match(/(GH|DK)\s+([A-Za-z0-9_-]+)/i);
     if (!match) {
       return res.status(200).json({ success: true, message: 'No valid key found in content' });
     }
 
-    const keyString = match[1];
-    console.log('[Webhook] Extracted Key:', keyString);
+    const actionString = match[1].toUpperCase();
+    const keyString = match[2];
+    console.log(`[Webhook] Extracted Action: ${actionString}, Key: ${keyString}`);
 
     // 4. Update the Database
     const db = await connectToDatabase();

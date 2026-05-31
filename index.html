@@ -82,11 +82,14 @@
             </button>
           </div>
           <p id="login-error" class="text-red-400 text-xs text-center min-h-[16px] mb-[-4px]"></p>
-          <div id="renew-suggestion" class="hidden text-center mt-0">
-            <span class="text-[11px] text-gray-400">Tài khoản của bạn đã hết hạn?</span>
-            <button type="button" id="btn-show-renew" class="text-[11px] font-semibold text-brand-400 hover:text-brand-300 ml-1 underline transition-colors">
-              Gia hạn ngay
-            </button>
+          <div id="inline-renew-container"
+            class="hidden flex-col items-center gap-2 w-full mt-2 border-t border-white/10 pt-3 animate-fade-in">
+            <p class="text-[11px] text-gray-400 text-center leading-relaxed">Quét mã QR bằng ứng dụng ngân hàng.<br>Tài
+              khoản tự động gia hạn sau 1-2 phút.</p>
+            <div class="bg-white p-2 rounded-lg inline-block">
+              <img id="img-inline-renew-qr" src="" class="w-40 h-40 object-contain" alt="QR Code" />
+            </div>
+            <p class="text-[13px] font-semibold text-brand-300 mt-1">Gói: 30 Ngày - 59,000đ</p>
           </div>
         </form>
       </div>
@@ -370,7 +373,8 @@
             <input type="checkbox" id="input-reg-check-enable"
               class="w-4 h-4 rounded-md border border-white/30 bg-white/5 text-brand-500 checked:bg-brand-500 checked:border-brand-500 focus:ring-2 focus:ring-brand-400/40 transition-all duration-200"
               checked />
-            <span class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Kiểm tra & tạo NV (Acc Clone)</span>
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Kiểm tra & tạo NV (Acc
+              Clone)</span>
           </label>
           <span class="text-[10px] text-gray-500">Tự động tạo nhân vật nếu chưa có khi log acc clone (Type = 2).</span>
         </div>
@@ -417,34 +421,31 @@
     </div>
   </div>
 
-  <!-- Renew Modal -->
-  <div id="modal-renew"
+  <!-- Register Modal -->
+  <div id="modal-register"
     class="hidden fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
     <div class="bg-surface border border-white/10 rounded-xl shadow-2xl w-[360px] flex flex-col overflow-hidden">
       <div class="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-white/[0.06]">
         <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
-          <i data-lucide="qr-code" class="w-4 h-4 text-brand-400"></i>
-          Gia hạn tài khoản
+          <i data-lucide="user-plus" class="w-4 h-4 text-green-400"></i>
+          Đăng ký Key mới
         </h3>
-        <button id="btn-close-renew" class="text-gray-500 hover:text-white transition-colors">
+        <button id="btn-close-register" class="text-gray-500 hover:text-white transition-colors">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
       <div class="p-4 flex flex-col gap-4 items-center">
-        <div class="w-full flex flex-col gap-1.5">
-          <label class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Nhập Key của bạn</label>
-          <input type="text" id="input-renew-key"
-            class="w-full px-3 py-2 bg-surface-dark border border-white/[0.08] rounded-md text-sm text-gray-200 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/25 transition-all"
-            placeholder="Mã Key..." spellcheck="false" autocomplete="off" />
-        </div>
-        <button id="btn-generate-qr" class="w-full py-2 bg-brand-400 hover:bg-brand-300 text-white font-semibold text-sm rounded-md transition-all">Tạo QR Thanh toán</button>
-        
-        <div id="renew-qr-container" class="hidden flex-col items-center gap-2 w-full mt-2">
-          <p class="text-[11px] text-gray-400 text-center leading-relaxed">Quét mã QR bằng ứng dụng ngân hàng.<br>Tài khoản tự động gia hạn sau 1-2 phút.</p>
+        <button id="btn-generate-register-qr"
+          class="w-full py-2 bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 text-green-400 font-semibold text-sm rounded-md transition-all">Tạo
+          QR Thanh toán</button>
+
+        <div id="register-qr-container" class="hidden flex-col items-center gap-2 w-full mt-2">
+          <p class="text-[11px] text-gray-400 text-center leading-relaxed">Quét mã QR bằng ứng dụng ngân hàng.<br>Sau
+            khi thanh toán, chụp bill và gửi admin để nhận Key.</p>
           <div class="bg-white p-2 rounded-lg inline-block">
-            <img id="img-renew-qr" src="" class="w-48 h-48 object-contain" alt="QR Code" />
+            <img id="img-register-qr" src="" class="w-48 h-48 object-contain" alt="QR Code" />
           </div>
-          <p class="text-[13px] font-semibold text-brand-300 mt-1">Gói: 30 Ngày - 59,000đ</p>
+          <p class="text-[13px] font-semibold text-green-400 mt-1">Gói: 30 Ngày - 59,000đ</p>
         </div>
       </div>
     </div>

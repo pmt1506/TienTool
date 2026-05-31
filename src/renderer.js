@@ -22,10 +22,8 @@ const dom = {
   loginForm: $('#login-form'),
   inputKey: $('#input-key'),
   btnLogin: $('#btn-login'),
-  btnShowRenew: $('#btn-show-renew'),
   btnShowRegister: $('#btn-show-register'),
   loginError: $('#login-error'),
-  renewSuggestion: $('#renew-suggestion'),
   btnLogout: $('#btn-logout'),
   accountCount: $('#account-count'),
   inputSearchAccount: $('#search-account'),
@@ -85,14 +83,16 @@ const dom = {
   btnCancelPrompt: $('#btn-cancel-prompt'),
   btnSubmitPrompt: $('#btn-submit-prompt'),
 
-  // Renew Modal
-  modalRenew: $('#modal-renew'),
-  modalRenewTitle: $('#modal-renew h3'),
-  btnCloseRenew: $('#btn-close-renew'),
-  inputRenewKey: $('#input-renew-key'),
-  btnGenerateQr: $('#btn-generate-qr'),
-  renewQrContainer: $('#renew-qr-container'),
-  imgRenewQr: $('#img-renew-qr'),
+  // Register Modal
+  modalRegister: $('#modal-register'),
+  btnCloseRegister: $('#btn-close-register'),
+  btnGenerateRegisterQr: $('#btn-generate-register-qr'),
+  registerQrContainer: $('#register-qr-container'),
+  imgRegisterQr: $('#img-register-qr'),
+
+  // Inline Renew Container
+  inlineRenewContainer: $('#inline-renew-container'),
+  imgInlineRenewQr: $('#img-inline-renew-qr'),
 };
 
 // ── Load Config ────────────────────────────────────────────────
@@ -243,24 +243,47 @@ dom.loginForm.addEventListener('submit', async (e) => {
       currentKeyId = result.data._id;
       showPage('dashboard');
       toast('Đăng nhập thành công!', 'success');
-      dom.renewSuggestion.classList.add('hidden');
+      dom.inlineRenewContainer.classList.add('hidden');
+      dom.inlineRenewContainer.classList.remove('flex');
+      dom.btnShowRegister.classList.remove('hidden');
       loadAccounts();
     } else {
       dom.loginError.textContent = result.error;
       if (result.error.includes('hết hạn')) {
-        dom.renewSuggestion.classList.remove('hidden');
+        dom.inlineRenewContainer.classList.remove('hidden');
+        dom.inlineRenewContainer.classList.add('flex');
+        
+        const bank = 'TPBank';
+        const acc = '02137848401';
+        const amount = '59000';
+        const des = `GH ${key}`;
+        
+        const qrUrl = `https://qr.sepay.vn/img?bank=${bank}&acc=${acc}&template=compact&amount=${amount}&des=${encodeURIComponent(des)}`;
+        
+        dom.imgInlineRenewQr.src = qrUrl;
+        dom.btnShowRegister.classList.add('hidden');
       } else {
-        dom.renewSuggestion.classList.add('hidden');
+        dom.inlineRenewContainer.classList.add('hidden');
+        dom.inlineRenewContainer.classList.remove('flex');
+        dom.btnShowRegister.classList.remove('hidden');
       }
     }
   } catch {
     dom.loginError.textContent = 'Lỗi không xác định.';
-    dom.renewSuggestion.classList.add('hidden');
+    dom.inlineRenewContainer.classList.add('hidden');
+    dom.inlineRenewContainer.classList.remove('flex');
+    dom.btnShowRegister.classList.remove('hidden');
   } finally {
     dom.btnLogin.querySelector('.btn-text').textContent = 'Đăng nhập';
     dom.btnLogin.querySelector('.btn-loader').classList.add('hidden');
     dom.btnLogin.disabled = false;
   }
+});
+
+dom.inputKey.addEventListener('input', () => {
+  dom.inlineRenewContainer.classList.add('hidden');
+  dom.inlineRenewContainer.classList.remove('flex');
+  dom.btnShowRegister.classList.remove('hidden');
 });
 
 // ── Logout ─────────────────────────────────────────────────────
@@ -271,82 +294,55 @@ dom.btnLogout.addEventListener('click', () => {
   clearForm();
   dom.inputKey.value = '';
   dom.loginError.textContent = '';
-  dom.renewSuggestion.classList.add('hidden');
+  dom.inlineRenewContainer.classList.add('hidden');
+  dom.inlineRenewContainer.classList.remove('flex');
+  dom.btnShowRegister.classList.remove('hidden');
   showPage('login');
   toast('Đã đăng xuất.', 'info');
 });
 
-// ── Renew / Register Modal ──────────────────────────────────────
-let qrMode = 'renew'; // 'renew' or 'register'
-
-dom.btnShowRenew.addEventListener('click', () => {
-  qrMode = 'renew';
-  dom.modalRenewTitle.innerHTML = '<i data-lucide="qr-code" class="w-4 h-4 text-brand-400"></i> Gia hạn tài khoản';
-  dom.inputRenewKey.value = dom.inputKey.value;
-  dom.renewQrContainer.classList.add('hidden');
-  dom.btnGenerateQr.classList.remove('hidden');
-  dom.modalRenew.classList.remove('hidden');
-  refreshIcons();
-});
+// ── Register Modal ──────────────────────────────────────
 
 dom.btnShowRegister.addEventListener('click', () => {
-  qrMode = 'register';
-  dom.modalRenewTitle.innerHTML = '<i data-lucide="user-plus" class="w-4 h-4 text-green-400"></i> Đăng ký Key mới';
-  dom.inputRenewKey.value = '';
-  dom.renewQrContainer.classList.add('hidden');
-  dom.btnGenerateQr.classList.remove('hidden');
-  dom.modalRenew.classList.remove('hidden');
+  const key = dom.inputKey.value.trim();
+  if (!key) {
+    return toast('Vui lòng nhập Key bạn muốn đăng ký vào ô License Key!', 'warning');
+  }
+  dom.registerQrContainer.classList.add('hidden');
+  dom.registerQrContainer.classList.remove('flex');
+  dom.btnGenerateRegisterQr.classList.remove('hidden');
+  dom.modalRegister.classList.remove('hidden');
   refreshIcons();
 });
 
-dom.btnCloseRenew.addEventListener('click', () => {
-  dom.modalRenew.classList.add('hidden');
+dom.btnCloseRegister.addEventListener('click', () => {
+  dom.modalRegister.classList.add('hidden');
 });
 
-dom.btnGenerateQr.addEventListener('click', async () => {
-  const key = dom.inputRenewKey.value.trim();
-  if (!key) {
-    return toast('Vui lòng nhập Key!', 'warning');
-  }
-
-  // Validate existence via API
-  dom.btnGenerateQr.disabled = true;
-  dom.btnGenerateQr.textContent = 'Đang kiểm tra...';
+dom.btnGenerateRegisterQr.addEventListener('click', async () => {
+  dom.btnGenerateRegisterQr.disabled = true;
+  dom.btnGenerateRegisterQr.textContent = 'Đang tạo QR...';
 
   try {
-    const checkRes = await api.checkKey(key);
-    
-    if (qrMode === 'renew') {
-      if (!checkRes.exists) {
-        toast('Key không tồn tại! Vui lòng kiểm tra lại.', 'error');
-        return;
-      }
-    } else if (qrMode === 'register') {
-      if (checkRes.exists) {
-        toast('Key này đã tồn tại! Vui lòng chọn Key khác.', 'error');
-        return;
-      }
-    }
-    
-    // URL format: https://qr.sepay.vn/img?bank=TPBank&acc=02137848401&template=compact&amount=59000&des=GH+KEY
+    const key = dom.inputKey.value.trim();
     const bank = 'TPBank';
     const acc = '02137848401';
     const amount = '59000';
-    const des = `GH ${key}`;
+    const des = `DK ${key}`;
     
     const qrUrl = `https://qr.sepay.vn/img?bank=${bank}&acc=${acc}&template=compact&amount=${amount}&des=${encodeURIComponent(des)}`;
     
-    dom.imgRenewQr.src = qrUrl;
-    dom.renewQrContainer.classList.remove('hidden');
-    dom.renewQrContainer.classList.add('flex');
-    dom.btnGenerateQr.classList.add('hidden');
+    dom.imgRegisterQr.src = qrUrl;
+    dom.registerQrContainer.classList.remove('hidden');
+    dom.registerQrContainer.classList.add('flex');
+    dom.btnGenerateRegisterQr.classList.add('hidden');
     toast('Đã tạo mã QR thành công!', 'success');
 
   } catch (err) {
-    toast('Lỗi hệ thống khi kiểm tra Key.', 'error');
+    toast('Lỗi hệ thống khi tạo QR.', 'error');
   } finally {
-    dom.btnGenerateQr.disabled = false;
-    dom.btnGenerateQr.textContent = 'Tạo QR Thanh toán';
+    dom.btnGenerateRegisterQr.disabled = false;
+    dom.btnGenerateRegisterQr.textContent = 'Tạo QR Thanh toán';
   }
 });
 
