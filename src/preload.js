@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Auth
   login: (key) => ipcRenderer.invoke('auth:login', key),
+  checkKey: (key) => ipcRenderer.invoke('auth:check-key', key),
 
   // Accounts CRUD
   getAccounts: (keyId) => ipcRenderer.invoke('accounts:list', keyId),

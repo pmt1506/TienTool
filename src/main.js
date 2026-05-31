@@ -4,7 +4,7 @@ import { exec } from 'node:child_process';
 import fs from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
 import { connect, disconnect } from './database/mongodb.js';
-import { loginByKey } from './services/authService.js';
+import { loginByKey, checkKeyExists } from './services/authService.js';
 import {
   getAccounts,
   createAccount,
@@ -189,6 +189,10 @@ ipcMain.handle('window:open-log', () => {
 // Auth
 ipcMain.handle('auth:login', async (_event, key) => {
   return await loginByKey(key);
+});
+
+ipcMain.handle('auth:check-key', async (_event, key) => {
+  return await checkKeyExists(key);
 });
 
 // Accounts CRUD
