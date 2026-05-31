@@ -84,8 +84,9 @@
           <p id="login-error" class="text-red-400 text-xs text-center min-h-[16px] mb-[-4px]"></p>
           <div id="inline-renew-container"
             class="hidden flex-col items-center gap-2 w-full mt-2 border-t border-white/10 pt-3 animate-fade-in">
-            <p class="text-[11px] text-gray-400 text-center leading-relaxed">Quét mã QR bằng ứng dụng ngân hàng.<br>Tài
-              khoản tự động gia hạn sau 1-2 phút.</p>
+            <p class="text-[11px] text-gray-400 text-center leading-relaxed">Quét mã QR bằng ứng dụng ngân hàng.<br>
+              <span class="text-yellow-400 animate-pulse">Hệ thống đang chờ thanh toán... ⏳</span><br>Tự động gia hạn sau vài giây.
+            </p>
             <div class="bg-white p-2 rounded-lg inline-block">
               <img id="img-inline-renew-qr" src="" class="w-40 h-40 object-contain" alt="QR Code" />
             </div>
@@ -440,8 +441,9 @@
           QR Thanh toán</button>
 
         <div id="register-qr-container" class="hidden flex-col items-center gap-2 w-full mt-2">
-          <p class="text-[11px] text-gray-400 text-center leading-relaxed">Quét mã QR bằng ứng dụng ngân hàng.<br>Sau
-            khi thanh toán, chụp bill và gửi admin để nhận Key.</p>
+          <p class="text-[11px] text-gray-400 text-center leading-relaxed">Quét mã QR bằng ứng dụng ngân hàng.<br>
+            <span class="text-yellow-400 animate-pulse">Hệ thống đang chờ thanh toán... ⏳</span><br>Tự động kích hoạt sau vài giây.
+          </p>
           <div class="bg-white p-2 rounded-lg inline-block">
             <img id="img-register-qr" src="" class="w-48 h-48 object-contain" alt="QR Code" />
           </div>

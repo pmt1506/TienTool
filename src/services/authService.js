@@ -57,7 +57,7 @@ export async function checkKeyExists(key) {
   try {
     const keysCol = getCollection(config.mongodb.collections.keys);
     const keyDoc = await keysCol.findOne({ keys: key });
-    return { success: true, exists: !!keyDoc };
+    return { success: true, exists: !!keyDoc, expiredAt: keyDoc ? keyDoc.expiredAt : null };
   } catch (error) {
     console.error('[AuthService] Check key error:', error.message);
     return { success: false, error: 'Lỗi kết nối database.' };

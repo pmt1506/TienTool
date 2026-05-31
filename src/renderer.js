@@ -12,6 +12,8 @@ let accounts = [];
 let templates = [];
 let selectedIndex = -1;
 let serverList = [];
+let renewPollInterval = null;
+let registerPollInterval = null;
 
 // ── DOM refs ───────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -262,6 +264,20 @@ dom.loginForm.addEventListener('submit', async (e) => {
         
         dom.imgInlineRenewQr.src = qrUrl;
         dom.btnShowRegister.classList.add('hidden');
+        
+        if (renewPollInterval) clearInterval(renewPollInterval);
+        renewPollInterval = setInterval(async () => {
+          const res = await window.electronAPI.checkKey(key);
+          if (res && res.success && res.exists && res.expiredAt) {
+            const currentTime = Date.now();
+            const expiredTime = new Date(res.expiredAt).getTime();
+            if (expiredTime > currentTime) {
+              clearInterval(renewPollInterval);
+              toast('Gia hạn thành công! Đang tự động đăng nhập...', 'success');
+              dom.btnLogin.click();
+            }
+          }
+        }, 3000);
       } else {
         dom.inlineRenewContainer.classList.add('hidden');
         dom.inlineRenewContainer.classList.remove('flex');
@@ -281,6 +297,7 @@ dom.loginForm.addEventListener('submit', async (e) => {
 });
 
 dom.inputKey.addEventListener('input', () => {
+  if (renewPollInterval) clearInterval(renewPollInterval);
   dom.inlineRenewContainer.classList.add('hidden');
   dom.inlineRenewContainer.classList.remove('flex');
   dom.btnShowRegister.classList.remove('hidden');
@@ -291,6 +308,8 @@ dom.btnLogout.addEventListener('click', () => {
   currentKeyId = null;
   accounts = [];
   selectedIndex = -1;
+  if (renewPollInterval) clearInterval(renewPollInterval);
+  if (registerPollInterval) clearInterval(registerPollInterval);
   clearForm();
   dom.inputKey.value = '';
   dom.loginError.textContent = '';
@@ -316,6 +335,7 @@ dom.btnShowRegister.addEventListener('click', () => {
 });
 
 dom.btnCloseRegister.addEventListener('click', () => {
+  if (registerPollInterval) clearInterval(registerPollInterval);
   dom.modalRegister.classList.add('hidden');
 });
 
@@ -337,6 +357,17 @@ dom.btnGenerateRegisterQr.addEventListener('click', async () => {
     dom.registerQrContainer.classList.add('flex');
     dom.btnGenerateRegisterQr.classList.add('hidden');
     toast('Đã tạo mã QR thành công!', 'success');
+
+    if (registerPollInterval) clearInterval(registerPollInterval);
+    registerPollInterval = setInterval(async () => {
+      const res = await window.electronAPI.checkKey(key);
+      if (res && res.success && res.exists) {
+        clearInterval(registerPollInterval);
+        dom.modalRegister.classList.add('hidden');
+        toast('Đăng ký thành công! Đang tự động đăng nhập...', 'success');
+        dom.btnLogin.click();
+      }
+    }, 3000);
 
   } catch (err) {
     toast('Lỗi hệ thống khi tạo QR.', 'error');

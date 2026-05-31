@@ -60,6 +60,15 @@ module.exports = async (req, res) => {
     // 4. Update the Database
     const db = await connectToDatabase();
     const keysCol = db.collection('keys');
+    const transCol = db.collection('transactions');
+    
+    // Lưu lại lịch sử giao dịch
+    await transCol.insertOne({
+      ...data,
+      actionParsed: actionString,
+      keyParsed: keyString,
+      processedAt: new Date().toISOString()
+    });
 
     const keyDoc = await keysCol.findOne({ keys: keyString });
     
