@@ -82,8 +82,8 @@ async function ensureDbConnected() {
         hasShownDbError = true;
         dialog.showMessageBox({
           type: 'error',
-          title: 'Ket noi du lieu that bai',
-          message: 'Khong the ket noi MongoDB. Vui long kiem tra MONGODB_URI va thu lai.',
+          title: 'Kết nối dữ liệu thất bại',
+          message: 'Không thể kết nối MongoDB. Vui lòng kiểm tra MONGODB_URI và thử lại.',
           detail: String(err.message || err),
         });
       }
