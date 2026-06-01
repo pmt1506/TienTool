@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, screen, session, dialog } from 'electron';
 import path from 'node:path';
-import { exec } from 'node:child_process';
+import { exec, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
 import { connect, disconnect, getDb } from './database/mongodb.js';
@@ -514,13 +514,15 @@ ipcMain.handle('auto:setup-first-run', async () => {
     }
 
     log.info('[Main] Executing Clickermann.exe as Administrator...');
-    const psCommand = `Start-Process -FilePath "${clickermannExe}" -WorkingDirectory "${clickermannDir}" -Verb RunAs`;
-    exec(`powershell.exe -Command "${psCommand}"`, (error) => {
-      if (error) {
-        log.error(`[Main] Error running Clickermann as admin: ${error.message}`);
-      }
-    });
-
+    spawn('powershell.exe', [
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-Command',
+      `Start-Process -FilePath "${clickermannExe}" -WorkingDirectory "${clickermannDir}" -Verb RunAs`
+    ], {
+      detached: true,
+      stdio: 'ignore',
+    }).unref();
     return { success: true };
   } catch (err) {
     log.error('[Main] Error in auto:setup-first-run:', err);
