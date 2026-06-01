@@ -3,7 +3,7 @@ import path from 'node:path';
 import { exec } from 'node:child_process';
 import fs from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
-import { connect, disconnect } from './database/mongodb.js';
+import { connect, disconnect, getDb } from './database/mongodb.js';
 import { loginByKey, checkKeyExists } from './services/authService.js';
 import {
   getAccounts,
@@ -39,6 +39,7 @@ if (started) {
 let mainWindow = null;
 let logWindow = null;
 const activePids = [];
+let hasShownDbError = false;
 
 // Patch console to send logs to renderer
 const originalLog = console.log;
@@ -64,6 +65,32 @@ console.error = (...args) => {
   originalError(...args);
   sendLogToWindow('ERROR', args);
 };
+
+async function ensureDbConnected() {
+  try {
+    getDb();
+    return true;
+  } catch {
+    try {
+      await connect();
+      hasShownDbError = false;
+      console.log('[App] MongoDB connected (lazy)');
+      return true;
+    } catch (err) {
+      console.error('[App] Failed to connect MongoDB:', err.message);
+      if (!hasShownDbError) {
+        hasShownDbError = true;
+        dialog.showMessageBox({
+          type: 'error',
+          title: 'Ket noi du lieu that bai',
+          message: 'Khong the ket noi MongoDB. Vui long kiem tra MONGODB_URI va thu lai.',
+          detail: String(err.message || err),
+        });
+      }
+      return false;
+    }
+  }
+}
 
 
 const createWindow = () => {
@@ -188,44 +215,74 @@ ipcMain.handle('window:open-log', () => {
 
 // Auth
 ipcMain.handle('auth:login', async (_event, key) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await loginByKey(key);
 });
 
 ipcMain.handle('auth:check-key', async (_event, key) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await checkKeyExists(key);
 });
 
 // Accounts CRUD
 ipcMain.handle('accounts:list', async (_event, keyId) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await getAccounts(keyId);
 });
 
 ipcMain.handle('accounts:create', async (_event, data) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await createAccount(data);
 });
 
 ipcMain.handle('accounts:update', async (_event, id, data) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await updateAccount(id, data);
 });
 
 ipcMain.handle('accounts:delete', async (_event, id) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await deleteAccount(id);
 });
 
 // Templates CRUD
 ipcMain.handle('templates:list', async (_event, keyId) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await getTemplates(keyId);
 });
 
 ipcMain.handle('templates:create', async (_event, data) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await createTemplate(data);
 });
 
 ipcMain.handle('templates:update', async (_event, id, data) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await updateTemplate(id, data);
 });
 
 ipcMain.handle('templates:delete', async (_event, id) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
   return await deleteTemplate(id);
 });
 
@@ -613,13 +670,7 @@ ipcMain.handle('game:stop-reset-mark', async () => {
 // ─── App Lifecycle ──────────────────────────────────────────────
 
 app.whenReady().then(async () => {
-  try {
-    await connect();
-    createWindow();
-    console.log('[App] MongoDB connected, creating window...');
-  } catch (err) {
-    console.error('[App] Failed to connect MongoDB:', err.message);
-  }
+  createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
