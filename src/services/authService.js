@@ -19,7 +19,7 @@ function normalizeEmail(email) {
 }
 
 function normalizeLicenseKey(key) {
-  return String(key || '').trim().toUpperCase();
+  return String(key || '').trim();
 }
 
 function isValidEmail(email) {
