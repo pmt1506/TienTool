@@ -19,6 +19,10 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function normalizeLicenseKey(key) {
+  return String(key || '').trim().toUpperCase();
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -60,7 +64,8 @@ async function getCurrentTimeMs() {
 
 export async function loginByKey(key) {
   try {
-    const keyDoc = await keysCol().findOne({ keys: key });
+    const normalizedKey = normalizeLicenseKey(key);
+    const keyDoc = await keysCol().findOne({ keys: normalizedKey });
 
     if (!keyDoc) {
       return { success: false, error: 'Key không hợp lệ hoặc không tồn tại.' };
@@ -92,7 +97,8 @@ export async function loginByKey(key) {
 
 export async function checkKeyExists(key) {
   try {
-    const keyDoc = await keysCol().findOne({ keys: key });
+    const normalizedKey = normalizeLicenseKey(key);
+    const keyDoc = await keysCol().findOne({ keys: normalizedKey });
     return {
       success: true,
       exists: !!keyDoc,

@@ -480,6 +480,7 @@ ipcMain.handle('auto:setup-first-run', async () => {
     log.info(`[Main] Setup first run - Source: ${sourceClickermannDir}, Target: ${clickermannDir}`);
 
     let needsFullCopy = false;
+
     try {
       await fs.access(clickermannExe);
     } catch {
@@ -488,13 +489,11 @@ ipcMain.handle('auto:setup-first-run', async () => {
 
     if (needsFullCopy) {
       log.info('[Main] Clickermann.exe not found in userData — performing initial copy...');
-      try {
-        await fs.mkdir(clickermannDir, { recursive: true });
-        await fs.cp(sourceClickermannDir, clickermannDir, { recursive: true });
-        log.info('[Main] Full copy of Clickermann completed successfully!');
-      } catch (cpErr) {
-        log.error('[Main] Error copying Clickermann:', cpErr);
-      }
+
+      await fs.mkdir(clickermannDir, { recursive: true });
+      await fs.cp(sourceClickermannDir, clickermannDir, { recursive: true });
+
+      log.info('[Main] Full copy of Clickermann completed successfully!');
     } else {
       try {
         await mergeClickermann(sourceClickermannDir, clickermannDir);
@@ -513,16 +512,47 @@ ipcMain.handle('auto:setup-first-run', async () => {
       log.warn('[Main] Could not update bat files from source:', batCopyErr.message);
     }
 
+    await fs.access(clickermannExe);
+
+    log.info(`[Main] Clickermann exists: ${clickermannExe}`);
     log.info('[Main] Executing Clickermann.exe as Administrator...');
-    spawn('powershell.exe', [
-      '-NoProfile',
-      '-ExecutionPolicy', 'Bypass',
-      '-Command',
-      `Start-Process -FilePath "${clickermannExe}" -WorkingDirectory "${clickermannDir}" -Verb RunAs`
-    ], {
-      detached: true,
-      stdio: 'ignore',
-    }).unref();
+
+    const escapedExe = clickermannExe.replace(/'/g, "''");
+    const escapedDir = clickermannDir.replace(/'/g, "''");
+    const psCommand = `Start-Process -FilePath '${escapedExe}' -WorkingDirectory '${escapedDir}' -Verb RunAs -ErrorAction Stop`;
+
+    try {
+      const child = spawn('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-Command',
+        psCommand,
+      ], {
+        detached: false,
+        windowsHide: false,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      let stderrOutput = '';
+      child.stderr.on('data', (chunk) => {
+        stderrOutput += chunk.toString();
+      });
+
+      child.on('error', (spawnErr) => {
+        log.error(`[Main] Error spawning PowerShell: ${spawnErr.message}`);
+      });
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          log.error(`[Main] PowerShell exited with code ${code}. ${stderrOutput.trim()}`);
+        } else {
+          log.info('[Main] PowerShell command executed, waiting for UAC/Clickermann process.');
+        }
+      });
+    } catch (spawnErr) {
+      log.error(`[Main] Error spawning PowerShell: ${spawnErr.message}`);
+    }
+
     return { success: true };
   } catch (err) {
     log.error('[Main] Error in auto:setup-first-run:', err);
