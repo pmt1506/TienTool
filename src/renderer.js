@@ -14,6 +14,7 @@ let selectedIndex = -1;
 let serverList = [];
 let renewPollInterval = null;
 let registerPollInterval = null;
+let currentRegisterRequestId = '';
 
 // ── DOM refs ───────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -25,6 +26,7 @@ const dom = {
   inputKey: $('#input-key'),
   btnLogin: $('#btn-login'),
   btnShowRegister: $('#btn-show-register'),
+  btnResendKey: $('#btn-resend-key'),
   loginError: $('#login-error'),
   btnLogout: $('#btn-logout'),
   accountCount: $('#account-count'),
@@ -89,6 +91,7 @@ const dom = {
   // Register Modal
   modalRegister: $('#modal-register'),
   btnCloseRegister: $('#btn-close-register'),
+  inputRegisterEmail: $('#input-register-email'),
   btnGenerateRegisterQr: $('#btn-generate-register-qr'),
   registerQrContainer: $('#register-qr-container'),
   imgRegisterQr: $('#img-register-qr'),
@@ -149,6 +152,20 @@ function toast(message, type = 'info') {
   el.textContent = message;
   dom.toastContainer.appendChild(el);
   setTimeout(() => el.remove(), 3000);
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+}
+
+function getSavedLicenseEmail() {
+  return localStorage.getItem('tt_license_email') || '';
+}
+
+function setSavedLicenseEmail(email) {
+  if (email) {
+    localStorage.setItem('tt_license_email', email);
+  }
 }
 
 // ── Copy Password ────────────────────────────────────────────
@@ -230,11 +247,7 @@ loadServers();
 // ══════════════════════════════════════════════════════════════
 //  LOGIN
 // ══════════════════════════════════════════════════════════════
-dom.loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const key = dom.inputKey.value.trim();
-  if (!key) return;
-
+async function loginWithKey(key, { silent = false } = {}) {
   dom.loginError.textContent = '';
   dom.btnLogin.querySelector('.btn-text').textContent = 'Đang đăng nhập...';
   dom.btnLogin.querySelector('.btn-loader').classList.remove('hidden');
@@ -244,48 +257,52 @@ dom.loginForm.addEventListener('submit', async (e) => {
     const result = await api.login(key);
     if (result.success) {
       currentKeyId = result.data._id;
+      dom.inputKey.value = result.data.keys || key;
+      await api.saveKey(result.data.keys || key);
+      setSavedLicenseEmail(result.data.email || getSavedLicenseEmail());
       showPage('dashboard');
-      toast('Đăng nhập thành công!', 'success');
+      if (!silent) toast('Đăng nhập thành công!', 'success');
       dom.inlineRenewContainer.classList.add('hidden');
       dom.inlineRenewContainer.classList.remove('flex');
       dom.btnShowRegister.classList.remove('hidden');
-      loadAccounts();
-    } else {
-      dom.loginError.textContent = result.error;
-      if (result.error.includes('hết hạn')) {
-        dom.inlineRenewContainer.classList.remove('hidden');
-        dom.inlineRenewContainer.classList.add('flex');
-        
-        const bank = 'TPBank';
-        const acc = '02137848401';
-        const amount = '59000';
-        const des = `GH ${key}`;
-        
-        const qrUrl = `https://qr.sepay.vn/img?bank=${bank}&acc=${acc}&template=compact&amount=${amount}&des=${encodeURIComponent(des)}`;
-        
-        dom.imgInlineRenewQr.src = qrUrl;
-        dom.btnShowRegister.classList.add('hidden');
-        
-        if (renewPollInterval) clearInterval(renewPollInterval);
-        renewPollInterval = setInterval(async () => {
-          const res = await window.electronAPI.checkKey(key);
-          if (res && res.success && res.exists && res.expiredAt) {
-            const currentTime = Date.now();
-            const expiredTime = new Date(res.expiredAt).getTime();
-            if (expiredTime > currentTime) {
-              clearInterval(renewPollInterval);
-              toast('Gia hạn thành công! Đang tự động đăng nhập...', 'success');
-              dom.btnLogin.click();
-            }
-          }
-        }, 3000);
-      } else {
-        dom.inlineRenewContainer.classList.add('hidden');
-        dom.inlineRenewContainer.classList.remove('flex');
-        dom.btnShowRegister.classList.remove('hidden');
-      }
+      await loadAccounts();
+      return true;
     }
-  } catch {
+
+    dom.loginError.textContent = result.error;
+    if (result.error.includes('het han')) {
+      dom.inlineRenewContainer.classList.remove('hidden');
+      dom.inlineRenewContainer.classList.add('flex');
+
+      const bank = 'TPBank';
+      const acc = '02137848401';
+      const amount = '59000';
+      const des = `GH ${key}`;
+      const qrUrl = `https://qr.sepay.vn/img?bank=${bank}&acc=${acc}&template=compact&amount=${amount}&des=${encodeURIComponent(des)}`;
+
+      dom.imgInlineRenewQr.src = qrUrl;
+      dom.btnShowRegister.classList.add('hidden');
+
+      if (renewPollInterval) clearInterval(renewPollInterval);
+      renewPollInterval = setInterval(async () => {
+        const res = await api.checkKey(key);
+        if (res && res.success && res.exists && res.expiredAt) {
+          const currentTime = Date.now();
+          const expiredTime = new Date(res.expiredAt).getTime();
+          if (expiredTime > currentTime) {
+            clearInterval(renewPollInterval);
+            toast('Gia hạn thành công! Đang tự động đăng nhập...', 'success');
+            await loginWithKey(key);
+          }
+        }
+      }, 3000);
+    } else {
+      dom.inlineRenewContainer.classList.add('hidden');
+      dom.inlineRenewContainer.classList.remove('flex');
+      dom.btnShowRegister.classList.remove('hidden');
+    }
+  } catch (err) {
+    console.error('[Renderer] Login error:', err);
     dom.loginError.textContent = 'Lỗi không xác định.';
     dom.inlineRenewContainer.classList.add('hidden');
     dom.inlineRenewContainer.classList.remove('flex');
@@ -295,6 +312,15 @@ dom.loginForm.addEventListener('submit', async (e) => {
     dom.btnLogin.querySelector('.btn-loader').classList.add('hidden');
     dom.btnLogin.disabled = false;
   }
+
+  return false;
+}
+
+dom.loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const key = dom.inputKey.value.trim();
+  if (!key) return;
+  await loginWithKey(key);
 });
 
 dom.inputKey.addEventListener('input', () => {
@@ -304,7 +330,6 @@ dom.inputKey.addEventListener('input', () => {
   dom.btnShowRegister.classList.remove('hidden');
 });
 
-// ── Logout ─────────────────────────────────────────────────────
 dom.btnLogout.addEventListener('click', () => {
   currentKeyId = null;
   accounts = [];
@@ -312,7 +337,6 @@ dom.btnLogout.addEventListener('click', () => {
   if (renewPollInterval) clearInterval(renewPollInterval);
   if (registerPollInterval) clearInterval(registerPollInterval);
   clearForm();
-  dom.inputKey.value = '';
   dom.loginError.textContent = '';
   dom.inlineRenewContainer.classList.add('hidden');
   dom.inlineRenewContainer.classList.remove('flex');
@@ -321,13 +345,9 @@ dom.btnLogout.addEventListener('click', () => {
   toast('Đã đăng xuất.', 'info');
 });
 
-// ── Register Modal ──────────────────────────────────────
-
 dom.btnShowRegister.addEventListener('click', () => {
-  const key = dom.inputKey.value.trim();
-  if (!key) {
-    return toast('Vui lòng nhập Key bạn muốn đăng ký vào ô License Key!', 'warning');
-  }
+  currentRegisterRequestId = '';
+  dom.inputRegisterEmail.value = getSavedLicenseEmail();
   dom.registerQrContainer.classList.add('hidden');
   dom.registerQrContainer.classList.remove('flex');
   dom.btnGenerateRegisterQr.classList.remove('hidden');
@@ -341,18 +361,30 @@ dom.btnCloseRegister.addEventListener('click', () => {
 });
 
 dom.btnGenerateRegisterQr.addEventListener('click', async () => {
+  const email = dom.inputRegisterEmail.value.trim().toLowerCase();
+  if (!isValidEmail(email)) {
+    return toast('Vui lòng nhập email hợp lệ để nhận key.', 'error');
+  }
+
   dom.btnGenerateRegisterQr.disabled = true;
-  dom.btnGenerateRegisterQr.textContent = 'Đang tạo QR...';
+  dom.btnGenerateRegisterQr.textContent = 'Đang tạo yêu cầu...';
 
   try {
-    const key = dom.inputKey.value.trim();
+    const request = await api.createRegisterRequest(email);
+    if (!request.success) {
+      toast(request.error || 'Không tạo được yêu cầu đăng ký.', 'error');
+      return;
+    }
+
+    currentRegisterRequestId = request.data.requestId;
+    setSavedLicenseEmail(request.data.email);
+
     const bank = 'TPBank';
     const acc = '02137848401';
     const amount = '59000';
-    const des = `DK ${key}`;
-    
+    const des = `DK ${currentRegisterRequestId}`;
     const qrUrl = `https://qr.sepay.vn/img?bank=${bank}&acc=${acc}&template=compact&amount=${amount}&des=${encodeURIComponent(des)}`;
-    
+
     dom.imgRegisterQr.src = qrUrl;
     dom.registerQrContainer.classList.remove('hidden');
     dom.registerQrContainer.classList.add('flex');
@@ -361,16 +393,23 @@ dom.btnGenerateRegisterQr.addEventListener('click', async () => {
 
     if (registerPollInterval) clearInterval(registerPollInterval);
     registerPollInterval = setInterval(async () => {
-      const res = await window.electronAPI.checkKey(key);
-      if (res && res.success && res.exists) {
+      const res = await api.getRegisterRequestStatus(currentRegisterRequestId);
+      if (res?.success && res.data?.status === 'paid' && res.data?.key) {
         clearInterval(registerPollInterval);
         dom.modalRegister.classList.add('hidden');
+        dom.inputKey.value = res.data.key;
         toast('Đăng ký thành công! Đang tự động đăng nhập...', 'success');
-        dom.btnLogin.click();
+        await loginWithKey(res.data.key);
+      } else if (res?.success && res.data?.status === 'expired') {
+        clearInterval(registerPollInterval);
+        toast('Yêu cầu thanh toán đã hết hạn. Vui lòng tạo lại QR.', 'error');
+        dom.btnGenerateRegisterQr.classList.remove('hidden');
+        dom.registerQrContainer.classList.add('hidden');
+        dom.registerQrContainer.classList.remove('flex');
       }
     }, 3000);
-
   } catch (err) {
+    console.error('[Renderer] Register QR error:', err);
     toast('Lỗi hệ thống khi tạo QR.', 'error');
   } finally {
     dom.btnGenerateRegisterQr.disabled = false;
@@ -378,8 +417,30 @@ dom.btnGenerateRegisterQr.addEventListener('click', async () => {
   }
 });
 
+dom.btnResendKey.addEventListener('click', async () => {
+  const email = (await asyncPrompt('Nhập email đã đăng ký key', getSavedLicenseEmail()))?.trim().toLowerCase();
+  if (!email) return;
+  if (!isValidEmail(email)) {
+    return toast('Email không hợp lệ.', 'error');
+  }
 
-// ══════════════════════════════════════════════════════════════
+  setSavedLicenseEmail(email);
+  const result = await api.resendLicenseEmail(email);
+  result.success
+    ? toast('Đã gửi lại key qua email.', 'success')
+    : toast(result.error || 'Không gửi lại được email.', 'error');
+});
+
+async function initializeSavedKey() {
+  const result = await api.getSavedKey();
+  if (!result?.success || !result.key) return;
+
+  dom.inputKey.value = result.key;
+  await loginWithKey(result.key, { silent: true });
+}
+
+initializeSavedKey();
+
 //  ACCOUNTS
 // ══════════════════════════════════════════════════════════════
 async function loadAccounts() {

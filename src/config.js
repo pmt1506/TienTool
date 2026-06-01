@@ -8,6 +8,7 @@ const config = {
     dbName: 'qltk',
     collections: {
       keys: 'keys',
+      licenseRequests: 'licenseRequests',
       accounts: 'accounts',
       templates: 'templates',
     },

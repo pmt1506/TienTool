@@ -4,7 +4,13 @@ import { exec } from 'node:child_process';
 import fs from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
 import { connect, disconnect, getDb } from './database/mongodb.js';
-import { loginByKey, checkKeyExists } from './services/authService.js';
+import {
+  loginByKey,
+  checkKeyExists,
+  createRegistrationRequest,
+  getRegistrationRequestStatus,
+  resendLicenseEmail,
+} from './services/authService.js';
 import {
   getAccounts,
   createAccount,
@@ -40,6 +46,7 @@ let mainWindow = null;
 let logWindow = null;
 const activePids = [];
 let hasShownDbError = false;
+const savedLicensePath = () => path.join(app.getPath('userData'), 'license.json');
 
 // Patch console to send logs to renderer
 const originalLog = console.log;
@@ -226,6 +233,58 @@ ipcMain.handle('auth:check-key', async (_event, key) => {
     return { success: false, error: 'Khong ket noi duoc database.' };
   }
   return await checkKeyExists(key);
+});
+
+ipcMain.handle('auth:create-register-request', async (_event, email) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
+  return await createRegistrationRequest(email);
+});
+
+ipcMain.handle('auth:get-register-request-status', async (_event, requestId) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
+  return await getRegistrationRequestStatus(requestId);
+});
+
+ipcMain.handle('auth:resend-license-email', async (_event, email) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
+  return await resendLicenseEmail(email);
+});
+
+ipcMain.handle('auth:get-saved-key', async () => {
+  try {
+    const content = await fs.readFile(savedLicensePath(), 'utf8');
+    const data = JSON.parse(content);
+    return { success: true, key: String(data.key || '').trim() };
+  } catch {
+    return { success: true, key: '' };
+  }
+});
+
+ipcMain.handle('auth:save-key', async (_event, key) => {
+  try {
+    await fs.mkdir(path.dirname(savedLicensePath()), { recursive: true });
+    await fs.writeFile(savedLicensePath(), JSON.stringify({ key: String(key || '').trim() }), 'utf8');
+    return { success: true };
+  } catch (error) {
+    console.error('[Main] Save key error:', error.message);
+    return { success: false, error: 'Khong luu duoc key tren may.' };
+  }
+});
+
+ipcMain.handle('auth:clear-saved-key', async () => {
+  try {
+    await fs.rm(savedLicensePath(), { force: true });
+    return { success: true };
+  } catch (error) {
+    console.error('[Main] Clear saved key error:', error.message);
+    return { success: false, error: 'Khong xoa duoc key da luu.' };
+  }
 });
 
 // Accounts CRUD

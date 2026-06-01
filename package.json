@@ -69,6 +69,7 @@
     "electron-updater": "^6.8.3",
     "koffi": "^2.16.0",
     "lucide": "^1.8.0",
-    "mongodb": "^7.1.1"
+    "mongodb": "^7.1.1",
+    "nodemailer": "^8.0.10"
   }
 }
