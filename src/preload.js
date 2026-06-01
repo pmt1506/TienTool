@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createRegisterRequest: (email) => ipcRenderer.invoke('auth:create-register-request', email),
   getRegisterRequestStatus: (requestId) => ipcRenderer.invoke('auth:get-register-request-status', requestId),
   resendLicenseEmail: (email) => ipcRenderer.invoke('auth:resend-license-email', email),
+  exportKeyTxt: (email, key) => ipcRenderer.invoke('auth:export-key-txt', email, key),
   getSavedKey: () => ipcRenderer.invoke('auth:get-saved-key'),
   saveKey: (key) => ipcRenderer.invoke('auth:save-key', key),
   clearSavedKey: () => ipcRenderer.invoke('auth:clear-saved-key'),

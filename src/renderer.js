@@ -398,6 +398,7 @@ dom.btnGenerateRegisterQr.addEventListener('click', async () => {
         clearInterval(registerPollInterval);
         dom.modalRegister.classList.add('hidden');
         dom.inputKey.value = res.data.key;
+        await api.exportKeyTxt(res.data.email || getSavedLicenseEmail(), res.data.key);
         toast('Đăng ký thành công! Đang tự động đăng nhập...', 'success');
         await loginWithKey(res.data.key);
       } else if (res?.success && res.data?.status === 'expired') {
@@ -426,9 +427,22 @@ dom.btnResendKey.addEventListener('click', async () => {
 
   setSavedLicenseEmail(email);
   const result = await api.resendLicenseEmail(email);
-  result.success
-    ? toast('Đã gửi lại key qua email.', 'success')
-    : toast(result.error || 'Không gửi lại được email.', 'error');
+  if (!result?.success || !result?.data?.key) {
+    return toast(result.error || 'Không tìm thấy key theo email.', 'error');
+  }
+
+  const key = result.data.key;
+  dom.inputKey.value = key;
+  const exportRes = await api.exportKeyTxt(email, key);
+  if (exportRes?.canceled) {
+    toast('Đã lấy key theo email. Bạn đã hủy lưu file TXT.', 'info');
+    return;
+  }
+  if (!exportRes?.success) {
+    toast(exportRes?.error || 'Lấy key thành công nhưng không xuất được TXT.', 'error');
+    return;
+  }
+  toast(`Đã lấy key và lưu TXT: ${exportRes.path}`, 'success');
 });
 
 async function initializeSavedKey() {
@@ -769,7 +783,8 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
         const result = await api.loginGame(acc.username, acc.password, acc.server, acc.accountType, config.regPrefix, 14, config.regCheckEnable);
         if (result.success) {
           const sName = getServerName(acc.server);
-          await api.renameWindow(result.pid, `${acc.username} - ${sName}`);
+          const hwidSuffix = result.hwid ? ` - ${result.hwid}` : '';
+          await api.renameWindow(result.pid, `${acc.username} - ${sName}${hwidSuffix}`);
           loggedInPids.push(result.pid);
         } else {
           toast(`Lỗi log ${acc.username}: ${result.msg}`, 'error');
@@ -804,7 +819,8 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
     if (result.success) {
       toast('Đã mở Game Launcher.', 'success');
       const sName = getServerName(data.server);
-      await api.renameWindow(result.pid, `${data.username} - ${sName}`);
+      const hwidSuffix = result.hwid ? ` - ${result.hwid}` : '';
+      await api.renameWindow(result.pid, `${data.username} - ${sName}${hwidSuffix}`);
     } else {
       toast(result.msg || 'Không thể đăng nhập game.', 'error');
     }

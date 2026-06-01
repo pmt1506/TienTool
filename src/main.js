@@ -9,7 +9,7 @@ import {
   checkKeyExists,
   createRegistrationRequest,
   getRegistrationRequestStatus,
-  resendLicenseEmail,
+  findKeyByEmail,
 } from './services/authService.js';
 import {
   getAccounts,
@@ -253,7 +253,39 @@ ipcMain.handle('auth:resend-license-email', async (_event, email) => {
   if (!(await ensureDbConnected())) {
     return { success: false, error: 'Khong ket noi duoc database.' };
   }
-  return await resendLicenseEmail(email);
+  return await findKeyByEmail(email);
+});
+
+ipcMain.handle('auth:export-key-txt', async (_event, email, key) => {
+  try {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedKey = String(key || '').trim().toUpperCase();
+    if (!normalizedEmail || !normalizedKey) {
+      return { success: false, error: 'Email hoac key khong hop le.' };
+    }
+
+    const safeEmail = normalizedEmail.replace(/[^a-z0-9@._-]/gi, '_');
+    const defaultDir = path.join(app.getPath('documents'), 'TienTool-Keys');
+    await fs.mkdir(defaultDir, { recursive: true });
+
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Luu file key TXT',
+      defaultPath: path.join(defaultDir, `${safeEmail}.txt`),
+      filters: [{ name: 'Text Files', extensions: ['txt'] }],
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, canceled: true, error: 'Da huy luu file.' };
+    }
+
+    const content = `email=${normalizedEmail}\r\nkey=${normalizedKey}\r\nexportedAt=${new Date().toISOString()}\r\n`;
+    await fs.writeFile(filePath, content, 'utf8');
+
+    return { success: true, path: filePath };
+  } catch (error) {
+    console.error('[Main] Export key txt error:', error.message);
+    return { success: false, error: 'Khong xuat duoc file key txt.' };
+  }
 });
 
 ipcMain.handle('auth:get-saved-key', async () => {

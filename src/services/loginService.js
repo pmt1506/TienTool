@@ -112,7 +112,12 @@ export async function loginGame(userName, password, serverID, accountType, prefi
 
         appPlayer.unref();
 
-        return { success: true, pid: appPlayer.pid, msg: "Login game successfully" };
+        return {
+            success: true,
+            pid: appPlayer.pid,
+            hwid: serialNumber,
+            msg: "Login game successfully"
+        };
     } catch (err) {
         return { success: false, msg: "Lỗi hệ thống: " + err.message };
     }

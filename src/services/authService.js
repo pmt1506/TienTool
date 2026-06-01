@@ -2,7 +2,6 @@ import crypto from 'node:crypto';
 import axios from 'axios';
 import { getCollection } from '../database/mongodb.js';
 import config from '../config.js';
-import { sendLicenseEmail } from './licenseMailService.js';
 
 const REQUEST_TTL_MS = 30 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -196,35 +195,67 @@ export async function getRegistrationRequestStatus(requestId) {
 }
 
 export async function resendLicenseEmail(email) {
+  return await findKeyByEmail(email);
+}
+
+export async function findKeyByEmail(email) {
   try {
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
       return { success: false, error: 'Email không hợp lệ.' };
     }
 
-    const keyDoc = await keysCol().findOne(
+    let keyDoc = await keysCol().findOne(
       { email: normalizedEmail },
       { sort: { expiredAt: -1, createdAt: -1 } },
     );
 
     if (!keyDoc) {
-      return { success: false, error: 'Không tìm thấy key nào gắn với email này.' };
+      const paidRequest = await requestsCol().findOne(
+        { email: normalizedEmail, status: 'paid' },
+        { sort: { createdAt: -1 } },
+      );
+
+      if (!paidRequest?.generatedKey) {
+        return { success: false, error: 'Không tìm thấy key nào gắn với email này.' };
+      }
+
+      keyDoc = await keysCol().findOne({ keys: paidRequest.generatedKey });
+      if (keyDoc && !keyDoc.email) {
+        await keysCol().updateOne(
+          { _id: keyDoc._id },
+          { $set: { email: normalizedEmail } },
+        );
+        keyDoc.email = normalizedEmail;
+      }
+
+      if (!keyDoc) {
+        return {
+          success: true,
+          data: {
+            key: paidRequest.generatedKey,
+            email: normalizedEmail,
+            expiredAt: null,
+          },
+        };
+      }
     }
 
-    await sendLicenseEmail({
-      to: normalizedEmail,
-      key: keyDoc.keys,
-      expiredAt: keyDoc.expiredAt,
-      mode: 'resend',
-    });
-
-    return { success: true };
+    return {
+      success: true,
+      data: {
+        key: keyDoc.keys,
+        email: keyDoc.email || normalizedEmail,
+        expiredAt: keyDoc.expiredAt || null,
+      },
+    };
   } catch (error) {
-    console.error('[AuthService] Resend email error:', error.message);
-    return { success: false, error: error.message || 'Không gửi lại được email.' };
+    console.error('[AuthService] Find key by email error:', error.message);
+    return { success: false, error: 'Không lấy được key theo email.' };
   }
 }
 
 export function getLicenseDurationMs() {
   return THIRTY_DAYS_MS;
 }
+
