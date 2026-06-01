@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Auto
   // get token api -- getLoginToken api service
   getTokenApi: (username, password) => ipcRenderer.invoke('auto:get-token-api', username, password),
+  setupFirstRun: () => ipcRenderer.invoke('auto:setup-first-run'),
   openBatFile: () => ipcRenderer.invoke('auto:open-bat-file'),
   getAllCode: (keyId) => ipcRenderer.invoke('auto:get-all-code', keyId),
   stopGetAllCode: () => ipcRenderer.invoke('auto:stop-all-code'),

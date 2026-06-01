@@ -50,6 +50,7 @@ const dom = {
 
   btnLoginLauncher: $('#btn-login-launcher'),
   btnScriptAuto: $('#btn-script-auto'),
+  btnSetupFirstRun: $('#btn-setup-first-run'),
   toastContainer: $('#toast-container'),
   btnNhanAllCode: $('#btn-nhan-all-code'),
   btnCodeTuan: $('#btn-code-tuan'),
@@ -852,6 +853,17 @@ api.onAutoProgress((data) => {
 dom.btnScriptAuto.addEventListener('click', async () => {
   toast('Đang chạy script auto...', 'info');
   await api.openBatFile();
+});
+
+// btn-setup-first-run
+dom.btnSetupFirstRun.addEventListener('click', async () => {
+  toast('Đang mở Setup Auto (quyền Admin)...', 'info');
+  const res = await api.setupFirstRun();
+  if (!res.success) {
+    toast(`Lỗi: ${res.error}`, 'error');
+  } else {
+    toast('Đã mở Clickermann bằng quyền Admin.', 'success');
+  }
 });
 
 // btn-nhan-all-code

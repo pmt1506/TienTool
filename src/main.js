@@ -409,6 +409,66 @@ ipcMain.handle('game:arrange-launchers-100', async (_event, targetPids) => {
   return { success: true };
 });
 
+ipcMain.handle('auto:setup-first-run', async () => {
+  try {
+    const sourceClickermannDir = app.isPackaged
+      ? path.join(process.resourcesPath, 'clickermann')
+      : path.join(app.getAppPath(), 'src', 'resources', 'clickermann');
+
+    const clickermannDir = path.join(app.getPath('userData'), 'clickermann');
+    const clickermannExe = path.join(clickermannDir, 'Clickermann.exe');
+
+    log.info(`[Main] Setup first run - Source: ${sourceClickermannDir}, Target: ${clickermannDir}`);
+
+    let needsFullCopy = false;
+    try {
+      await fs.access(clickermannExe);
+    } catch {
+      needsFullCopy = true;
+    }
+
+    if (needsFullCopy) {
+      log.info('[Main] Clickermann.exe not found in userData — performing initial copy...');
+      try {
+        await fs.mkdir(clickermannDir, { recursive: true });
+        await fs.cp(sourceClickermannDir, clickermannDir, { recursive: true });
+        log.info('[Main] Full copy of Clickermann completed successfully!');
+      } catch (cpErr) {
+        log.error('[Main] Error copying Clickermann:', cpErr);
+      }
+    } else {
+      try {
+        await mergeClickermann(sourceClickermannDir, clickermannDir);
+      } catch (mergeErr) {
+        log.warn('[Main] Merge copy failed (non-critical):', mergeErr.message);
+      }
+    }
+
+    try {
+      for (const batName of ['script_multiple.bat', 'script.bat']) {
+        const srcBat = path.join(sourceClickermannDir, batName);
+        const destBat = path.join(clickermannDir, batName);
+        await fs.copyFile(srcBat, destBat);
+      }
+    } catch (batCopyErr) {
+      log.warn('[Main] Could not update bat files from source:', batCopyErr.message);
+    }
+
+    log.info('[Main] Executing Clickermann.exe as Administrator...');
+    const psCommand = `Start-Process -FilePath "${clickermannExe}" -WorkingDirectory "${clickermannDir}" -Verb RunAs`;
+    exec(`powershell.exe -Command "${psCommand}"`, (error) => {
+      if (error) {
+        log.error(`[Main] Error running Clickermann as admin: ${error.message}`);
+      }
+    });
+
+    return { success: true };
+  } catch (err) {
+    log.error('[Main] Error in auto:setup-first-run:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('auto:open-bat-file', async () => {
   try {
     // Source: bundled clickermann in resources (install dir) — gets overwritten on updates
