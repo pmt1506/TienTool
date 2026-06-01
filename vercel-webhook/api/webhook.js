@@ -1,7 +1,7 @@
 const { MongoClient } = require('mongodb');
 const { sendLicenseEmail } = require('./_mail');
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://pmt1506:2eiSrgulkIDlJnPt@ac-lwlclos-shard-00-00.ladph0b.mongodb.net:27017,ac-lwlclos-shard-00-01.ladph0b.mongodb.net:27017,ac-lwlclos-shard-00-02.ladph0b.mongodb.net:27017/?ssl=true&replicaSet=atlas-84ahc7-shard-0&authSource=admin&appName=qltk";
+const MONGODB_URI = process.env.MONGODB_URI;
 const DB_NAME = 'qltk';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
