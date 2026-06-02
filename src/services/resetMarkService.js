@@ -1,7 +1,8 @@
 import { getLoginToken } from './apiService.js';
+import config from '../config.js';
 
 export async function getMarkItem(token, userId, serverId, currPage = 1) {
-    const apiUrl = 'https://api.gnddt.com/api/Function/GetMarkItem';
+    const apiUrl = `${config.api.base}/api/Function/GetMarkItem`;
     const data = {
         UserID: userId,
         ServerId: serverId,
@@ -48,7 +49,7 @@ export async function getMarkItemList(token, userId, serverId) {
 }
 
 export async function callGetAllMarkItemIds(token, userId, serverId) {
-    const apiUrl = 'https://api.gnddt.com/api/Function/getAllMarkItemIds';
+    const apiUrl = `${config.api.base}/api/Function/getAllMarkItemIds`;
     const data = {
         UserID: userId,
         ServerId: serverId
@@ -69,7 +70,7 @@ export async function callGetAllMarkItemIds(token, userId, serverId) {
 }
 
 export async function callResetAllMarkItem(token, userId, serverId) {
-    const apiUrl = 'https://api.gnddt.com/api/Function/ResetAllMarkItem';
+    const apiUrl = `${config.api.base}/api/Function/ResetAllMarkItem`;
     const data = {
         currPage: 1,
         rowPage: 10,
@@ -95,7 +96,7 @@ export async function callResetAllMarkItem(token, userId, serverId) {
 }
 
 export async function resetMarkItem(token, userId, serverId, itemId) {
-    const apiUrl = 'https://api.gnddt.com/api/Function/ResetMarkItem';
+    const apiUrl = `${config.api.base}/api/Function/ResetMarkItem`;
     const data = {
         UserID: userId,
         ServerId: serverId,

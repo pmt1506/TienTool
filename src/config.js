@@ -1,10 +1,6 @@
-import dotenv from 'dotenv';
-
-dotenv.config();
-
 const config = {
   mongodb: {
-    uri: process.env.MONGODB_URI || "mongodb://pmt1506:2eiSrgulkIDlJnPt@ac-lwlclos-shard-00-00.ladph0b.mongodb.net:27017,ac-lwlclos-shard-00-01.ladph0b.mongodb.net:27017,ac-lwlclos-shard-00-02.ladph0b.mongodb.net:27017/?ssl=true&replicaSet=atlas-84ahc7-shard-0&authSource=admin&appName=qltk",
+    uri: process.env.MONGODB_URI,
     dbName: 'qltk',
     collections: {
       keys: 'keys',
@@ -12,6 +8,10 @@ const config = {
       accounts: 'accounts',
       templates: 'templates',
     },
+  },
+  api: {
+    base: process.env.GNDDT_API_BASE || 'https://api.gnddt.com',
+    webshop: process.env.GNDDT_WEBSHOP_URL || 'https://gnddt.com/cua-hang',
   },
   app: {
     title: 'TienTool - Gunny2017',
