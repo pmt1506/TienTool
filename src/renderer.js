@@ -783,7 +783,7 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
         const result = await api.loginGame(acc.username, acc.password, acc.server, acc.accountType, config.regPrefix, 14, config.regCheckEnable);
         if (result.success) {
           const sName = getServerName(acc.server);
-          const hwidSuffix = result.hwid ? ` - ${result.hwid}` : '';
+          const hwidSuffix = result.pid ? ` - ${result.pid}` : '';
           await api.renameWindow(result.pid, `${acc.username} - ${sName}${hwidSuffix}`);
           loggedInPids.push(result.pid);
         } else {
@@ -819,7 +819,7 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
     if (result.success) {
       toast('Đã mở Game Launcher.', 'success');
       const sName = getServerName(data.server);
-      const hwidSuffix = result.hwid ? ` - ${result.hwid}` : '';
+      const hwidSuffix = result.pid ? ` - ${result.pid}` : '';
       await api.renameWindow(result.pid, `${data.username} - ${sName}${hwidSuffix}`);
     } else {
       toast(result.msg || 'Không thể đăng nhập game.', 'error');
