@@ -29,6 +29,7 @@ import { startResetMark } from './services/resetMarkService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
 import { getAllCode, getWeeklyCode } from './services/autoService.js';
+import config from './config.js';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 
@@ -802,7 +803,7 @@ ipcMain.handle('open-webshop', async (event, token) => {
 
   // url https://sv3.gnddt.com/cua-hang
   await ses.cookies.set({
-    url: 'https://api.gnddt.com', // domain API
+    url: config.api.base,
     name: 'Authorization',         // hoặc Token (tùy backend)
     value: token,
     path: '/',
@@ -819,7 +820,7 @@ ipcMain.handle('open-webshop', async (event, token) => {
     },
   });
 
-  win.loadURL('https://sv3.gnddt.com/cua-hang');
+  win.loadURL(config.api.webshop);
 
   return { success: true };
 })

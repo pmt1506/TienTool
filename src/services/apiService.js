@@ -3,6 +3,7 @@
 
 // get ảnh captcha sau đó gửi tới api-ninja để giải, reuse cho các function khác
 import fs from 'fs/promises';
+import config from '../config.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { app, BrowserWindow, ipcMain } from 'electron';
@@ -21,7 +22,7 @@ function getParentDir() {
 // 🖼️ Get Captcha Image
 // ─────────────────────────────────────────────
 export async function getCaptchaImage() {
-    const apiUrl = 'https://api.gnddt.com/api/oauth/GetCaptcha';
+    const apiUrl = `${config.api.base}/api/oauth/GetCaptcha`;
 
     const res = await fetch(apiUrl, {
         method: 'POST',
@@ -91,7 +92,7 @@ export async function getCaptcha(checkStop) {
 // 🔑 Get Login Token
 // ─────────────────────────────────────────────
 export async function getLoginToken(username, password, checkStop) {
-    const apiUrl = 'https://api.gnddt.com/api/oauth/Token';
+    const apiUrl = `${config.api.base}/api/oauth/Token`;
 
     while (true) {
         if (checkStop && checkStop()) return null;
@@ -244,7 +245,7 @@ export async function getLoginToken(username, password, checkStop) {
 }
 
 export async function getAllNickName(token) {
-    const apiUrl = `https://api.gnddt.com/api/Function/GetAllNickName`;
+    const apiUrl = `${config.api.base}/api/Function/GetAllNickName`;
 
     const res = await fetch(apiUrl, {
         method: 'POST',
@@ -274,7 +275,7 @@ export async function getAllNickName(token) {
 }
 
 export async function setAccountDefault(token, defaultAccount) {
-    const apiUrl = `https://api.gnddt.com/api/Function/SetAccountDefault`;
+    const apiUrl = `${config.api.base}/api/Function/SetAccountDefault`;
 
     const res = await fetch(apiUrl, {
         method: 'POST',
