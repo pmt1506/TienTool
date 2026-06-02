@@ -1,7 +1,3 @@
-import dotenv from 'dotenv';
-
-dotenv.config();
-
 const config = {
   mongodb: {
     uri: process.env.MONGODB_URI,
