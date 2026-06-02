@@ -11,7 +11,7 @@ const config = {
   },
   api: {
     base: process.env.GNDDT_API_BASE || 'https://api.gnddt.com',
-    webshop: process.env.GNDDT_WEBSHOP_URL || 'https://sv3.gnddt.com/cua-hang',
+    webshop: process.env.GNDDT_WEBSHOP_URL || 'https://gnddt.com/cua-hang',
   },
   app: {
     title: 'TienTool - Gunny2017',
