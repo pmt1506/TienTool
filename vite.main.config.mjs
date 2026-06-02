@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => {
       MAIN_WINDOW_VITE_DEV_SERVER_URL: 'undefined',
       'process.env.MONGODB_URI': JSON.stringify(env.MONGODB_URI || ''),
       'process.env.GNDDT_API_BASE': JSON.stringify(env.GNDDT_API_BASE || 'https://api.gnddt.com'),
-      'process.env.GNDDT_WEBSHOP_URL': JSON.stringify(env.GNDDT_WEBSHOP_URL || 'https://sv3.gnddt.com/cua-hang'),
+      'process.env.GNDDT_WEBSHOP_URL': JSON.stringify(env.GNDDT_WEBSHOP_URL || 'https://gnddt.com/cua-hang'),
     },
   };
 });
