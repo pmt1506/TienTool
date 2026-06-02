@@ -1,6 +1,8 @@
+const runtimeEnv = globalThis.process?.env ?? {};
+
 const config = {
   mongodb: {
-    uri: process.env.MONGODB_URI,
+    uri: runtimeEnv.MONGODB_URI || __MONGODB_URI__,
     dbName: 'qltk',
     collections: {
       keys: 'keys',
@@ -10,8 +12,8 @@ const config = {
     },
   },
   api: {
-    base: process.env.GNDDT_API_BASE || 'https://api.gnddt.com',
-    webshop: process.env.GNDDT_WEBSHOP_URL || 'https://gnddt.com/cua-hang',
+    base: runtimeEnv.GNDDT_API_BASE || __GNDDT_API_BASE__,
+    webshop: runtimeEnv.GNDDT_WEBSHOP_URL || __GNDDT_WEBSHOP_URL__,
   },
   app: {
     title: 'TienTool - Gunny2017',

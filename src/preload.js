@@ -57,4 +57,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Webshop
   openWebshop: (token) => ipcRenderer.invoke('open-webshop', token),
+
+  // Auto Update
+  onUpdateAvailable: (callback) => ipcRenderer.on('update:available', (_event, info) => callback(info)),
+  onUpdateProgress: (callback) => ipcRenderer.on('update:progress', (_event, progressObj) => callback(progressObj)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update:downloaded', (_event, info) => callback(info)),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
 });

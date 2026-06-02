@@ -1104,3 +1104,68 @@ function esc(str) {
   d.textContent = str;
   return d.innerHTML;
 }
+
+// ── Auto Update ────────────────────────────────────────────────
+if (api.onUpdateAvailable) {
+  const modalUpdate = document.getElementById('modal-update');
+  const updateSpeed = document.getElementById('update-speed');
+  const updateEst = document.getElementById('update-est');
+  const updateProgressBar = document.getElementById('update-progress-bar');
+  const updateTransferred = document.getElementById('update-transferred');
+  const updatePercent = document.getElementById('update-percent');
+  const btnInstallUpdate = document.getElementById('btn-install-update');
+
+  api.onUpdateAvailable((info) => {
+    if (modalUpdate) {
+      modalUpdate.classList.remove('hidden');
+    }
+    toast('Đang tải bản cập nhật mới...', 'info');
+  });
+
+  api.onUpdateProgress((progressObj) => {
+    if (!modalUpdate) return;
+    
+    const speedMB = (progressObj.bytesPerSecond / (1024 * 1024)).toFixed(2);
+    const transferredMB = (progressObj.transferred / (1024 * 1024)).toFixed(2);
+    const totalMB = (progressObj.total / (1024 * 1024)).toFixed(2);
+    const percent = Math.floor(progressObj.percent);
+
+    const remainingBytes = progressObj.total - progressObj.transferred;
+    let estTimeStr = 'Đang tính...';
+    if (progressObj.bytesPerSecond > 0) {
+      const estSeconds = Math.floor(remainingBytes / progressObj.bytesPerSecond);
+      if (estSeconds < 60) {
+        estTimeStr = `${estSeconds}s`;
+      } else {
+        estTimeStr = `${Math.floor(estSeconds / 60)}m ${estSeconds % 60}s`;
+      }
+    }
+
+    updateSpeed.textContent = `Tốc độ: ${speedMB} MB/s`;
+    updateEst.textContent = `Ước tính: ${estTimeStr}`;
+    updateProgressBar.style.width = `${percent}%`;
+    updateTransferred.textContent = `${transferredMB} / ${totalMB} MB`;
+    updatePercent.textContent = `${percent}%`;
+  });
+
+  api.onUpdateDownloaded((info) => {
+    if (!modalUpdate) return;
+    
+    updateSpeed.textContent = 'Hoàn tất tải xuống';
+    updateEst.textContent = '';
+    updateProgressBar.style.width = '100%';
+    updateProgressBar.classList.replace('bg-brand-400', 'bg-green-500');
+    updatePercent.textContent = '100%';
+    
+    if (btnInstallUpdate) {
+      btnInstallUpdate.classList.remove('hidden');
+    }
+    toast('Đã tải xong bản cập nhật, sẵn sàng cài đặt.', 'success');
+  });
+
+  if (btnInstallUpdate) {
+    btnInstallUpdate.addEventListener('click', () => {
+      api.installUpdate();
+    });
+  }
+}

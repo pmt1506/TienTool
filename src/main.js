@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { app, BrowserWindow, ipcMain, screen, session, dialog } from 'electron';
 import path from 'node:path';
 import { exec, spawn } from 'node:child_process';
@@ -106,7 +107,7 @@ const createWindow = () => {
   const { x, y, width, height } = display.workArea;
 
   const windowWidth = 700;
-  const windowHeight = 550;
+  const windowHeight = 600;
   const margin = 5; // khoảng cách với mép màn hình
 
   mainWindow = new BrowserWindow({
@@ -132,10 +133,9 @@ const createWindow = () => {
 
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info);
-    dialog.showMessageBox({
-      type: 'info',
-      message: 'Có bản cập nhật mới, đang tải...',
-    });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:available', info);
+    }
   });
 
   autoUpdater.on('update-not-available', (info) => {
@@ -151,16 +151,16 @@ const createWindow = () => {
     log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
     log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
     log.info(log_message);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:progress', progressObj);
+    }
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     log.info('Update downloaded:', info);
-    dialog.showMessageBox({
-      type: 'info',
-      message: 'Đã tải xong bản cập nhật, khởi động lại để sử dụng',
-    }).then(() => {
-      autoUpdater.quitAndInstall();
-    });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:downloaded', info);
+    }
   });
 
   autoUpdater.checkForUpdatesAndNotify();
@@ -186,6 +186,10 @@ ipcMain.handle('window:maximize', () => {
   }
 });
 ipcMain.handle('window:close', () => mainWindow?.close());
+
+ipcMain.handle('update:install', () => {
+  autoUpdater.quitAndInstall();
+});
 
 ipcMain.handle('window:open-log', () => {
   if (logWindow) {
