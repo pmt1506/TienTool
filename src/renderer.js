@@ -270,7 +270,7 @@ async function loginWithKey(key, { silent = false } = {}) {
     }
 
     dom.loginError.textContent = result.error;
-    if (result.error.includes('het han')) {
+    if (result.error.includes('hết hạn')) {
       dom.inlineRenewContainer.classList.remove('hidden');
       dom.inlineRenewContainer.classList.add('flex');
 
