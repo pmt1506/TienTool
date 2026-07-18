@@ -1,6 +1,8 @@
 import axios from "axios";
 import { spawn } from "child_process";
 import path from "path";
+import fs from "fs";
+import { shell } from "electron";
 import { getSerialNumber } from "../utils.js";
 import { ensureCharacterExists } from "./registerService.js";
 
@@ -82,15 +84,15 @@ export async function loginGame(userName, password, serverID, accountType, prefi
         const token = apiResult.token;
 
         // 1. Ensure character exists (Auto Register if not)
-        if ((accountType === 2 || accountType === "2") && checkReg !== false) {
-            console.log(`[Login] Checking/Creating character for clone account ${userName}...`);
-            const ensureRes = await ensureCharacterExists(userName, token, serverID, prefix, maxLength);
-            if (!ensureRes.success) {
-                return { success: false, msg: ensureRes.msg };
-            }
-        } else {
-            console.log(`[Login] Skipping character check for main account ${userName}`);
-        }
+        // if ((accountType === 2 || accountType === "2") && checkReg !== false) {
+        //     console.log(`[Login] Checking/Creating character for clone account ${userName}...`);
+        //     const ensureRes = await ensureCharacterExists(userName, token, serverID, prefix, maxLength);
+        //     if (!ensureRes.success) {
+        //         return { success: false, msg: ensureRes.msg };
+        //     }
+        // } else {
+        //     console.log(`[Login] Skipping character check for main account ${userName}`);
+        // }
 
         // 2. Launch GunnyBrowser
         const args = [
@@ -104,10 +106,22 @@ export async function loginGame(userName, password, serverID, accountType, prefi
 
         const filePath = "C:/Program Files (x86)/gunnyclient/GunnyBrowser.exe";
 
+        if (!fs.existsSync(filePath)) {
+            shell.openExternal("https://drive.google.com/drive/folders/1lhFDUdq1_TKkh1P8WmLH0XFULCOm-Ryc");
+            return {
+                success: false,
+                msg: "Bạn chưa cài game. Đang mở link tải..."
+            };
+        }
+
         const appPlayer = spawn(filePath, args, {
             cwd: "C:/Program Files (x86)/gunnyclient",
             detached: true,
             stdio: "ignore"
+        });
+
+        appPlayer.on('error', (err) => {
+            console.error(`[Login] Spawn error:`, err);
         });
 
         appPlayer.unref();
