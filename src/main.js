@@ -3,6 +3,7 @@ import { app, BrowserWindow, ipcMain, screen, session, dialog } from 'electron';
 import path from 'node:path';
 import { exec, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import started from 'electron-squirrel-startup';
 import { connect, disconnect, getDb } from './database/mongodb.js';
 import {
@@ -128,12 +129,16 @@ const createWindow = () => {
   const windowHeight = 600;
   const margin = 5; // khoảng cách với mép màn hình
 
+  // Icon app (gunnyclient). Chỉ set khi tồn tại — bản đóng gói dùng icon của exe.
+  const appIcon = path.join(__dirname, '../../assets/icon.png');
+
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#0a0a1a',
+    ...(existsSync(appIcon) ? { icon: appIcon } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
