@@ -156,6 +156,50 @@ function toast(message, type = 'info') {
   setTimeout(() => el.remove(), 3000);
 }
 
+// ── Confirm modal (thay cho window.confirm cho đồng bộ giao diện) ──
+function asyncConfirm(message, { title = 'Xác nhận', okText = 'Đồng ý', cancelText = 'Hủy' } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-confirm');
+    const titleEl = document.getElementById('confirm-title');
+    const msgEl = document.getElementById('confirm-message');
+    const btnOk = document.getElementById('btn-ok-confirm');
+    const btnCancel = document.getElementById('btn-cancel-confirm');
+
+    if (!modal) return resolve(confirm(message)); // fallback
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    btnOk.textContent = okText;
+    btnCancel.textContent = cancelText;
+    modal.classList.remove('hidden');
+    refreshIcons();
+    btnOk.focus();
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      btnOk.removeEventListener('click', onOk);
+      btnCancel.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKeydown);
+    };
+    const onOk = () => {
+      cleanup();
+      resolve(true);
+    };
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+    const onKeydown = (e) => {
+      if (e.key === 'Enter') onOk();
+      if (e.key === 'Escape') onCancel();
+    };
+
+    btnOk.addEventListener('click', onOk);
+    btnCancel.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKeydown);
+  });
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
 }
@@ -829,8 +873,9 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
   dom.btnLoginLauncher.disabled = false;
 
   if (onlineRes?.status === 'online') {
-    const proceed = confirm(
-      `Tài khoản "${data.username}" đang có người online.\nVẫn muốn đăng nhập không?`
+    const proceed = await asyncConfirm(
+      `Tài khoản "${data.username}" đang có người online.\nVẫn muốn đăng nhập không?`,
+      { title: 'Tài khoản đang online', okText: 'Vẫn đăng nhập', cancelText: 'Bỏ qua' }
     );
     if (!proceed) {
       return toast('Đã bỏ qua (tài khoản đang online).', 'info');
@@ -878,8 +923,9 @@ if (dom.btnArrangeLauncher100) {
 
 // ── Xóa Cache game (Flash + shader) ─────────────────────────────
 dom.btnClearCache.addEventListener('click', async () => {
-  const proceed = confirm(
-    'Xoá cache game (Flash + shader)?\nNên đóng game trước khi xoá, rồi đăng nhập lại.'
+  const proceed = await asyncConfirm(
+    'Xoá cache game (Flash + shader)?\nNên đóng game trước khi xoá, rồi đăng nhập lại.',
+    { title: 'Xóa Cache', okText: 'Xoá cache', cancelText: 'Hủy' }
   );
   if (!proceed) return;
 

@@ -510,6 +510,31 @@
     </div>
   </div>
 
+  <!-- Confirm Modal -->
+  <div id="modal-confirm"
+    class="hidden fixed inset-0 z-[2100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div class="bg-surface border border-white/10 rounded-xl shadow-2xl w-[340px] flex flex-col overflow-hidden">
+      <div class="h-1.5 w-full bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400"></div>
+      <div class="p-5 flex flex-col items-center text-center gap-3">
+        <div class="w-14 h-14 rounded-full flex items-center justify-center bg-amber-500/15 ring-4 ring-amber-500/10">
+          <i data-lucide="user-round-check" class="w-7 h-7 text-amber-400"></i>
+        </div>
+        <h3 id="confirm-title" class="text-base font-semibold text-gray-100">Xác nhận</h3>
+        <p id="confirm-message" class="text-sm text-gray-400 leading-relaxed whitespace-pre-line"></p>
+      </div>
+      <div class="px-4 py-3 bg-surface-dark border-t border-white/[0.06] flex gap-2">
+        <button id="btn-cancel-confirm"
+          class="flex-1 px-3 py-2 bg-surface border border-white/10 hover:bg-surface-card text-gray-300 text-sm font-medium rounded-md transition-colors">
+          Hủy
+        </button>
+        <button id="btn-ok-confirm"
+          class="flex-1 px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-sm font-semibold rounded-md transition-all shadow-lg shadow-amber-500/20">
+          Đồng ý
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     if (window.location.search.includes('page=log')) {
       import('/src/log.js');
