@@ -12,7 +12,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CAPTCHA_API_KEY = process.env.API_NINJA;
+const CAPTCHA_API_KEY = config.captcha.apiNinjaKey;
 // PARENT_DIR should be resolved inside functions to ensure app is ready
 function getParentDir() {
     return app ? app.getPath('userData') : __dirname;

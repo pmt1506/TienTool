@@ -881,7 +881,7 @@ ipcMain.handle('game:stop-reset-mark', async () => {
 // Kiểm tra tài khoản có đang online không (dùng trước khi login launcher đơn lẻ).
 // Cần captcha (API_NINJA) để lấy JWT — nếu chưa cấu hình thì trả unknown thay vì treo.
 ipcMain.handle('game:check-online', async (_event, username, password) => {
-  if (!process.env.API_NINJA) {
+  if (!config.captcha.apiNinjaKey) {
     return { success: false, status: 'unknown', error: 'Chưa cấu hình API_NINJA' };
   }
   return await checkAccountOnline({ username, password });

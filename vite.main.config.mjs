@@ -35,6 +35,7 @@ export default defineConfig(({ mode }) => {
       __MONGODB_URI__: JSON.stringify(env.MONGODB_URI || process.env.MONGODB_URI || ''),
       __GNDDT_API_BASE__: JSON.stringify(env.GNDDT_API_BASE || process.env.GNDDT_API_BASE || 'https://api.gnddt.com'),
       __GNDDT_WEBSHOP_URL__: JSON.stringify(env.GNDDT_WEBSHOP_URL || process.env.GNDDT_WEBSHOP_URL || 'https://gnddt.com/cua-hang'),
+      __API_NINJA__: JSON.stringify(env.API_NINJA || process.env.API_NINJA || ''),
     },
   };
 });
