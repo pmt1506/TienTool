@@ -66,6 +66,8 @@ const dom = {
 
   btnArrangeLauncher: $('#btn-arrange-launcher'),
   btnArrangeLauncher100: $('#btn-arrange-launcher-100'),
+  btnClearCache: $('#btn-clear-cache'),
+  btnUpdateGame: $('#btn-update-game'),
 
   btnConfig: $('#btn-config'),
   modalConfig: $('#modal-config'),
@@ -152,6 +154,50 @@ function toast(message, type = 'info') {
   el.textContent = message;
   dom.toastContainer.appendChild(el);
   setTimeout(() => el.remove(), 3000);
+}
+
+// ── Confirm modal (thay cho window.confirm cho đồng bộ giao diện) ──
+function asyncConfirm(message, { title = 'Xác nhận', okText = 'Đồng ý', cancelText = 'Hủy' } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-confirm');
+    const titleEl = document.getElementById('confirm-title');
+    const msgEl = document.getElementById('confirm-message');
+    const btnOk = document.getElementById('btn-ok-confirm');
+    const btnCancel = document.getElementById('btn-cancel-confirm');
+
+    if (!modal) return resolve(confirm(message)); // fallback
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    btnOk.textContent = okText;
+    btnCancel.textContent = cancelText;
+    modal.classList.remove('hidden');
+    refreshIcons();
+    btnOk.focus();
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      btnOk.removeEventListener('click', onOk);
+      btnCancel.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKeydown);
+    };
+    const onOk = () => {
+      cleanup();
+      resolve(true);
+    };
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+    const onKeydown = (e) => {
+      if (e.key === 'Enter') onOk();
+      if (e.key === 'Escape') onCancel();
+    };
+
+    btnOk.addEventListener('click', onOk);
+    btnCancel.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKeydown);
+  });
 }
 
 function isValidEmail(email) {
@@ -813,6 +859,29 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
     return toast('Vui lòng chọn tài khoản và server hợp lệ.', 'error');
   }
 
+  // Kiểm tra online trước khi mở launcher (chỉ áp dụng login đơn lẻ).
+  // Nếu đang online -> hỏi xác nhận. Không kiểm tra được (lỗi/chưa cấu hình captcha)
+  // thì vẫn cho login bình thường.
+  dom.btnLoginLauncher.disabled = true;
+  toast('Đang kiểm tra trạng thái online...', 'info');
+  let onlineRes;
+  try {
+    onlineRes = await api.checkAccountOnline(data.username, data.password);
+  } catch {
+    onlineRes = { status: 'unknown' };
+  }
+  dom.btnLoginLauncher.disabled = false;
+
+  if (onlineRes?.status === 'online') {
+    const proceed = await asyncConfirm(
+      `Tài khoản "${data.username}" đang có người online.\nVẫn muốn đăng nhập không?`,
+      { title: 'Tài khoản đang online', okText: 'Vẫn đăng nhập', cancelText: 'Bỏ qua' }
+    );
+    if (!proceed) {
+      return toast('Đã bỏ qua (tài khoản đang online).', 'info');
+    }
+  }
+
   toast('Đang mở Launcher...', 'info');
   try {
     const result = await api.loginGame(data.username, data.password, data.server, data.accountType || 2, config.regPrefix, 14, config.regCheckEnable);
@@ -851,6 +920,68 @@ if (dom.btnArrangeLauncher100) {
     }
   });
 }
+
+// ── Xóa Cache game (Flash + shader) ─────────────────────────────
+dom.btnClearCache.addEventListener('click', async () => {
+  const proceed = await asyncConfirm(
+    'Xoá cache game (Flash + shader)?\nNên đóng game trước khi xoá, rồi đăng nhập lại.',
+    { title: 'Xóa Cache', okText: 'Xoá cache', cancelText: 'Hủy' }
+  );
+  if (!proceed) return;
+
+  dom.btnClearCache.disabled = true;
+  try {
+    const res = await api.clearCache();
+    if (res?.success) {
+      const n = res.data?.cleared?.length ?? 0;
+      toast(n > 0 ? `Đã xoá cache game (${n} mục).` : 'Không có cache nào để xoá.', 'success');
+    } else {
+      toast(res?.error || 'Không xoá được cache.', 'error');
+    }
+  } finally {
+    dom.btnClearCache.disabled = false;
+  }
+});
+
+// ── Cập nhật game — tự tải tài nguyên trong app (tiến trình + Dừng) ─
+let isUpdateRunning = false;
+dom.btnUpdateGame.addEventListener('click', async () => {
+  if (isUpdateRunning) {
+    const res = await api.stopUpdate();
+    if (res?.success) toast('Đang dừng cập nhật...', 'info');
+    return;
+  }
+
+  isUpdateRunning = true;
+  dom.btnUpdateGame.classList.add('bg-red-500', 'hover:bg-red-400');
+  dom.btnUpdateGame.classList.remove('bg-surface');
+  dom.btnUpdateGame.innerHTML = '<i data-lucide="square" class="w-3.5 h-3.5"></i> Dừng cập nhật';
+  refreshIcons();
+
+  dom.autoProgressContainer.classList.remove('hidden');
+  dom.autoProgressMsg.textContent = 'Đang bắt đầu cập nhật...';
+  dom.autoProgressBar.style.width = '0%';
+
+  try {
+    const res = await api.updateResources();
+    if (res?.success) {
+      const n = res.data?.downloaded ?? 0;
+      toast(n > 0 ? `Đã cập nhật ${n} file game.` : 'Game đã ở bản mới nhất.', 'success');
+    } else {
+      toast(res?.error || 'Cập nhật thất bại.', 'error');
+    }
+  } catch {
+    toast('Lỗi khi cập nhật game.', 'error');
+  } finally {
+    isUpdateRunning = false;
+    dom.btnUpdateGame.classList.remove('bg-red-500', 'hover:bg-red-400');
+    dom.btnUpdateGame.classList.add('bg-surface');
+    dom.btnUpdateGame.innerHTML =
+      '<i data-lucide="cloud-download" class="w-3.5 h-3.5 text-brand-300"></i> Cập nhật game';
+    refreshIcons();
+    dom.autoProgressContainer.classList.add('hidden');
+  }
+});
 
 // ── Config Modal ───────────────────────────────────────────────
 dom.btnConfig.addEventListener('click', () => {

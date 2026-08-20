@@ -23,13 +23,13 @@
     ],
     "asar": true,
     "files": [
-      "dist/**",
       ".vite/**",
       "node_modules/**",
       "package.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": true,

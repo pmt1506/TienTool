@@ -3,6 +3,7 @@ import { app, BrowserWindow, ipcMain, screen, session, dialog } from 'electron';
 import path from 'node:path';
 import { exec, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import started from 'electron-squirrel-startup';
 import { connect, disconnect, getDb } from './database/mongodb.js';
 import {
@@ -30,6 +31,9 @@ import { startResetMark } from './services/resetMarkService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
 import { getAllCode, getWeeklyCode } from './services/autoService.js';
+import { checkAccountOnline } from './services/onlineService.js';
+import { clearGameCache } from './services/cacheService.js';
+import { updateGameResources } from './services/updateService.js';
 import config from './config.js';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
@@ -42,6 +46,21 @@ log.info('App starting...');
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
+}
+
+// Chỉ cho phép mở 1 cửa sổ app tại một thời điểm. Nếu app đang chạy mà người dùng
+// mở thêm lần nữa, instance mới thoát ngay và cửa sổ đang mở được đưa lên trước.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
 }
 
 let mainWindow = null;
@@ -110,12 +129,16 @@ const createWindow = () => {
   const windowHeight = 600;
   const margin = 5; // khoảng cách với mép màn hình
 
+  // Icon app (gunnyclient). Chỉ set khi tồn tại — bản đóng gói dùng icon của exe.
+  const appIcon = path.join(__dirname, '../../assets/icon.png');
+
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#0a0a1a',
+    ...(existsSync(appIcon) ? { icon: appIcon } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -855,9 +878,55 @@ ipcMain.handle('game:stop-reset-mark', async () => {
   return { success: true };
 });
 
+// Kiểm tra tài khoản có đang online không (dùng trước khi login launcher đơn lẻ).
+// Cần captcha (API_NINJA) để lấy JWT — nếu chưa cấu hình thì trả unknown thay vì treo.
+ipcMain.handle('game:check-online', async (_event, username, password) => {
+  if (!config.captcha.apiNinjaKey) {
+    return { success: false, status: 'unknown', error: 'Chưa cấu hình API_NINJA' };
+  }
+  return await checkAccountOnline({ username, password });
+});
+
+// Xoá cache game (Flash + shader) — như nút "Xóa Cache" của launcher gốc.
+ipcMain.handle('game:clear-cache', async () => {
+  try {
+    return await clearGameCache();
+  } catch (error) {
+    console.error('[Main] game:clear-cache error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+// Tự cập nhật tài nguyên game trong app (không mở launcher gốc, không cần admin).
+let stopUpdateFlag = false;
+ipcMain.handle('game:update-resources', async (event) => {
+  stopUpdateFlag = false;
+  try {
+    return await updateGameResources(
+      (progress) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          event.sender.send('auto:progress', progress);
+        }
+      },
+      () => stopUpdateFlag
+    );
+  } catch (error) {
+    console.error('[Main] game:update-resources error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('game:stop-update', async () => {
+  stopUpdateFlag = true;
+  return { success: true };
+});
+
 // ─── App Lifecycle ──────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+  // Instance thứ 2 (không giữ được lock) đang thoát — không tạo cửa sổ để tránh nháy.
+  if (!gotSingleInstanceLock) return;
+
   createWindow();
 
   app.on('activate', () => {

@@ -36,6 +36,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   arrangeLaunchers: () => ipcRenderer.invoke('game:arrange-launchers'),
   arrangeLaunchers100: (pids) => ipcRenderer.invoke('game:arrange-launchers-100', pids),
   registerCharacter: (username, password, serverId, prefix, maxLength) => ipcRenderer.invoke('game:register-character', username, password, serverId, prefix, maxLength),
+  checkAccountOnline: (username, password) => ipcRenderer.invoke('game:check-online', username, password),
+  clearCache: () => ipcRenderer.invoke('game:clear-cache'),
+  updateResources: () => ipcRenderer.invoke('game:update-resources'),
+  stopUpdate: () => ipcRenderer.invoke('game:stop-update'),
 
   // Auto
   // get token api -- getLoginToken api service
