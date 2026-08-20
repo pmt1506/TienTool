@@ -15,10 +15,15 @@ const config = {
     base: runtimeEnv.GNDDT_API_BASE || __GNDDT_API_BASE__,
     webshop: runtimeEnv.GNDDT_WEBSHOP_URL || __GNDDT_WEBSHOP_URL__,
   },
-  // Key giải captcha (api-ninjas). Ưu tiên env lúc chạy, fallback về giá trị nhúng
-  // lúc build (__API_NINJA__) để bản đóng gói vẫn có key mà không cần file .env đi kèm.
+  // Captcha giải cục bộ bằng Tesseract (offline); api-ninjas chỉ là fallback khi
+  // worker Tesseract không khởi tạo được. apiNinjaKey ưu tiên env lúc chạy, fallback
+  // về giá trị nhúng lúc build (__API_NINJA__) để bản đóng gói vẫn có key mà không
+  // cần file .env đi kèm. maxAttempts đặt TRẦN số lần thử để không bao giờ treo.
   captcha: {
     apiNinjaKey: runtimeEnv.API_NINJA || __API_NINJA__,
+    retryDelayMs: 1200,
+    minLength: 4,
+    maxAttempts: 15,
   },
   // Thư mục cài GunnyBrowser — trùng với đường dẫn dùng trong loginService.
   game: {
