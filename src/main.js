@@ -30,6 +30,7 @@ import { registerCharacter } from './services/registerService.js';
 import { startResetMark } from './services/resetMarkService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
+import { terminateCaptcha } from './services/captchaService.js';
 import { getAllCode, getWeeklyCode } from './services/autoService.js';
 import { checkAccountOnline } from './services/onlineService.js';
 import { clearGameCache } from './services/cacheService.js';
@@ -939,6 +940,11 @@ app.whenReady().then(async () => {
   setInterval(() => {
     koffiService.autoCloseAlertByTitle('Javascript Alert');
   }, 2000);
+});
+
+// Dọn worker Tesseract (nếu đã khởi tạo) trước khi thoát.
+app.on('before-quit', () => {
+  terminateCaptcha();
 });
 
 app.on('window-all-closed', async () => {

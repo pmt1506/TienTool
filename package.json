@@ -19,9 +19,17 @@
       {
         "from": "src/resources/clickermann",
         "to": "clickermann"
+      },
+      {
+        "from": "src/resources/tessdata",
+        "to": "tessdata"
       }
     ],
     "asar": true,
+    "asarUnpack": [
+      "node_modules/tesseract.js/**",
+      "node_modules/tesseract.js-core/**"
+    ],
     "files": [
       ".vite/**",
       "node_modules/**",
@@ -42,7 +50,8 @@
     "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electronmon .\"",
     "build": "vite build -c vite.main.config.mjs && vite build -c vite.preload.config.mjs && vite build -c vite.renderer.config.mjs",
     "dist": "npm run build && electron-builder --publish=always",
-    "lint": "echo \"No linting configured\""
+    "lint": "echo \"No linting configured\"",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": {
@@ -60,6 +69,7 @@
     "postcss": "^8.5.9",
     "tailwindcss": "^3.4.19",
     "vite": "^5.4.21",
+    "vitest": "^2.1.9",
     "wait-on": "^9.0.5"
   },
   "dependencies": {
@@ -68,9 +78,11 @@
     "electron-log": "^5.4.3",
     "electron-squirrel-startup": "^1.0.1",
     "electron-updater": "^6.8.3",
+    "jimp": "^1.6.1",
     "koffi": "^2.16.0",
     "lucide": "^1.8.0",
     "mongodb": "^7.1.1",
-    "nodemailer": "^8.0.10"
+    "nodemailer": "^8.0.10",
+    "tesseract.js": "^5.1.1"
   }
 }
