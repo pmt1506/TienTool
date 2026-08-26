@@ -71,6 +71,7 @@ module.exports = async (req, res) => {
             },
             $setOnInsert: {
               createdAt: now.toISOString(),
+              hideAuto: true,
             },
           },
           { upsert: true },
@@ -113,6 +114,7 @@ module.exports = async (req, res) => {
           expiredAt: expiredAt.toISOString(),
           createdAt: now.toISOString(),
           activatedAt: now.toISOString(),
+          hideAuto: true,
         });
         return res.status(200).json({ success: true, message: 'Created legacy key' });
       }

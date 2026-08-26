@@ -52,6 +52,7 @@ const dom = {
 
   btnLoginLauncher: $('#btn-login-launcher'),
   btnScriptAuto: $('#btn-script-auto'),
+  rowToolsAction: $('#row-tools-action'),
   btnSetupFirstRun: $('#btn-setup-first-run'),
   toastContainer: $('#toast-container'),
   btnNhanAllCode: $('#btn-nhan-all-code'),
@@ -306,6 +307,17 @@ async function loginWithKey(key, { silent = false } = {}) {
       dom.inputKey.value = result.data.keys || key;
       await api.saveKey(result.data.keys || key);
       setSavedLicenseEmail(result.data.email || getSavedLicenseEmail());
+
+      if (result.data.hideAuto) {
+        dom.btnScriptAuto?.classList.add('hidden');
+        dom.rowToolsAction?.classList.remove('grid-cols-3');
+        dom.rowToolsAction?.classList.add('grid-cols-2');
+      } else {
+        dom.btnScriptAuto?.classList.remove('hidden');
+        dom.rowToolsAction?.classList.remove('grid-cols-2');
+        dom.rowToolsAction?.classList.add('grid-cols-3');
+      }
+
       showPage('dashboard');
       if (!silent) toast('Đăng nhập thành công!', 'success');
       dom.inlineRenewContainer.classList.add('hidden');
