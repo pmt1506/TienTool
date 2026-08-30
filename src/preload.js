@@ -21,8 +21,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Accounts CRUD
   getAccounts: (keyId) => ipcRenderer.invoke('accounts:list', keyId),
   createAccount: (data) => ipcRenderer.invoke('accounts:create', data),
+  createAccountsBatch: (list) => ipcRenderer.invoke('accounts:create-batch', list),
   updateAccount: (id, data) => ipcRenderer.invoke('accounts:update', id, data),
   deleteAccount: (id) => ipcRenderer.invoke('accounts:delete', id),
+  deleteAccountsBatch: (ids) => ipcRenderer.invoke('accounts:delete-batch', ids),
 
   // Templates
   getTemplates: (keyId) => ipcRenderer.invoke('templates:list', keyId),
@@ -36,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   arrangeLaunchers: () => ipcRenderer.invoke('game:arrange-launchers'),
   arrangeLaunchers100: (pids) => ipcRenderer.invoke('game:arrange-launchers-100', pids),
   registerCharacter: (username, password, serverId, prefix, maxLength) => ipcRenderer.invoke('game:register-character', username, password, serverId, prefix, maxLength),
+  registerAccount: (username, password, options) => ipcRenderer.invoke('game:register-account', username, password, options),
   checkAccountOnline: (username, password) => ipcRenderer.invoke('game:check-online', username, password),
   clearCache: () => ipcRenderer.invoke('game:clear-cache'),
   updateResources: () => ipcRenderer.invoke('game:update-resources'),

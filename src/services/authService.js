@@ -87,6 +87,7 @@ export async function loginByKey(key) {
         expiredAt: keyDoc.expiredAt,
         email: keyDoc.email || '',
         hideAuto: keyDoc.hideAuto !== undefined ? Boolean(keyDoc.hideAuto) : true,
+        isAdmin: keyDoc.isAdmin !== undefined ? Boolean(keyDoc.isAdmin) : false,
       },
     };
   } catch (error) {
@@ -105,6 +106,7 @@ export async function checkKeyExists(key) {
       expiredAt: keyDoc ? keyDoc.expiredAt : null,
       email: keyDoc ? (keyDoc.email || '') : '',
       hideAuto: keyDoc ? (keyDoc.hideAuto !== undefined ? Boolean(keyDoc.hideAuto) : true) : true,
+      isAdmin: keyDoc ? (keyDoc.isAdmin !== undefined ? Boolean(keyDoc.isAdmin) : false) : false,
     };
   } catch (error) {
     console.error('[AuthService] Check key error:', error.message);

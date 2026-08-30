@@ -130,7 +130,8 @@
               <thead>
                 <tr>
                   <th
-                    class="sticky top-0 bg-surface-dark px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 text-left border-b border-white/[0.06] w-6">
+                    class="sticky top-0 bg-surface-dark px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 text-center border-b border-white/[0.06] w-6">
+                    <input type="checkbox" id="chk-select-all" class="cursor-pointer w-3.5 h-3.5 rounded border border-white/30 bg-white/5 text-brand-500 checked:bg-brand-500 focus:ring-0" title="Chọn / Bỏ chọn tất cả" />
                   </th>
                   <th
                     class="sticky top-0 bg-surface-dark px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 text-left border-b border-white/[0.06]">
@@ -351,15 +352,19 @@
               </button>
             </div>
 
-            <!-- Tiện ích game: xoá cache + cập nhật tài nguyên trong app -->
-            <div class="grid grid-cols-2 gap-2">
+            <!-- Tiện ích game: xoá cache + reg acc cho Admin -->
+            <div id="row-cache-reg" class="grid grid-cols-2 gap-2">
               <button id="btn-clear-cache" title="Xoá cache game"
                 class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-amber-400/40 hover:bg-amber-400/10 text-xs text-gray-300 rounded-md transition-all">
                 <i data-lucide="eraser" class="w-3.5 h-3.5 text-amber-400"></i> Xóa Cache
               </button>
-              <button id="btn-update-game" title="Cập nhật tài nguyên game"
+              <!-- <button id="btn-update-game" title="Cập nhật tài nguyên game"
                 class="flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-white/10 hover:border-brand-400/30 hover:bg-surface-card text-xs text-gray-300 rounded-md transition-all">
                 <i data-lucide="cloud-download" class="w-3.5 h-3.5 text-brand-300"></i> Cập nhật game
+              </button> -->
+              <button id="btn-reg-acc" title="Đăng ký tài khoản (Admin)"
+                class="hidden flex items-center justify-center gap-1 px-2 py-1.5 bg-surface border border-emerald-500/30 hover:border-emerald-500/60 hover:bg-emerald-500/10 text-xs text-emerald-400 rounded-md transition-all font-semibold">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5 text-emerald-400"></i> Reg Acc
               </button>
             </div>
 
@@ -391,7 +396,7 @@
         </button>
       </div>
       <div class="p-4 flex flex-col gap-4">
-        <div class="hidden flex-col gap-1.5">
+        <div class="flex flex-col gap-1.5">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" id="input-reg-check-enable"
               class="w-4 h-4 rounded-md border border-white/30 bg-white/5 text-brand-500 checked:bg-brand-500 checked:border-brand-500 focus:ring-2 focus:ring-brand-400/40 transition-all duration-200" />
@@ -531,6 +536,126 @@
           class="flex-1 px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-sm font-semibold rounded-md transition-all shadow-lg shadow-amber-500/20">
           Đồng ý
         </button>
+      </div>
+    </div>
+  <!-- Reg Acc Modal (Admin) -->
+  <div id="modal-reg-acc"
+    class="hidden fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div class="bg-surface border border-white/10 rounded-xl shadow-2xl w-[420px] flex flex-col overflow-hidden max-h-[90vh]">
+      <div class="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-white/[0.06]">
+        <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4 text-emerald-400"></i>
+          Đăng ký tài khoản (Admin)
+        </h3>
+        <button id="btn-close-reg-acc" class="text-gray-500 hover:text-white transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Mode selection tabs -->
+      <div class="flex border-b border-white/[0.06] bg-surface-dark/50 p-1.5 gap-1.5">
+        <button id="tab-reg-checked"
+          class="flex-1 py-1.5 text-xs font-semibold rounded-md transition-all text-white bg-emerald-500/20 border border-emerald-500/30">
+          Acc đã chọn (<span id="reg-checked-count">0</span>)
+        </button>
+        <button id="tab-reg-quick"
+          class="flex-1 py-1.5 text-xs font-semibold rounded-md transition-all text-gray-400 hover:text-gray-200 border border-transparent">
+          Tạo mới hàng loạt
+        </button>
+      </div>
+
+      <div class="p-4 flex flex-col gap-3.5 overflow-y-auto scrollbar-thin">
+        <!-- TAB 1: Reg checked accounts -->
+        <div id="view-reg-checked" class="flex flex-col gap-3">
+          <div class="p-3 bg-surface-dark/60 rounded-lg border border-white/[0.06] flex flex-col gap-1.5">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-gray-400">Số acc đang tick:</span>
+              <span id="reg-checked-list-count" class="font-bold text-emerald-400">0 account</span>
+            </div>
+            <p class="text-[11px] text-gray-500 leading-relaxed">
+              Hệ thống sẽ lần lượt giải captcha offline và gọi API RegAccount để đăng ký các tài khoản đã tick trên bảng.
+            </p>
+          </div>
+
+          <label class="flex items-center gap-2 cursor-pointer mt-1">
+            <input type="checkbox" id="reg-checked-create-char" checked
+              class="w-4 h-4 rounded border border-white/30 bg-white/5 text-emerald-500 checked:bg-emerald-500 checked:border-emerald-500" />
+            <span class="text-xs text-gray-300">Tự động tạo nhân vật trong game sau khi reg</span>
+          </label>
+        </div>
+
+        <!-- TAB 2: Quick batch generation -->
+        <div id="view-reg-quick" class="hidden flex-col gap-3">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tiền tố Username</label>
+              <input type="text" id="input-quick-prefix" value="s2myt"
+                class="w-full px-2.5 py-1.5 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-200 outline-none focus:border-emerald-400" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Số lượng acc</label>
+              <input type="number" id="input-quick-count" value="10" min="1" max="100"
+                class="w-full px-2.5 py-1.5 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-200 outline-none focus:border-emerald-400" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Số bắt đầu</label>
+              <input type="number" id="input-quick-start" value="1" min="1"
+                class="w-full px-2.5 py-1.5 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-200 outline-none focus:border-emerald-400" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Độ dài số (Pad)</label>
+              <input type="number" id="input-quick-pad" value="4" min="1" max="6"
+                class="w-full px-2.5 py-1.5 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-200 outline-none focus:border-emerald-400" />
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Mật khẩu chung</label>
+            <input type="text" id="input-quick-password" value="12345678a" placeholder="Để trống để sinh ngẫu nhiên"
+              class="w-full px-2.5 py-1.5 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-200 outline-none focus:border-emerald-400" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Server</label>
+            <select id="select-quick-server"
+              class="w-full px-2.5 py-1.5 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-200 outline-none focus:border-emerald-400 cursor-pointer">
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1.5 pt-1">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="quick-create-char" checked
+                class="w-4 h-4 rounded border border-white/30 bg-white/5 text-emerald-500 checked:bg-emerald-500" />
+              <span class="text-xs text-gray-300">Tự động tạo nhân vật trong game</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="quick-save-tool" checked
+                class="w-4 h-4 rounded border border-white/30 bg-white/5 text-emerald-500 checked:bg-emerald-500" />
+              <span class="text-xs text-gray-300">Lưu vào danh sách tài khoản Tool (Clone)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Progress & Log in Modal -->
+        <div id="reg-acc-progress-container" class="hidden flex-col gap-2 p-3 bg-surface-dark/80 border border-emerald-500/20 rounded-lg animate-fade-in">
+          <div class="flex justify-between items-center text-xs">
+            <span id="reg-acc-progress-title" class="font-semibold text-emerald-400">Tiến trình: 0/0</span>
+            <span id="reg-acc-progress-percent" class="text-[10px] text-gray-400 font-mono">0%</span>
+          </div>
+          <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+            <div id="reg-acc-progress-bar" class="h-full bg-emerald-400 transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <div id="reg-acc-progress-log" class="text-[11px] text-gray-300 font-mono truncate">Sẵn sàng...</div>
+        </div>
+      </div>
+
+      <div class="px-4 py-3 bg-surface-dark border-t border-white/[0.06] flex justify-end gap-2">
+        <button id="btn-stop-reg-acc" class="hidden px-3 py-1.5 bg-red-500 hover:bg-red-400 text-white text-xs font-semibold rounded-md transition-colors">Dừng</button>
+        <button id="btn-cancel-reg-acc" class="px-3 py-1.5 bg-surface border border-white/10 hover:bg-surface-card text-gray-300 text-xs font-medium rounded-md transition-colors">Đóng</button>
+        <button id="btn-start-reg-acc" class="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-semibold rounded-md transition-all shadow-lg shadow-emerald-500/20">Bắt đầu Reg</button>
       </div>
     </div>
   </div>

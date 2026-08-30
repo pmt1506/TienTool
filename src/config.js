@@ -2,7 +2,7 @@ const runtimeEnv = globalThis.process?.env ?? {};
 
 const config = {
   mongodb: {
-    uri: runtimeEnv.MONGODB_URI || __MONGODB_URI__,
+    uri: runtimeEnv.MONGODB_URI || (typeof __MONGODB_URI__ !== 'undefined' ? __MONGODB_URI__ : ''),
     dbName: 'qltk',
     collections: {
       keys: 'keys',
@@ -12,15 +12,15 @@ const config = {
     },
   },
   api: {
-    base: runtimeEnv.GNDDT_API_BASE || __GNDDT_API_BASE__,
-    webshop: runtimeEnv.GNDDT_WEBSHOP_URL || __GNDDT_WEBSHOP_URL__,
+    base: runtimeEnv.GNDDT_API_BASE || (typeof __GNDDT_API_BASE__ !== 'undefined' ? __GNDDT_API_BASE__ : 'https://api.gnddt.com'),
+    webshop: runtimeEnv.GNDDT_WEBSHOP_URL || (typeof __GNDDT_WEBSHOP_URL__ !== 'undefined' ? __GNDDT_WEBSHOP_URL__ : 'https://gnddt.com/cua-hang'),
   },
   // Captcha giải cục bộ bằng Tesseract (offline); api-ninjas chỉ là fallback khi
   // worker Tesseract không khởi tạo được. apiNinjaKey ưu tiên env lúc chạy, fallback
   // về giá trị nhúng lúc build (__API_NINJA__) để bản đóng gói vẫn có key mà không
   // cần file .env đi kèm. maxAttempts đặt TRẦN số lần thử để không bao giờ treo.
   captcha: {
-    apiNinjaKey: runtimeEnv.API_NINJA || __API_NINJA__,
+    apiNinjaKey: runtimeEnv.API_NINJA || (typeof __API_NINJA__ !== 'undefined' ? __API_NINJA__ : ''),
     retryDelayMs: 1200,
     minLength: 4,
     maxAttempts: 15,

@@ -84,15 +84,16 @@ export async function loginGame(userName, password, serverID, accountType, prefi
         const token = apiResult.token;
 
         // 1. Ensure character exists (Auto Register if not)
-        // if ((accountType === 2 || accountType === "2") && checkReg !== false) {
-        //     console.log(`[Login] Checking/Creating character for clone account ${userName}...`);
-        //     const ensureRes = await ensureCharacterExists(userName, token, serverID, prefix, maxLength);
-        //     if (!ensureRes.success) {
-        //         return { success: false, msg: ensureRes.msg };
-        //     }
-        // } else {
-        //     console.log(`[Login] Skipping character check for main account ${userName}`);
-        // }
+        const isClone = accountType === 2 || accountType === "2" || accountType === 0 || accountType === "0";
+        if (isClone && checkReg !== false) {
+            console.log(`[Login] Checking/Creating character for clone account ${userName}...`);
+            const ensureRes = await ensureCharacterExists(userName, token, serverID, prefix, maxLength);
+            if (!ensureRes.success) {
+                return { success: false, msg: ensureRes.msg };
+            }
+        } else {
+            console.log(`[Login] Skipping character check for account ${userName} (type: ${accountType}, checkReg: ${checkReg})`);
+        }
 
         // 2. Launch GunnyBrowser
         const args = [

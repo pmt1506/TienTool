@@ -16,8 +16,10 @@ import {
 import {
   getAccounts,
   createAccount,
+  createAccountsBatch,
   updateAccount,
   deleteAccount,
+  deleteAccountsBatch,
 } from './services/accountService.js';
 import {
   getTemplates,
@@ -26,7 +28,7 @@ import {
   deleteTemplate,
 } from './services/templateService.js';
 import { loginGame } from './services/loginService.js';
-import { registerCharacter } from './services/registerService.js';
+import { registerCharacter, registerAccount } from './services/registerService.js';
 import { startResetMark } from './services/resetMarkService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
@@ -363,6 +365,13 @@ ipcMain.handle('accounts:create', async (_event, data) => {
   return await createAccount(data);
 });
 
+ipcMain.handle('accounts:create-batch', async (_event, list) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
+  return await createAccountsBatch(list);
+});
+
 ipcMain.handle('accounts:update', async (_event, id, data) => {
   if (!(await ensureDbConnected())) {
     return { success: false, error: 'Khong ket noi duoc database.' };
@@ -375,6 +384,13 @@ ipcMain.handle('accounts:delete', async (_event, id) => {
     return { success: false, error: 'Khong ket noi duoc database.' };
   }
   return await deleteAccount(id);
+});
+
+ipcMain.handle('accounts:delete-batch', async (_event, ids) => {
+  if (!(await ensureDbConnected())) {
+    return { success: false, error: 'Khong ket noi duoc database.' };
+  }
+  return await deleteAccountsBatch(ids);
 });
 
 // Templates CRUD
@@ -417,6 +433,10 @@ ipcMain.handle('game:login', async (_event, username, password, serverId, accoun
 
 ipcMain.handle('game:register-character', async (_event, username, password, serverId, prefix, maxLength) => {
   return await registerCharacter(username, password, serverId, prefix, maxLength);
+});
+
+ipcMain.handle('game:register-account', async (_event, username, password, options) => {
+  return await registerAccount(username, password, options);
 });
 
 ipcMain.handle('game:rename-window', async (_event, pid, newName) => {

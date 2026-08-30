@@ -32,6 +32,7 @@ const dom = {
   accountCount: $('#account-count'),
   inputSearchAccount: $('#search-account'),
   accountsTbody: $('#accounts-tbody'),
+  chkSelectAll: $('#chk-select-all'),
   formId: $('#form-id'),
   formUsername: $('#form-username'),
   formPassword: $('#form-password'),
@@ -69,6 +70,34 @@ const dom = {
   btnArrangeLauncher100: $('#btn-arrange-launcher-100'),
   btnClearCache: $('#btn-clear-cache'),
   btnUpdateGame: $('#btn-update-game'),
+  btnRegAcc: $('#btn-reg-acc'),
+
+  // Reg Acc Modal (Admin)
+  modalRegAcc: $('#modal-reg-acc'),
+  btnCloseRegAcc: $('#btn-close-reg-acc'),
+  btnCancelRegAcc: $('#btn-cancel-reg-acc'),
+  tabRegChecked: $('#tab-reg-checked'),
+  tabRegQuick: $('#tab-reg-quick'),
+  viewRegChecked: $('#view-reg-checked'),
+  viewRegQuick: $('#view-reg-quick'),
+  regCheckedCount: $('#reg-checked-count'),
+  regCheckedListCount: $('#reg-checked-list-count'),
+  regCheckedCreateChar: $('#reg-checked-create-char'),
+  inputQuickPrefix: $('#input-quick-prefix'),
+  inputQuickCount: $('#input-quick-count'),
+  inputQuickStart: $('#input-quick-start'),
+  inputQuickPad: $('#input-quick-pad'),
+  inputQuickPassword: $('#input-quick-password'),
+  selectQuickServer: $('#select-quick-server'),
+  quickCreateChar: $('#quick-create-char'),
+  quickSaveTool: $('#quick-save-tool'),
+  regAccProgressContainer: $('#reg-acc-progress-container'),
+  regAccProgressTitle: $('#reg-acc-progress-title'),
+  regAccProgressPercent: $('#reg-acc-progress-percent'),
+  regAccProgressBar: $('#reg-acc-progress-bar'),
+  regAccProgressLog: $('#reg-acc-progress-log'),
+  btnStartRegAcc: $('#btn-start-reg-acc'),
+  btnStopRegAcc: $('#btn-stop-reg-acc'),
 
   btnConfig: $('#btn-config'),
   modalConfig: $('#modal-config'),
@@ -266,20 +295,40 @@ async function loadServers() {
 
 function populateServerDropdown() {
   const sel = dom.formServer;
-  sel.innerHTML = '<option value="">-- Chọn server --</option>';
-  serverList.forEach((s) => {
-    const opt = document.createElement('option');
-    opt.value = s.serverId;
-    opt.textContent = `${s.serverId}. ${s.Name}`;
-    if (s.Offline) {
-      opt.textContent += ' (Offline)';
-      opt.disabled = true;
+  if (sel) {
+    sel.innerHTML = '<option value="">-- Chọn server --</option>';
+    serverList.forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = s.serverId;
+      opt.textContent = `${s.serverId}. ${s.Name}`;
+      if (s.Offline) {
+        opt.textContent += ' (Offline)';
+        opt.disabled = true;
+      }
+      if (s.New) {
+        opt.textContent += ' ✦';
+      }
+      sel.appendChild(opt);
+    });
+  }
+
+  const quickSel = dom.selectQuickServer;
+  if (quickSel) {
+    quickSel.innerHTML = '';
+    serverList.forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = s.serverId;
+      opt.textContent = `${s.serverId}. ${s.Name}`;
+      if (s.Offline) {
+        opt.textContent += ' (Offline)';
+        opt.disabled = true;
+      }
+      quickSel.appendChild(opt);
+    });
+    if (serverList.length > 0 && !quickSel.value) {
+      quickSel.value = serverList[0].serverId;
     }
-    if (s.New) {
-      opt.textContent += ' ✦';
-    }
-    sel.appendChild(opt);
-  });
+  }
 }
 
 // Get server display name from id
@@ -316,6 +365,12 @@ async function loginWithKey(key, { silent = false } = {}) {
         dom.btnScriptAuto?.classList.remove('hidden');
         dom.rowToolsAction?.classList.remove('grid-cols-2');
         dom.rowToolsAction?.classList.add('grid-cols-3');
+      }
+
+      if (result.data.isAdmin) {
+        dom.btnRegAcc?.classList.remove('hidden');
+      } else {
+        dom.btnRegAcc?.classList.add('hidden');
       }
 
       showPage('dashboard');
@@ -399,6 +454,7 @@ dom.btnLogout.addEventListener('click', () => {
   dom.inlineRenewContainer.classList.add('hidden');
   dom.inlineRenewContainer.classList.remove('flex');
   dom.btnShowRegister.classList.remove('hidden');
+  dom.btnRegAcc?.classList.add('hidden');
   showPage('login');
   toast('Đã đăng xuất.', 'info');
 });
@@ -700,7 +756,16 @@ function renderAccounts() {
 
   if (filteredAccounts.length === 0) {
     dom.accountsTbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-gray-500 text-sm">Chưa có tài khoản nào.</td></tr>`;
+    if (dom.chkSelectAll) {
+      dom.chkSelectAll.checked = false;
+      dom.chkSelectAll.indeterminate = false;
+    }
     return;
+  }
+
+  if (dom.chkSelectAll) {
+    dom.chkSelectAll.checked = filteredAccounts.length > 0 && filteredAccounts.every((a) => a.isChecked);
+    dom.chkSelectAll.indeterminate = filteredAccounts.some((a) => a.isChecked) && !dom.chkSelectAll.checked;
   }
 
   dom.accountsTbody.innerHTML = filteredAccounts
@@ -745,6 +810,16 @@ if (dom.inputSearchAccount) {
   });
 }
 
+if (dom.chkSelectAll) {
+  dom.chkSelectAll.addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    const query = dom.inputSearchAccount?.value.trim().toLowerCase() || '';
+    const filteredAccounts = accounts.filter((acc) => acc.username.toLowerCase().includes(query));
+    filteredAccounts.forEach((acc) => (acc.isChecked = checked));
+    renderAccounts();
+  });
+}
+
 dom.accountsTbody.addEventListener('click', (e) => {
   const tr = e.target.closest('tr[data-index]');
   if (!tr) return;
@@ -755,6 +830,13 @@ dom.accountsTbody.addEventListener('change', (e) => {
   if (e.target.classList.contains('acc-chk')) {
     const idx = parseInt(e.target.dataset.index, 10);
     accounts[idx].isChecked = e.target.checked;
+
+    const query = dom.inputSearchAccount?.value.trim().toLowerCase() || '';
+    const filteredAccounts = accounts.filter((acc) => acc.username.toLowerCase().includes(query));
+    if (dom.chkSelectAll) {
+      dom.chkSelectAll.checked = filteredAccounts.length > 0 && filteredAccounts.every((a) => a.isChecked);
+      dom.chkSelectAll.indeterminate = filteredAccounts.some((a) => a.isChecked) && !dom.chkSelectAll.checked;
+    }
   }
 });
 
@@ -816,11 +898,44 @@ dom.btnEdit.addEventListener('click', async () => {
 });
 
 dom.btnDelete.addEventListener('click', async () => {
+  const checkedAccounts = accounts.filter((acc) => acc.isChecked);
+  if (checkedAccounts.length > 0) {
+    const confirmed = await asyncConfirm(
+      `Bạn có chắc chắn muốn xóa ${checkedAccounts.length} tài khoản đã chọn không?\nThao tác này không thể hoàn tác.`,
+      { title: 'Xóa nhiều tài khoản', okText: `Xóa ${checkedAccounts.length} acc`, cancelText: 'Hủy' }
+    );
+    if (!confirmed) return;
+
+    const ids = checkedAccounts.map((a) => a._id);
+    const result = await api.deleteAccountsBatch(ids);
+    if (result.success) {
+      toast(`Đã xóa ${result.count || ids.length} tài khoản thành công.`, 'success');
+      clearForm();
+      await loadAccounts();
+    } else {
+      toast(result.error || 'Lỗi khi xóa tài khoản.', 'error');
+    }
+    return;
+  }
+
   const id = dom.formId.value;
-  if (!id) return toast('Chọn tài khoản để xóa.', 'error');
-  if (!confirm('Xóa tài khoản này?')) return;
+  if (!id) return toast('Vui lòng chọn hoặc tick tài khoản cần xóa.', 'warning');
+
+  const username = dom.formUsername.value || 'tài khoản này';
+  const confirmed = await asyncConfirm(
+    `Xóa tài khoản "${username}"?`,
+    { title: 'Xác nhận xóa', okText: 'Xóa', cancelText: 'Hủy' }
+  );
+  if (!confirmed) return;
+
   const result = await api.deleteAccount(id);
-  result.success ? (toast('Đã xóa.', 'success'), loadAccounts()) : toast(result.error, 'error');
+  if (result.success) {
+    toast(`Đã xóa tài khoản "${username}".`, 'success');
+    clearForm();
+    await loadAccounts();
+  } else {
+    toast(result.error || 'Không thể xóa tài khoản.', 'error');
+  }
 });
 
 // ── Login Launcher ─────────────────────────────────────────────
@@ -955,44 +1070,257 @@ dom.btnClearCache.addEventListener('click', async () => {
   }
 });
 
-// ── Cập nhật game — tự tải tài nguyên trong app (tiến trình + Dừng) ─
-let isUpdateRunning = false;
-dom.btnUpdateGame.addEventListener('click', async () => {
-  if (isUpdateRunning) {
-    const res = await api.stopUpdate();
-    if (res?.success) toast('Đang dừng cập nhật...', 'info');
+// ── Reg Acc Modal (Admin) ──────────────────────────────────────
+let isRegAccRunning = false;
+let stopRegAccRequested = false;
+let currentRegAccTab = 'checked'; // 'checked' | 'quick'
+
+function switchRegAccTab(tab) {
+  currentRegAccTab = tab;
+  if (tab === 'checked') {
+    dom.tabRegChecked?.classList.add('text-white', 'bg-emerald-500/20', 'border-emerald-500/30');
+    dom.tabRegChecked?.classList.remove('text-gray-400', 'hover:text-gray-200', 'border-transparent');
+    dom.tabRegQuick?.classList.remove('text-white', 'bg-emerald-500/20', 'border-emerald-500/30');
+    dom.tabRegQuick?.classList.add('text-gray-400', 'hover:text-gray-200', 'border-transparent');
+
+    dom.viewRegChecked?.classList.remove('hidden');
+    dom.viewRegChecked?.classList.add('flex');
+    dom.viewRegQuick?.classList.add('hidden');
+    dom.viewRegQuick?.classList.remove('flex');
+  } else {
+    dom.tabRegQuick?.classList.add('text-white', 'bg-emerald-500/20', 'border-emerald-500/30');
+    dom.tabRegQuick?.classList.remove('text-gray-400', 'hover:text-gray-200', 'border-transparent');
+    dom.tabRegChecked?.classList.remove('text-white', 'bg-emerald-500/20', 'border-emerald-500/30');
+    dom.tabRegChecked?.classList.add('text-gray-400', 'hover:text-gray-200', 'border-transparent');
+
+    dom.viewRegQuick?.classList.remove('hidden');
+    dom.viewRegQuick?.classList.add('flex');
+    dom.viewRegChecked?.classList.add('hidden');
+    dom.viewRegChecked?.classList.remove('flex');
+  }
+}
+
+dom.tabRegChecked?.addEventListener('click', () => switchRegAccTab('checked'));
+dom.tabRegQuick?.addEventListener('click', () => switchRegAccTab('quick'));
+
+function updateRegCheckedCounts() {
+  const count = accounts.filter((a) => a.isChecked).length;
+  if (dom.regCheckedCount) dom.regCheckedCount.textContent = count;
+  if (dom.regCheckedListCount) dom.regCheckedListCount.textContent = `${count} account`;
+  return count;
+}
+
+dom.btnRegAcc?.addEventListener('click', () => {
+  const checkedCount = updateRegCheckedCounts();
+  populateServerDropdown();
+  dom.regAccProgressContainer?.classList.add('hidden');
+  dom.regAccProgressContainer?.classList.remove('flex');
+  dom.btnStopRegAcc?.classList.add('hidden');
+  dom.btnStartRegAcc?.classList.remove('hidden');
+  dom.btnCancelRegAcc?.classList.remove('hidden');
+
+  if (checkedCount > 0) {
+    switchRegAccTab('checked');
+  } else {
+    switchRegAccTab('quick');
+  }
+
+  dom.modalRegAcc?.classList.remove('hidden');
+  refreshIcons();
+});
+
+dom.btnCloseRegAcc?.addEventListener('click', () => {
+  if (isRegAccRunning) stopRegAccRequested = true;
+  dom.modalRegAcc?.classList.add('hidden');
+});
+
+dom.btnCancelRegAcc?.addEventListener('click', () => {
+  if (isRegAccRunning) stopRegAccRequested = true;
+  dom.modalRegAcc?.classList.add('hidden');
+});
+
+dom.btnStopRegAcc?.addEventListener('click', () => {
+  stopRegAccRequested = true;
+  if (dom.regAccProgressLog) {
+    dom.regAccProgressLog.textContent = 'Đang dừng... vui lòng chờ lượt hiện tại kết thúc.';
+  }
+});
+
+dom.btnStartRegAcc?.addEventListener('click', async () => {
+  if (isRegAccRunning) return;
+
+  if (currentRegAccTab === 'checked') {
+    const checkedAccounts = accounts.filter((a) => a.isChecked);
+    if (checkedAccounts.length === 0) {
+      return toast('Vui lòng tick chọn ít nhất 1 account trên bảng.', 'warning');
+    }
+
+    isRegAccRunning = true;
+    stopRegAccRequested = false;
+
+    dom.btnStartRegAcc?.classList.add('hidden');
+    dom.btnCancelRegAcc?.classList.add('hidden');
+    dom.btnStopRegAcc?.classList.remove('hidden');
+    dom.regAccProgressContainer?.classList.remove('hidden');
+    dom.regAccProgressContainer?.classList.add('flex');
+
+    const total = checkedAccounts.length;
+    let okCount = 0;
+    let failCount = 0;
+    const shouldCreateChar = dom.regCheckedCreateChar?.checked !== false;
+
+    for (let i = 0; i < total; i++) {
+      if (stopRegAccRequested) {
+        toast('Đã dừng đăng ký theo yêu cầu.', 'info');
+        break;
+      }
+
+      const acc = checkedAccounts[i];
+      const percent = Math.round(((i) / total) * 100);
+      if (dom.regAccProgressTitle) dom.regAccProgressTitle.textContent = `Tiến trình: ${i + 1}/${total}`;
+      if (dom.regAccProgressPercent) dom.regAccProgressPercent.textContent = `${percent}%`;
+      if (dom.regAccProgressBar) dom.regAccProgressBar.style.width = `${percent}%`;
+      if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] Đang reg ${acc.username}...`;
+
+      try {
+        const regRes = await api.registerAccount(acc.username, acc.password);
+        if (regRes.success) {
+          okCount++;
+          if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Đăng ký OK!`;
+
+          if (shouldCreateChar && acc.server) {
+            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Đang tạo NV server ${acc.server}...`;
+            const charRes = await api.registerCharacter(acc.username, acc.password, acc.server, config.regPrefix, 14);
+            if (charRes.success) {
+              if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> NV: ${charRes.nick || 'OK'}`;
+            }
+          }
+        } else {
+          failCount++;
+          if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> ${regRes.msg || 'Thất bại'}`;
+        }
+      } catch (err) {
+        failCount++;
+        if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Lỗi: ${err.message}`;
+      }
+
+      if (i < total - 1) {
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    }
+
+    if (dom.regAccProgressBar) dom.regAccProgressBar.style.width = '100%';
+    if (dom.regAccProgressPercent) dom.regAccProgressPercent.textContent = '100%';
+    if (dom.regAccProgressTitle) dom.regAccProgressTitle.textContent = `Hoàn tất: ${okCount} thành công, ${failCount} thất bại`;
+    toast(`Đã xử lý xong: ${okCount} thành công, ${failCount} thất bại`, 'success');
+
+    isRegAccRunning = false;
+    dom.btnStopRegAcc?.classList.add('hidden');
+    dom.btnCancelRegAcc?.classList.remove('hidden');
+    dom.btnStartRegAcc?.classList.remove('hidden');
+
+    accounts.forEach((a) => (a.isChecked = false));
+    renderAccounts();
     return;
   }
 
-  isUpdateRunning = true;
-  dom.btnUpdateGame.classList.add('bg-red-500', 'hover:bg-red-400');
-  dom.btnUpdateGame.classList.remove('bg-surface');
-  dom.btnUpdateGame.innerHTML = '<i data-lucide="square" class="w-3.5 h-3.5"></i> Dừng cập nhật';
-  refreshIcons();
+  // TAB 2: Tạo mới hàng loạt
+  const prefix = dom.inputQuickPrefix?.value.trim() || 's2myt';
+  const count = parseInt(dom.inputQuickCount?.value, 10) || 10;
+  const start = parseInt(dom.inputQuickStart?.value, 10) || 1;
+  const pad = parseInt(dom.inputQuickPad?.value, 10) || 4;
+  const commonPassword = dom.inputQuickPassword?.value.trim();
+  const server = dom.selectQuickServer?.value || (serverList[0]?.serverId ?? '2');
+  const shouldCreateChar = dom.quickCreateChar?.checked !== false;
+  const shouldSaveTool = dom.quickSaveTool?.checked !== false;
 
-  dom.autoProgressContainer.classList.remove('hidden');
-  dom.autoProgressMsg.textContent = 'Đang bắt đầu cập nhật...';
-  dom.autoProgressBar.style.width = '0%';
-
-  try {
-    const res = await api.updateResources();
-    if (res?.success) {
-      const n = res.data?.downloaded ?? 0;
-      toast(n > 0 ? `Đã cập nhật ${n} file game.` : 'Game đã ở bản mới nhất.', 'success');
-    } else {
-      toast(res?.error || 'Cập nhật thất bại.', 'error');
-    }
-  } catch {
-    toast('Lỗi khi cập nhật game.', 'error');
-  } finally {
-    isUpdateRunning = false;
-    dom.btnUpdateGame.classList.remove('bg-red-500', 'hover:bg-red-400');
-    dom.btnUpdateGame.classList.add('bg-surface');
-    dom.btnUpdateGame.innerHTML =
-      '<i data-lucide="cloud-download" class="w-3.5 h-3.5 text-brand-300"></i> Cập nhật game';
-    refreshIcons();
-    dom.autoProgressContainer.classList.add('hidden');
+  if (count <= 0 || count > 100) {
+    return toast('Số lượng tài khoản cần từ 1 đến 100.', 'error');
   }
+
+  isRegAccRunning = true;
+  stopRegAccRequested = false;
+
+  dom.btnStartRegAcc?.classList.add('hidden');
+  dom.btnCancelRegAcc?.classList.add('hidden');
+  dom.btnStopRegAcc?.classList.remove('hidden');
+  dom.regAccProgressContainer?.classList.remove('hidden');
+  dom.regAccProgressContainer?.classList.add('flex');
+
+  const generatedList = [];
+  for (let i = 0; i < count; i++) {
+    const num = String(start + i).padStart(pad, '0');
+    const username = `${prefix}${num}`;
+    const password = commonPassword || (Math.random().toString(36).slice(2, 10) + 'A1');
+    generatedList.push({
+      keyId: currentKeyId,
+      username,
+      password,
+      server: parseInt(server, 10),
+      accountType: 2,
+      note: 'Auto Clone',
+    });
+  }
+
+  if (shouldSaveTool) {
+    if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `Đang lưu ${generatedList.length} tài khoản vào Tool...`;
+    await api.createAccountsBatch(generatedList);
+    await loadAccounts();
+  }
+
+  let okCount = 0;
+  let failCount = 0;
+  for (let i = 0; i < generatedList.length; i++) {
+    if (stopRegAccRequested) {
+      toast('Đã dừng đăng ký theo yêu cầu.', 'info');
+      break;
+    }
+
+    const acc = generatedList[i];
+    const percent = Math.round(((i) / count) * 100);
+    if (dom.regAccProgressTitle) dom.regAccProgressTitle.textContent = `Tiến trình: ${i + 1}/${count}`;
+    if (dom.regAccProgressPercent) dom.regAccProgressPercent.textContent = `${percent}%`;
+    if (dom.regAccProgressBar) dom.regAccProgressBar.style.width = `${percent}%`;
+    if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] Đang reg ${acc.username}...`;
+
+    try {
+      const regRes = await api.registerAccount(acc.username, acc.password);
+      if (regRes.success) {
+        okCount++;
+        if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> Đăng ký OK!`;
+
+        if (shouldCreateChar) {
+          if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> Đang tạo NV server ${server}...`;
+          const charRes = await api.registerCharacter(acc.username, acc.password, server, config.regPrefix, 14);
+          if (charRes.success) {
+            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> NV: ${charRes.nick || 'OK'}`;
+          }
+        }
+      } else {
+        failCount++;
+        if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> ${regRes.msg || 'Thất bại'}`;
+      }
+    } catch (err) {
+      failCount++;
+      if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> Lỗi: ${err.message}`;
+    }
+
+    if (i < generatedList.length - 1) {
+      await new Promise((r) => setTimeout(r, 800));
+    }
+  }
+
+  if (dom.regAccProgressBar) dom.regAccProgressBar.style.width = '100%';
+  if (dom.regAccProgressPercent) dom.regAccProgressPercent.textContent = '100%';
+  if (dom.regAccProgressTitle) dom.regAccProgressTitle.textContent = `Hoàn tất: ${okCount} thành công, ${failCount} thất bại`;
+  toast(`Đã tạo xong ${count} acc: ${okCount} OK, ${failCount} thất bại`, 'success');
+
+  isRegAccRunning = false;
+  dom.btnStopRegAcc?.classList.add('hidden');
+  dom.btnCancelRegAcc?.classList.remove('hidden');
+  dom.btnStartRegAcc?.classList.remove('hidden');
+
+  await loadAccounts();
 });
 
 // ── Config Modal ───────────────────────────────────────────────

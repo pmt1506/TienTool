@@ -71,6 +71,28 @@ export async function createAccount(data) {
 }
 
 /**
+ * Batch create multiple accounts
+ */
+export async function createAccountsBatch(list) {
+  try {
+    if (!list || list.length === 0) return { success: true, count: 0 };
+    const docs = list.map((data) => ({
+      keyId: new ObjectId(data.keyId),
+      username: data.username,
+      password: data.password,
+      server: parseInt(data.server, 10),
+      accountType: parseInt(data.accountType, 10) || 2,
+      note: data.note || '',
+    }));
+    const result = await col().insertMany(docs);
+    return { success: true, count: result.insertedCount };
+  } catch (error) {
+    console.error('[AccountService] createAccountsBatch error:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Update an existing account by _id
  */
 export async function updateAccount(id, data) {
@@ -112,6 +134,21 @@ export async function deleteAccount(id) {
     return { success: true };
   } catch (error) {
     console.error('[AccountService] deleteAccount error:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete multiple accounts by array of _ids
+ */
+export async function deleteAccountsBatch(ids) {
+  try {
+    if (!ids || ids.length === 0) return { success: true, count: 0 };
+    const objectIds = ids.map((id) => new ObjectId(id));
+    const result = await col().deleteMany({ _id: { $in: objectIds } });
+    return { success: true, count: result.deletedCount };
+  } catch (error) {
+    console.error('[AccountService] deleteAccountsBatch error:', error.message);
     return { success: false, error: error.message };
   }
 }
