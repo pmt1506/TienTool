@@ -32,9 +32,7 @@ import { registerCharacter, registerAccount } from './services/registerService.j
 import { startResetMark } from './services/resetMarkService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
-import { terminateCaptcha } from './services/captchaService.js';
 import { getAllCode, getWeeklyCode } from './services/autoService.js';
-import { checkAccountOnline } from './services/onlineService.js';
 import { clearGameCache } from './services/cacheService.js';
 import { updateGameResources } from './services/updateService.js';
 import config from './config.js';
@@ -899,14 +897,6 @@ ipcMain.handle('game:stop-reset-mark', async () => {
   return { success: true };
 });
 
-// Kiểm tra tài khoản có đang online không (dùng trước khi login launcher đơn lẻ).
-// Cần captcha (API_NINJA) để lấy JWT — nếu chưa cấu hình thì trả unknown thay vì treo.
-ipcMain.handle('game:check-online', async (_event, username, password) => {
-  if (!config.captcha.apiNinjaKey) {
-    return { success: false, status: 'unknown', error: 'Chưa cấu hình API_NINJA' };
-  }
-  return await checkAccountOnline({ username, password });
-});
 
 // Xoá cache game (Flash + shader) — như nút "Xóa Cache" của launcher gốc.
 ipcMain.handle('game:clear-cache', async () => {
@@ -962,10 +952,6 @@ app.whenReady().then(async () => {
   }, 2000);
 });
 
-// Dọn worker Tesseract (nếu đã khởi tạo) trước khi thoát.
-app.on('before-quit', () => {
-  terminateCaptcha();
-});
 
 app.on('window-all-closed', async () => {
   await disconnect();

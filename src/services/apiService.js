@@ -1,22 +1,22 @@
 
-// api service để chạy các api web liên quan tới login. retry captcha, lấy info user và token
-
-// get ảnh captcha sau đó gửi tới api-ninja để giải, reuse cho các function khác
 import fs from 'fs/promises';
 import config from '../config.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { app, BrowserWindow, ipcMain } from 'electron';
-import { ocrCaptchaLocal } from './captchaService.js';
 
 // fix __dirname cho ES module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Key api-ninjas chỉ dùng cho fallback khi Tesseract cục bộ hỏng.
-function getCaptchaApiKey() {
-    return config.captcha.apiNinjaKey || process.env.API_NINJA;
+export function cleanCaptchaText(raw) {
+    return (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
+
+function getCaptchaApiKey() {
+    return config.captcha.apiNinjaKey;
+}
+
 // PARENT_DIR should be resolved inside functions to ensure app is ready
 function getParentDir() {
     return app ? app.getPath('userData') : __dirname;
@@ -46,9 +46,8 @@ export async function getCaptchaImage() {
     return filePath;
 }
 
-// OCR captcha qua api-ninjas (fallback khi Tesseract cục bộ không khả dụng).
-// Trả chuỗi text (chưa chuẩn hóa) hoặc '' nếu lỗi/không đọc được.
-async function ocrCaptchaNinja(imgPath, apiKey) {
+// OCR captcha qua api-ninjas
+export async function ocrCaptchaNinja(imgPath, apiKey) {
     const apiUrl = 'https://api.api-ninjas.com/v1/imagetotext';
     const fileBuffer = await fs.readFile(imgPath);
     const formData = new FormData();
@@ -64,9 +63,8 @@ async function ocrCaptchaNinja(imgPath, apiKey) {
     try {
         const data = JSON.parse(json);
         if (Array.isArray(data) && data.length > 0) {
-            return data[0]?.text || '';
+            return cleanCaptchaText(data[0]?.text || '');
         }
-        // Lỗi từ api-ninjas (vd key sai): { error: "Invalid API Key." }
         if (data?.error) {
             console.log(`⚠️ api-ninjas lỗi: ${data.error}`);
         }
@@ -76,40 +74,24 @@ async function ocrCaptchaNinja(imgPath, apiKey) {
     return '';
 }
 
-// Lấy + giải captcha. Ưu tiên Tesseract cục bộ (offline); nếu worker không khởi tạo
-// được thì fallback sang api-ninjas khi có key. Có TRẦN số lần để không bao giờ treo:
-// hết trần trả null, caller (getLoginToken) xử lý như thất bại.
+// Lấy + giải captcha bằng API Ninja
 export async function getCaptcha(checkStop) {
     const { retryDelayMs, minLength, maxAttempts } = config.captcha;
     const cap = maxAttempts || 15;
-    let localBroken = false;
+    const apiKey = getCaptchaApiKey();
+
+    if (!apiKey) {
+        console.log('❌ Chưa cấu hình API_NINJA — không thể giải captcha.');
+        return null;
+    }
 
     for (let attempt = 0; attempt < cap; attempt++) {
         if (checkStop && checkStop()) return null;
 
         const imgPath = await getCaptchaImage();
+        const captcha = await ocrCaptchaNinja(imgPath, apiKey);
 
-        let text = '';
-        if (!localBroken) {
-            try {
-                text = await ocrCaptchaLocal(imgPath);
-            } catch (err) {
-                console.log(`⚠️ OCR Tesseract cục bộ lỗi, chuyển fallback: ${err.message}`);
-                localBroken = true;
-            }
-        }
-
-        if (localBroken) {
-            const apiKey = getCaptchaApiKey();
-            if (!apiKey) {
-                console.log('❌ OCR cục bộ hỏng và chưa cấu hình API_NINJA fallback — dừng.');
-                return null; // fail-fast, không treo
-            }
-            text = await ocrCaptchaNinja(imgPath, apiKey);
-        }
-
-        const captcha = (text || '').replace(/[-_]/g, '');
-        if (captcha.length >= minLength) {
+        if (captcha && captcha.length >= minLength) {
             return captcha;
         }
 
@@ -117,7 +99,7 @@ export async function getCaptcha(checkStop) {
     }
 
     console.log(`❌ Không giải được captcha sau ${cap} lần thử.`);
-    return null; // fail-fast
+    return null;
 }
 
 

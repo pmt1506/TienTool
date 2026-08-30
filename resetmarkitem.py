@@ -5,7 +5,7 @@ import time
 import os
 import random
 
-CAPTCHA_API_KEY = 'FmaegsApMO/3vZ5dcO8aYw==0TsWexrKeDOUhT8a'
+CAPTCHA_API_KEY = 'vIy9pRLKzP79Aedv9lMGLWiRZDLXlYlxyvSfsvNH'
 
 username = 'thanhhai1995'
 password = 'Anhhai1995@'

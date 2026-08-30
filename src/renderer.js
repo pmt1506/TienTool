@@ -986,29 +986,6 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
     return toast('Vui lòng chọn tài khoản và server hợp lệ.', 'error');
   }
 
-  // Kiểm tra online trước khi mở launcher (chỉ áp dụng login đơn lẻ).
-  // Nếu đang online -> hỏi xác nhận. Không kiểm tra được (lỗi/chưa cấu hình captcha)
-  // thì vẫn cho login bình thường.
-  dom.btnLoginLauncher.disabled = true;
-  toast('Đang kiểm tra trạng thái online...', 'info');
-  let onlineRes;
-  try {
-    onlineRes = await api.checkAccountOnline(data.username, data.password);
-  } catch {
-    onlineRes = { status: 'unknown' };
-  }
-  dom.btnLoginLauncher.disabled = false;
-
-  if (onlineRes?.status === 'online') {
-    const proceed = await asyncConfirm(
-      `Tài khoản "${data.username}" đang có người online.\nVẫn muốn đăng nhập không?`,
-      { title: 'Tài khoản đang online', okText: 'Vẫn đăng nhập', cancelText: 'Bỏ qua' }
-    );
-    if (!proceed) {
-      return toast('Đã bỏ qua (tài khoản đang online).', 'info');
-    }
-  }
-
   toast('Đang mở Launcher...', 'info');
   try {
     const result = await api.loginGame(data.username, data.password, data.server, data.accountType || 2, config.regPrefix, 14, config.regCheckEnable);
