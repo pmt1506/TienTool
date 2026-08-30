@@ -82,7 +82,7 @@ const dom = {
   viewRegQuick: $('#view-reg-quick'),
   regCheckedCount: $('#reg-checked-count'),
   regCheckedListCount: $('#reg-checked-list-count'),
-  regCheckedCreateChar: $('#reg-checked-create-char'),
+  selectCheckedServer: $('#select-checked-server'),
   inputQuickPrefix: $('#input-quick-prefix'),
   inputQuickCount: $('#input-quick-count'),
   inputQuickStart: $('#input-quick-start'),
@@ -312,8 +312,26 @@ function populateServerDropdown() {
     });
   }
 
+  const checkedSel = dom.selectCheckedServer;
+  if (checkedSel) {
+    const currentVal = checkedSel.value;
+    checkedSel.innerHTML = '<option value="">Theo server của từng account (Mặc định)</option>';
+    serverList.forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = s.serverId;
+      opt.textContent = `${s.serverId}. ${s.Name}`;
+      if (s.Offline) {
+        opt.textContent += ' (Offline)';
+        opt.disabled = true;
+      }
+      checkedSel.appendChild(opt);
+    });
+    if (currentVal) checkedSel.value = currentVal;
+  }
+
   const quickSel = dom.selectQuickServer;
   if (quickSel) {
+    const currentVal = quickSel.value;
     quickSel.innerHTML = '';
     serverList.forEach((s) => {
       const opt = document.createElement('option');
@@ -325,7 +343,9 @@ function populateServerDropdown() {
       }
       quickSel.appendChild(opt);
     });
-    if (serverList.length > 0 && !quickSel.value) {
+    if (currentVal && serverList.some((s) => String(s.serverId) === String(currentVal))) {
+      quickSel.value = currentVal;
+    } else if (serverList.length > 0) {
       quickSel.value = serverList[0].serverId;
     }
   }
@@ -1064,6 +1084,7 @@ function switchRegAccTab(tab) {
     dom.viewRegChecked?.classList.add('flex');
     dom.viewRegQuick?.classList.add('hidden');
     dom.viewRegQuick?.classList.remove('flex');
+    if (dom.btnStartRegAcc) dom.btnStartRegAcc.textContent = 'Tạo nhân vật';
   } else {
     dom.tabRegQuick?.classList.add('text-white', 'bg-emerald-500/20', 'border-emerald-500/30');
     dom.tabRegQuick?.classList.remove('text-gray-400', 'hover:text-gray-200', 'border-transparent');
@@ -1074,6 +1095,7 @@ function switchRegAccTab(tab) {
     dom.viewRegQuick?.classList.add('flex');
     dom.viewRegChecked?.classList.add('hidden');
     dom.viewRegChecked?.classList.remove('flex');
+    if (dom.btnStartRegAcc) dom.btnStartRegAcc.textContent = 'Bắt đầu Reg';
   }
 }
 
@@ -1144,37 +1166,36 @@ dom.btnStartRegAcc?.addEventListener('click', async () => {
     const total = checkedAccounts.length;
     let okCount = 0;
     let failCount = 0;
-    const shouldCreateChar = dom.regCheckedCreateChar?.checked !== false;
+    const selectedOverrideServer = dom.selectCheckedServer?.value;
 
     for (let i = 0; i < total; i++) {
       if (stopRegAccRequested) {
-        toast('Đã dừng đăng ký theo yêu cầu.', 'info');
+        toast('Đã dừng tạo nhân vật theo yêu cầu.', 'info');
         break;
       }
 
       const acc = checkedAccounts[i];
+      const targetServer = selectedOverrideServer
+        ? parseInt(selectedOverrideServer, 10)
+        : (acc.server || (serverList[0]?.serverId ?? 2));
       const percent = Math.round(((i) / total) * 100);
       if (dom.regAccProgressTitle) dom.regAccProgressTitle.textContent = `Tiến trình: ${i + 1}/${total}`;
       if (dom.regAccProgressPercent) dom.regAccProgressPercent.textContent = `${percent}%`;
       if (dom.regAccProgressBar) dom.regAccProgressBar.style.width = `${percent}%`;
-      if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] Đang reg ${acc.username}...`;
+      if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Đang tạo NV server ${targetServer}...`;
 
       try {
-        const regRes = await api.registerAccount(acc.username, acc.password);
-        if (regRes.success) {
+        const charRes = await api.registerCharacter(acc.username, acc.password, targetServer, config.regPrefix, 14);
+        if (charRes.success) {
           okCount++;
-          if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Đăng ký OK!`;
-
-          if (shouldCreateChar && acc.server) {
-            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Đang tạo NV server ${acc.server}...`;
-            const charRes = await api.registerCharacter(acc.username, acc.password, acc.server, config.regPrefix, 14);
-            if (charRes.success) {
-              if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> NV: ${charRes.nick || 'OK'}`;
-            }
+          if (charRes.alreadyExists) {
+            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Đã có NV (Server ${targetServer})`;
+          } else {
+            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> NV: ${charRes.nick || 'OK'} (Server ${targetServer})`;
           }
         } else {
           failCount++;
-          if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> ${regRes.msg || 'Thất bại'}`;
+          if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> ${charRes.msg || 'Thất bại'}`;
         }
       } catch (err) {
         failCount++;
@@ -1182,14 +1203,14 @@ dom.btnStartRegAcc?.addEventListener('click', async () => {
       }
 
       if (i < total - 1) {
-        await new Promise((r) => setTimeout(r, 800));
+        await new Promise((r) => setTimeout(r, 600));
       }
     }
 
     if (dom.regAccProgressBar) dom.regAccProgressBar.style.width = '100%';
     if (dom.regAccProgressPercent) dom.regAccProgressPercent.textContent = '100%';
     if (dom.regAccProgressTitle) dom.regAccProgressTitle.textContent = `Hoàn tất: ${okCount} thành công, ${failCount} thất bại`;
-    toast(`Đã xử lý xong: ${okCount} thành công, ${failCount} thất bại`, 'success');
+    toast(`Đã xử lý xong: ${okCount} thành công, ${failCount} thất bại`, okCount > 0 ? 'success' : 'error');
 
     isRegAccRunning = false;
     dom.btnStopRegAcc?.classList.add('hidden');

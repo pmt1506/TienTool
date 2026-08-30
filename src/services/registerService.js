@@ -166,9 +166,12 @@ export async function ensureCharacterExists(userName, token, serverID, prefix = 
       return { success: false, msg: 'Không tìm thấy CreateLogin content / session GUID từ server' };
     }
 
+    const questHostMatch = rd.match(/(https?:\/\/[^/'"]+)\/CreateLogin\.aspx/i);
+    const questHost = questHostMatch ? questHostMatch[1] : `https://quest${server}.gnddt.com`;
+
     // 2. Kích hoạt session qua CreateLogin.aspx với IP
     const ip = await publicIp();
-    const clRes = await fetch(`${QUEST_HOST}/CreateLogin.aspx?content=${content}&active=${ip}`, {
+    const clRes = await fetch(`${questHost}/CreateLogin.aspx?content=${content}&active=${ip}`, {
       headers: questHeaders(),
     });
     const cl = (await clRes.text()).trim();
@@ -180,7 +183,7 @@ export async function ensureCharacterExists(userName, token, serverID, prefix = 
     // 3. Game login (login.ashx) với RSA-encrypted payload (tạo pass6)
     const L = loginParams(userName, guid);
     const lp = new URLSearchParams({ ...L.params, rnd: Math.random() });
-    const lrRes = await fetch(`${QUEST_HOST}/login.ashx?${lp}`, {
+    const lrRes = await fetch(`${questHost}/login.ashx?${lp}`, {
       headers: questHeaders(),
     });
     const lr = await lrRes.text();
@@ -197,7 +200,7 @@ export async function ensureCharacterExists(userName, token, serverID, prefix = 
     // 4. Chọn nickname hợp lệ và chưa ai dùng
     let nick = generateNickName(prefix, maxLength);
     for (let i = 0; i < 5; i++) {
-      const ncRes = await fetch(`${QUEST_HOST}/nicknamecheck.ashx?NickName=${encodeURIComponent(nick)}&rnd=${Math.random()}`, {
+      const ncRes = await fetch(`${questHost}/nicknamecheck.ashx?NickName=${encodeURIComponent(nick)}&rnd=${Math.random()}`, {
         headers: questHeaders(),
       });
       const nc = await ncRes.text();
@@ -208,7 +211,7 @@ export async function ensureCharacterExists(userName, token, serverID, prefix = 
     // 5. Tạo nhân vật qua visualizeregister.ashx
     const V = visualizeRegisterParams(userName, L.pass6, nick, false);
     const vp = new URLSearchParams(V);
-    const vrRes = await fetch(`${QUEST_HOST}/visualizeregister.ashx?${vp}`, {
+    const vrRes = await fetch(`${questHost}/visualizeregister.ashx?${vp}`, {
       headers: questHeaders(),
     });
     const vr = await vrRes.text();
