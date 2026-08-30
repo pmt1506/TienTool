@@ -59,6 +59,7 @@ const dom = {
   btnNhanAllCode: $('#btn-nhan-all-code'),
   btnCodeTuan: $('#btn-code-tuan'),
   btnResetAn: $('#btn-reset-an'),
+  btnVipRewardWeek: $('#btn-vip-reward-week'),
   btnOpenWebshop: $('#btn-open-webshop'),
   autoProgressContainer: $('#auto-progress-container'),
   autoProgressAcc: $('#auto-progress-acc'),
@@ -226,6 +227,68 @@ function asyncConfirm(message, { title = 'Xác nhận', okText = 'Đồng ý', c
 
     btnOk.addEventListener('click', onOk);
     btnCancel.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKeydown);
+  });
+}
+
+// ── Alert modal (thay cho window.alert) ──
+function asyncAlert(message, { title = 'Thông báo', okText = 'Đã hiểu', type = 'error' } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-alert');
+    const titleEl = document.getElementById('alert-title');
+    const msgEl = document.getElementById('alert-message');
+    const btnOk = document.getElementById('btn-ok-alert');
+    const topBar = document.getElementById('alert-top-bar');
+    const iconContainer = document.getElementById('alert-icon-container');
+    const iconEl = document.getElementById('alert-icon');
+
+    if (!modal) {
+      alert(message);
+      return resolve(true);
+    }
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    btnOk.textContent = okText;
+
+    if (type === 'error') {
+      topBar.className = 'h-1.5 w-full bg-gradient-to-r from-red-500 via-rose-500 to-amber-500';
+      iconContainer.className = 'w-14 h-14 rounded-full flex items-center justify-center bg-red-500/15 ring-4 ring-red-500/10';
+      iconEl.className = 'w-7 h-7 text-red-400';
+      iconEl.setAttribute('data-lucide', 'alert-triangle');
+      btnOk.className = 'w-full px-3 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white text-sm font-semibold rounded-md transition-all shadow-lg shadow-red-500/20';
+    } else if (type === 'warning') {
+      topBar.className = 'h-1.5 w-full bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400';
+      iconContainer.className = 'w-14 h-14 rounded-full flex items-center justify-center bg-amber-500/15 ring-4 ring-amber-500/10';
+      iconEl.className = 'w-7 h-7 text-amber-400';
+      iconEl.setAttribute('data-lucide', 'alert-circle');
+      btnOk.className = 'w-full px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-sm font-semibold rounded-md transition-all shadow-lg shadow-amber-500/20';
+    } else {
+      topBar.className = 'h-1.5 w-full bg-gradient-to-r from-brand-400 to-blue-500';
+      iconContainer.className = 'w-14 h-14 rounded-full flex items-center justify-center bg-brand-500/15 ring-4 ring-brand-500/10';
+      iconEl.className = 'w-7 h-7 text-brand-400';
+      iconEl.setAttribute('data-lucide', 'info');
+      btnOk.className = 'w-full px-3 py-2 bg-gradient-to-r from-brand-400 to-brand-500 hover:from-brand-300 hover:to-brand-400 text-white text-sm font-semibold rounded-md transition-all shadow-lg shadow-brand-500/20';
+    }
+
+    modal.classList.remove('hidden');
+    refreshIcons();
+    btnOk.focus();
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      btnOk.removeEventListener('click', onOk);
+      document.removeEventListener('keydown', onKeydown);
+    };
+    const onOk = () => {
+      cleanup();
+      resolve(true);
+    };
+    const onKeydown = (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') onOk();
+    };
+
+    btnOk.addEventListener('click', onOk);
     document.addEventListener('keydown', onKeydown);
   });
 }
@@ -1395,6 +1458,15 @@ api.onAutoProgress((data) => {
   }
 });
 
+// Listen for show-dialog requests from Main
+api.onShowDialog(async (data) => {
+  const { title, message, type, responseChannel } = data;
+  await asyncAlert(message, { title, type });
+  if (responseChannel && api.sendDialogResponse) {
+    api.sendDialogResponse(responseChannel);
+  }
+});
+
 // btn-script-auto
 dom.btnScriptAuto.addEventListener('click', async () => {
   toast('Đang chạy script auto...', 'info');
@@ -1446,7 +1518,9 @@ dom.btnNhanAllCode.addEventListener('click', async () => {
     refreshIcons();
     toast('Tiến trình automation đã kết thúc.', 'info');
     setTimeout(() => {
-      if (!isAutoRunning && !isWeeklyAutoRunning) dom.autoProgressContainer.classList.add('hidden');
+      if (!isAutoRunning && !isWeeklyAutoRunning && !isResetMarkRunning && !isVipRewardRunning) {
+        dom.autoProgressContainer.classList.add('hidden');
+      }
     }, 5000);
   }
 });
@@ -1493,7 +1567,9 @@ dom.btnCodeTuan.addEventListener('click', async () => {
     refreshIcons();
     toast('Tiến trình Code tuần đã kết thúc.', 'info');
     setTimeout(() => {
-      if (!isAutoRunning && !isWeeklyAutoRunning) dom.autoProgressContainer.classList.add('hidden');
+      if (!isAutoRunning && !isWeeklyAutoRunning && !isResetMarkRunning && !isVipRewardRunning) {
+        dom.autoProgressContainer.classList.add('hidden');
+      }
     }, 5000);
   }
 });
@@ -1540,7 +1616,56 @@ dom.btnResetAn.addEventListener('click', async () => {
     refreshIcons();
     toast('Tiến trình reset ấn đã kết thúc.', 'info');
     setTimeout(() => {
-      if (!isAutoRunning && !isWeeklyAutoRunning && !isResetMarkRunning) {
+      if (!isAutoRunning && !isWeeklyAutoRunning && !isResetMarkRunning && !isVipRewardRunning) {
+        dom.autoProgressContainer.classList.add('hidden');
+      }
+    }, 5000);
+  }
+});
+
+// ── Quà V10 Tuần ────────────────────────────────────────────────
+let isVipRewardRunning = false;
+
+dom.btnVipRewardWeek.addEventListener('click', async () => {
+  if (isVipRewardRunning) {
+    const res = await api.stopVipRewardWeek();
+    if (res.success) toast('Đã gửi yêu cầu dừng nhận quà V10 tuần...', 'info');
+    return;
+  }
+
+  const checkedAccounts = accounts.filter(acc => acc.isChecked);
+  if (checkedAccounts.length === 0) {
+    return toast('Vui lòng chọn ít nhất 1 tài khoản để nhận quà V10 tuần.', 'warning');
+  }
+
+  isVipRewardRunning = true;
+  dom.btnVipRewardWeek.classList.add('bg-red-500', 'hover:bg-red-400');
+  dom.btnVipRewardWeek.classList.remove('bg-surface');
+  dom.btnVipRewardWeek.innerHTML = '<i data-lucide="square" class="w-3.5 h-3.5"></i> Dừng nhận V10';
+  refreshIcons();
+
+  dom.autoProgressContainer.classList.remove('hidden');
+  dom.autoProgressMsg.textContent = 'Đang bắt đầu nhận quà V10 tuần...';
+  dom.autoProgressBar.style.width = '0%';
+  dom.autoProgressAcc.textContent = `Acc: 0/${checkedAccounts.length}`;
+  dom.autoProgressCode.textContent = 'V10: --';
+
+  try {
+    const res = await api.claimVipRewardWeek(checkedAccounts);
+    if (!res.success) {
+      toast(`Lỗi: ${res.error}`, 'error');
+    }
+  } catch (err) {
+    toast('Lỗi khi chạy nhận quà V10 tuần.', 'error');
+  } finally {
+    isVipRewardRunning = false;
+    dom.btnVipRewardWeek.classList.remove('bg-red-500', 'hover:bg-red-400');
+    dom.btnVipRewardWeek.classList.add('bg-surface');
+    dom.btnVipRewardWeek.innerHTML = '<i data-lucide="crown" class="w-3.5 h-3.5 text-yellow-400"></i> Nhận quà V10 tuần';
+    refreshIcons();
+    toast('Tiến trình nhận quà V10 tuần đã kết thúc.', 'info');
+    setTimeout(() => {
+      if (!isAutoRunning && !isWeeklyAutoRunning && !isResetMarkRunning && !isVipRewardRunning) {
         dom.autoProgressContainer.classList.add('hidden');
       }
     }, 5000);

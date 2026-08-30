@@ -30,6 +30,7 @@ import {
 import { loginGame } from './services/loginService.js';
 import { registerCharacter, registerAccount } from './services/registerService.js';
 import { startResetMark } from './services/resetMarkService.js';
+import { startVipRewardWeek } from './services/vipRewardService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
 import { getAllCode, getWeeklyCode } from './services/autoService.js';
@@ -894,6 +895,42 @@ ipcMain.handle('game:reset-mark', async (event, accounts) => {
 
 ipcMain.handle('game:stop-reset-mark', async () => {
   stopResetMarkFlag = true;
+  return { success: true };
+});
+
+// Quà VIP 10 Tuần
+let stopVipRewardWeekFlag = false;
+
+ipcMain.handle('game:vip-reward-week', async (event, accounts) => {
+  stopVipRewardWeekFlag = false;
+  try {
+    await startVipRewardWeek(
+      accounts,
+      (progressData) => {
+        event.sender.send('auto:progress', progressData);
+      },
+      () => stopVipRewardWeekFlag,
+      async (dialogData) => {
+        return new Promise((resolve) => {
+          const channel = `dialog-response-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+          const handler = () => {
+            ipcMain.removeListener(channel, handler);
+            resolve();
+          };
+          ipcMain.once(channel, handler);
+          event.sender.send('auto:show-dialog', { ...dialogData, responseChannel: channel });
+        });
+      }
+    );
+    return { success: true };
+  } catch (err) {
+    console.error('game:vip-reward-week error', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('game:stop-vip-reward-week', async () => {
+  stopVipRewardWeekFlag = true;
   return { success: true };
 });
 

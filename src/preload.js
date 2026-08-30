@@ -58,7 +58,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resetMark: (accounts) => ipcRenderer.invoke('game:reset-mark', accounts),
   stopResetMark: () => ipcRenderer.invoke('game:stop-reset-mark'),
 
+  // Quà VIP 10 Tuần
+  claimVipRewardWeek: (accounts) => ipcRenderer.invoke('game:vip-reward-week', accounts),
+  stopVipRewardWeek: () => ipcRenderer.invoke('game:stop-vip-reward-week'),
+
   onAutoProgress: (callback) => ipcRenderer.on('auto:progress', (_event, data) => callback(data)),
+  onShowDialog: (callback) => ipcRenderer.on('auto:show-dialog', (_event, data) => callback(data)),
+  sendDialogResponse: (channel) => ipcRenderer.send(channel),
   onAppLog: (callback) => ipcRenderer.on('app:log', (_event, msg) => callback(msg)),
 
   // Webshop
