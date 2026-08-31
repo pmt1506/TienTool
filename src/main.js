@@ -575,11 +575,7 @@ ipcMain.handle('auto:setup-first-run', async () => {
 
       log.info('[Main] Full copy of Clickermann completed successfully!');
     } else {
-      try {
-        await mergeClickermann(sourceClickermannDir, clickermannDir);
-      } catch (mergeErr) {
-        log.warn('[Main] Merge copy failed (non-critical):', mergeErr.message);
-      }
+      log.info('[Main] Clickermann.exe already exists in userData — skipping copy/merge completely.');
     }
 
     try {
@@ -675,13 +671,7 @@ ipcMain.handle('auto:open-bat-file', async () => {
         // If copy fails, try to use the source dir directly as fallback
       }
     } else {
-      // Merge: copy only new files from source that don't already exist in userData
-      // This handles app updates that may ship new/updated scripts without overwriting user customizations
-      try {
-        await mergeClickermann(sourceClickermannDir, clickermannDir);
-      } catch (mergeErr) {
-        log.warn('[Main] Merge copy failed (non-critical):', mergeErr.message);
-      }
+      log.info('[Main] Clickermann.exe already exists in userData — skipping copy/merge completely.');
     }
 
     const patchHistory = async (fileName) => {

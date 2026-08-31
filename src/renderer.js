@@ -31,6 +31,7 @@ const dom = {
   btnLogout: $('#btn-logout'),
   accountCount: $('#account-count'),
   inputSearchAccount: $('#search-account'),
+  selectFilterServer: $('#filter-server'),
   accountsTbody: $('#accounts-tbody'),
   chkSelectAll: $('#chk-select-all'),
   formId: $('#form-id'),
@@ -411,6 +412,19 @@ function populateServerDropdown() {
     } else if (serverList.length > 0) {
       quickSel.value = serverList[0].serverId;
     }
+  }
+
+  const filterSel = dom.selectFilterServer;
+  if (filterSel) {
+    const currentVal = filterSel.value;
+    filterSel.innerHTML = '<option value="">Tất cả Sv</option>';
+    serverList.forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = s.serverId;
+      opt.textContent = `${s.serverId}. ${s.Name}`;
+      filterSel.appendChild(opt);
+    });
+    if (currentVal) filterSel.value = currentVal;
   }
 }
 
@@ -831,9 +845,18 @@ dom.btnRenameTemplate.addEventListener('click', async () => {
   }
 });
 
-function renderAccounts() {
+function getFilteredAccounts() {
   const query = dom.inputSearchAccount?.value.trim().toLowerCase() || '';
-  const filteredAccounts = accounts.filter(acc => acc.username.toLowerCase().includes(query));
+  const serverFilter = dom.selectFilterServer?.value || '';
+  return accounts.filter((acc) => {
+    const matchUser = !query || acc.username.toLowerCase().includes(query);
+    const matchServer = !serverFilter || String(acc.server) === String(serverFilter);
+    return matchUser && matchServer;
+  });
+}
+
+function renderAccounts() {
+  const filteredAccounts = getFilteredAccounts();
 
   dom.accountCount.textContent = `Danh sách (${filteredAccounts.length})`;
 
@@ -893,11 +916,16 @@ if (dom.inputSearchAccount) {
   });
 }
 
+if (dom.selectFilterServer) {
+  dom.selectFilterServer.addEventListener('change', () => {
+    renderAccounts();
+  });
+}
+
 if (dom.chkSelectAll) {
   dom.chkSelectAll.addEventListener('change', (e) => {
     const checked = e.target.checked;
-    const query = dom.inputSearchAccount?.value.trim().toLowerCase() || '';
-    const filteredAccounts = accounts.filter((acc) => acc.username.toLowerCase().includes(query));
+    const filteredAccounts = getFilteredAccounts();
     filteredAccounts.forEach((acc) => (acc.isChecked = checked));
     renderAccounts();
   });
@@ -914,8 +942,7 @@ dom.accountsTbody.addEventListener('change', (e) => {
     const idx = parseInt(e.target.dataset.index, 10);
     accounts[idx].isChecked = e.target.checked;
 
-    const query = dom.inputSearchAccount?.value.trim().toLowerCase() || '';
-    const filteredAccounts = accounts.filter((acc) => acc.username.toLowerCase().includes(query));
+    const filteredAccounts = getFilteredAccounts();
     if (dom.chkSelectAll) {
       dom.chkSelectAll.checked = filteredAccounts.length > 0 && filteredAccounts.every((a) => a.isChecked);
       dom.chkSelectAll.indeterminate = filteredAccounts.some((a) => a.isChecked) && !dom.chkSelectAll.checked;
