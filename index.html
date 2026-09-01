@@ -616,6 +616,14 @@
               <option value="">Theo server của từng account (Mặc định)</option>
             </select>
           </div>
+
+          <div class="flex flex-col gap-1.5 pt-1">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="checked-claim-subscriber-code" checked
+                class="w-4 h-4 rounded border border-white/30 bg-white/5 text-emerald-500 checked:bg-emerald-500" />
+              <span class="text-xs text-gray-300">Tự động nhận 4 code tân thủ (1K, 2K, 3K, 5K Sub)</span>
+            </label>
+          </div>
         </div>
 
         <!-- TAB 2: Quick batch generation -->
@@ -666,6 +674,11 @@
               <span class="text-xs text-gray-300">Tự động tạo nhân vật trong game</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="quick-claim-subscriber-code" checked
+                class="w-4 h-4 rounded border border-white/30 bg-white/5 text-emerald-500 checked:bg-emerald-500" />
+              <span class="text-xs text-gray-300">Tự động nhận & nhập 4 code tân thủ (1K, 2K, 3K, 5K Sub)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" id="quick-save-tool" checked
                 class="w-4 h-4 rounded border border-white/30 bg-white/5 text-emerald-500 checked:bg-emerald-500" />
               <span class="text-xs text-gray-300">Lưu vào danh sách tài khoản Tool (Clone)</span>
@@ -690,6 +703,65 @@
         <button id="btn-stop-reg-acc" class="hidden px-3 py-1.5 bg-red-500 hover:bg-red-400 text-white text-xs font-semibold rounded-md transition-colors">Dừng</button>
         <button id="btn-cancel-reg-acc" class="px-3 py-1.5 bg-surface border border-white/10 hover:bg-surface-card text-gray-300 text-xs font-medium rounded-md transition-colors">Đóng</button>
         <button id="btn-start-reg-acc" class="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-semibold rounded-md transition-all shadow-lg shadow-emerald-500/20">Bắt đầu Reg</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Tổng kết nhận Giftcode tân thủ -->
+  <div id="modal-subscriber-summary"
+    class="hidden fixed inset-0 z-[2300] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
+    <div class="bg-surface border border-white/10 rounded-xl shadow-2xl w-[580px] max-w-[95vw] flex flex-col overflow-hidden max-h-[88vh]">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-white/[0.06]">
+        <h3 class="text-sm font-semibold text-gray-200 flex items-center gap-2">
+          <i data-lucide="gift" class="w-4 h-4 text-amber-400"></i>
+          Tổng kết nhận Giftcode tân thủ (1K Sub, 2K Sub, 3K Sub, 5K Sub)
+        </h3>
+        <button id="btn-close-subscriber-summary" class="text-gray-500 hover:text-white transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Stats Summary Banner -->
+      <div class="px-4 py-3 bg-surface-dark/60 border-b border-white/[0.06] flex items-center justify-between text-xs">
+        <div class="flex items-center gap-4">
+          <span class="text-gray-300">Tổng acc: <strong id="summary-total-accs" class="text-white">0</strong></span>
+          <span class="text-gray-300">Code thành công: <strong id="summary-success-codes" class="text-emerald-400">0</strong></span>
+          <span class="text-gray-300">Code thất bại: <strong id="summary-fail-codes" class="text-rose-400">0</strong></span>
+        </div>
+        <button id="btn-copy-subscriber-summary" title="Sao chép báo cáo chi tiết"
+          class="px-2.5 py-1 bg-surface-card hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium rounded border border-white/10 flex items-center gap-1.5 transition-colors">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          Sao chép
+        </button>
+      </div>
+
+      <!-- Search / Filter -->
+      <div class="px-4 pt-3 pb-1 flex items-center gap-2">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="input-search-summary" placeholder="Tìm theo username hoặc nhân vật..."
+            class="w-full pl-8 pr-2.5 py-1.5 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-200 outline-none focus:border-amber-400" />
+        </div>
+        <select id="select-filter-summary"
+          class="px-2.5 py-1.5 bg-surface-dark border border-white/10 rounded-md text-xs text-gray-300 outline-none focus:border-amber-400 cursor-pointer">
+          <option value="all">Tất cả</option>
+          <option value="has_fail">Chỉ acc có code lỗi</option>
+          <option value="all_ok">Chỉ acc thành công hết</option>
+        </select>
+      </div>
+
+      <!-- List Container -->
+      <div id="subscriber-summary-list" class="p-4 flex flex-col gap-2.5 overflow-y-auto scrollbar-thin max-h-[52vh]">
+        <!-- Account cards will be dynamically rendered here -->
+      </div>
+
+      <!-- Footer -->
+      <div class="px-4 py-3 bg-surface-dark border-t border-white/[0.06] flex justify-end">
+        <button id="btn-done-subscriber-summary"
+          class="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-xs font-semibold rounded-md transition-all shadow-lg shadow-amber-500/20">
+          Đóng
+        </button>
       </div>
     </div>
   </div>

@@ -92,6 +92,8 @@ const dom = {
   inputQuickPassword: $('#input-quick-password'),
   selectQuickServer: $('#select-quick-server'),
   quickCreateChar: $('#quick-create-char'),
+  quickClaimSubscriberCode: $('#quick-claim-subscriber-code'),
+  checkedClaimSubscriberCode: $('#checked-claim-subscriber-code'),
   quickSaveTool: $('#quick-save-tool'),
   regAccProgressContainer: $('#reg-acc-progress-container'),
   regAccProgressTitle: $('#reg-acc-progress-title'),
@@ -100,6 +102,18 @@ const dom = {
   regAccProgressLog: $('#reg-acc-progress-log'),
   btnStartRegAcc: $('#btn-start-reg-acc'),
   btnStopRegAcc: $('#btn-stop-reg-acc'),
+
+  // Subscriber Summary Modal
+  modalSubscriberSummary: $('#modal-subscriber-summary'),
+  btnCloseSubscriberSummary: $('#btn-close-subscriber-summary'),
+  btnDoneSubscriberSummary: $('#btn-done-subscriber-summary'),
+  btnCopySubscriberSummary: $('#btn-copy-subscriber-summary'),
+  summaryTotalAccs: $('#summary-total-accs'),
+  summarySuccessCodes: $('#summary-success-codes'),
+  summaryFailCodes: $('#summary-fail-codes'),
+  inputSearchSummary: $('#input-search-summary'),
+  selectFilterSummary: $('#select-filter-summary'),
+  subscriberSummaryList: $('#subscriber-summary-list'),
 
   btnConfig: $('#btn-config'),
   modalConfig: $('#modal-config'),
@@ -1258,6 +1272,9 @@ dom.btnStartRegAcc?.addEventListener('click', async () => {
     let failCount = 0;
     const selectedOverrideServer = dom.selectCheckedServer?.value;
 
+    const subscriberReports = [];
+    const shouldClaimSubscriberCode = dom.checkedClaimSubscriberCode?.checked !== false;
+
     for (let i = 0; i < total; i++) {
       if (stopRegAccRequested) {
         toast('Đã dừng tạo nhân vật theo yêu cầu.', 'info');
@@ -1278,10 +1295,22 @@ dom.btnStartRegAcc?.addEventListener('click', async () => {
         const charRes = await api.registerCharacter(acc.username, acc.password, targetServer, config.regPrefix, 14);
         if (charRes.success) {
           okCount++;
-          if (charRes.alreadyExists) {
-            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Đã có NV (Server ${targetServer})`;
-          } else {
-            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> NV: ${charRes.nick || 'OK'} (Server ${targetServer})`;
+          const charNick = charRes.nick || (charRes.alreadyExists ? 'Đã có NV' : 'OK');
+          if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> NV: ${charNick} (Server ${targetServer})`;
+
+          if (shouldClaimSubscriberCode && !stopRegAccRequested) {
+            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Đang lấy & nhập 4 code tân thủ...`;
+            const subRes = await api.claimAndUseSubscriberCodes(acc.username, acc.password, null, targetServer);
+            subscriberReports.push({
+              username: acc.username,
+              characterNick: subRes?.characterNick || charNick,
+              serverId: targetServer,
+              results: subRes?.results || [],
+            });
+            if (dom.regAccProgressLog) {
+              const subOk = (subRes?.results || []).filter((r) => r.success).length;
+              dom.regAccProgressLog.textContent = `[${i + 1}/${total}] ${acc.username} -> Code tân thủ: ${subOk}/4 thành công`;
+            }
           }
         } else {
           failCount++;
@@ -1309,6 +1338,10 @@ dom.btnStartRegAcc?.addEventListener('click', async () => {
 
     accounts.forEach((a) => (a.isChecked = false));
     renderAccounts();
+
+    if (subscriberReports.length > 0) {
+      showSubscriberSummaryDialog(subscriberReports);
+    }
     return;
   }
 
@@ -1320,6 +1353,7 @@ dom.btnStartRegAcc?.addEventListener('click', async () => {
   const commonPassword = dom.inputQuickPassword?.value.trim();
   const server = dom.selectQuickServer?.value || (serverList[0]?.serverId ?? '2');
   const shouldCreateChar = dom.quickCreateChar?.checked !== false;
+  const shouldClaimSubscriberCode = dom.quickClaimSubscriberCode?.checked !== false;
   const shouldSaveTool = dom.quickSaveTool?.checked !== false;
 
   if (count <= 0 || count > 100) {
@@ -1358,6 +1392,8 @@ dom.btnStartRegAcc?.addEventListener('click', async () => {
 
   let okCount = 0;
   let failCount = 0;
+  const subscriberReports = [];
+
   for (let i = 0; i < generatedList.length; i++) {
     if (stopRegAccRequested) {
       toast('Đã dừng đăng ký theo yêu cầu.', 'info');
@@ -1381,7 +1417,23 @@ dom.btnStartRegAcc?.addEventListener('click', async () => {
           if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> Đang tạo NV server ${server}...`;
           const charRes = await api.registerCharacter(acc.username, acc.password, server, config.regPrefix, 14);
           if (charRes.success) {
-            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> NV: ${charRes.nick || 'OK'}`;
+            const charNick = charRes.nick || 'OK';
+            if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> NV: ${charNick}`;
+
+            if (shouldClaimSubscriberCode && !stopRegAccRequested) {
+              if (dom.regAccProgressLog) dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> Đang lấy & nhập 4 code tân thủ...`;
+              const subRes = await api.claimAndUseSubscriberCodes(acc.username, acc.password, regRes.token, server);
+              subscriberReports.push({
+                username: acc.username,
+                characterNick: subRes?.characterNick || charNick,
+                serverId: server,
+                results: subRes?.results || [],
+              });
+              if (dom.regAccProgressLog) {
+                const subOk = (subRes?.results || []).filter((r) => r.success).length;
+                dom.regAccProgressLog.textContent = `[${i + 1}/${count}] ${acc.username} -> Code tân thủ: ${subOk}/4 thành công`;
+              }
+            }
           }
         }
       } else {
@@ -1409,6 +1461,199 @@ dom.btnStartRegAcc?.addEventListener('click', async () => {
   dom.btnStartRegAcc?.classList.remove('hidden');
 
   await loadAccounts();
+
+  if (subscriberReports.length > 0) {
+    showSubscriberSummaryDialog(subscriberReports);
+  }
+});
+
+// ── Subscriber Summary Dialog Logic ────────────────────────────
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+const SUBSCRIBER_CODES_META = [
+  { code: '2100', name: 'Code 1K Sub' },
+  { code: '2200', name: 'Code 2K Sub' },
+  { code: '2300', name: 'Code 3K Sub' },
+  { code: '2500', name: 'Code 5K Sub' },
+];
+
+let currentSubscriberReports = [];
+
+function renderSubscriberSummaryList() {
+  if (!dom.subscriberSummaryList) return;
+  const search = dom.inputSearchSummary?.value.trim().toLowerCase() || '';
+  const filter = dom.selectFilterSummary?.value || 'all';
+
+  const filtered = currentSubscriberReports.filter((item) => {
+    const matchSearch =
+      !search ||
+      item.username.toLowerCase().includes(search) ||
+      (item.characterNick && item.characterNick.toLowerCase().includes(search));
+
+    if (!matchSearch) return false;
+
+    const allOk = (item.results || []).length > 0 && item.results.every((r) => r.success);
+    const hasFail = (item.results || []).some((r) => !r.success);
+
+    if (filter === 'all_ok') return allOk;
+    if (filter === 'has_fail') return hasFail;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    dom.subscriberSummaryList.innerHTML = `
+      <div class="py-8 text-center text-xs text-gray-500">
+        Không tìm thấy tài khoản nào phù hợp bộ lọc.
+      </div>
+    `;
+    return;
+  }
+
+  dom.subscriberSummaryList.innerHTML = filtered
+    .map((item) => {
+      const results = item.results || [];
+      const okCount = results.filter((r) => r.success).length;
+      const totalCount = results.length || 4;
+
+      return `
+        <div class="p-3 bg-surface-dark/80 border border-white/[0.08] hover:border-white/20 rounded-lg flex flex-col gap-2.5 transition-colors">
+          <div class="flex items-center justify-between pb-1 border-b border-white/[0.04]">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-gray-100 text-xs font-mono">${escapeHtml(item.username)}</span>
+              <span class="text-[11px] px-1.5 py-0.5 rounded bg-white/5 text-gray-400 border border-white/10 font-mono">
+                ${escapeHtml(item.characterNick || 'Chưa rõ NV')} (S${item.serverId || '?'})
+              </span>
+            </div>
+            <span class="text-[11px] font-semibold ${
+              okCount === totalCount
+                ? 'text-emerald-400'
+                : okCount > 0
+                ? 'text-amber-400'
+                : 'text-rose-400'
+            }">
+              ${okCount}/${totalCount} code thành công
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            ${SUBSCRIBER_CODES_META.map((meta) => {
+              const found = results.find((r) => String(r.code) === meta.code);
+              const isOk = found?.success === true;
+              const msg = found?.msg || (found ? 'Thành công' : 'Chưa chạy');
+
+              return `
+                <div class="flex flex-col gap-1 p-2 rounded text-xs border ${
+                  isOk
+                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
+                    : 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                }">
+                  <div class="flex items-center justify-between">
+                    <span class="font-semibold text-gray-200 text-[11px]">${meta.name} (${meta.code})</span>
+                    <span class="text-[10px] font-bold ${isOk ? 'text-emerald-400' : 'text-rose-400'}">
+                      ${isOk ? '✓ Thành công' : '✗ Thất bại'}
+                    </span>
+                  </div>
+                  <div class="text-[10.5px] ${isOk ? 'text-emerald-400/90' : 'text-rose-300/90'} leading-tight break-words">
+                    ${escapeHtml(msg)}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function showSubscriberSummaryDialog(reports) {
+  if (!reports || reports.length === 0) return;
+  currentSubscriberReports = reports;
+
+  let totalSuccess = 0;
+  let totalFail = 0;
+  reports.forEach((item) => {
+    (item.results || []).forEach((r) => {
+      if (r.success) totalSuccess++;
+      else totalFail++;
+    });
+  });
+
+  if (dom.summaryTotalAccs) dom.summaryTotalAccs.textContent = String(reports.length);
+  if (dom.summarySuccessCodes) dom.summarySuccessCodes.textContent = String(totalSuccess);
+  if (dom.summaryFailCodes) dom.summaryFailCodes.textContent = String(totalFail);
+
+  if (dom.inputSearchSummary) dom.inputSearchSummary.value = '';
+  if (dom.selectFilterSummary) dom.selectFilterSummary.value = 'all';
+
+  renderSubscriberSummaryList();
+  dom.modalSubscriberSummary?.classList.remove('hidden');
+  refreshIcons();
+
+  toast(
+    `Nhận code tân thủ hoàn tất: ${totalSuccess} thành công, ${totalFail} thất bại`,
+    totalSuccess > 0 ? 'success' : 'warning'
+  );
+}
+
+dom.btnCloseSubscriberSummary?.addEventListener('click', () => {
+  dom.modalSubscriberSummary?.classList.add('hidden');
+});
+
+dom.btnDoneSubscriberSummary?.addEventListener('click', () => {
+  dom.modalSubscriberSummary?.classList.add('hidden');
+});
+
+dom.inputSearchSummary?.addEventListener('input', renderSubscriberSummaryList);
+dom.selectFilterSummary?.addEventListener('change', renderSubscriberSummaryList);
+
+dom.btnCopySubscriberSummary?.addEventListener('click', () => {
+  if (!currentSubscriberReports || currentSubscriberReports.length === 0) {
+    return toast('Không có dữ liệu để sao chép', 'info');
+  }
+
+  let text = `=== TỔNG KẾT NHẬN GIFTCODE TÂN THỦ (1K, 2K, 3K, 5K SUB) ===\n\n`;
+  let totalOk = 0;
+  let totalFail = 0;
+
+  currentSubscriberReports.forEach((item, idx) => {
+    text += `${idx + 1}. [${item.username}] - NV: ${item.characterNick || 'Chưa rõ'} (Server ${item.serverId || '?'})\n`;
+    SUBSCRIBER_CODES_META.forEach((meta) => {
+      const found = (item.results || []).find((r) => String(r.code) === meta.code);
+      const isOk = found?.success === true;
+      const msg = found?.msg || (found ? 'Thành công' : 'Chưa chạy');
+      if (isOk) {
+        totalOk++;
+        text += `   ✓ ${meta.name} (${meta.code}): Thành công - ${msg}\n`;
+      } else {
+        totalFail++;
+        text += `   ✗ ${meta.name} (${meta.code}): Thất bại - ${msg}\n`;
+      }
+    });
+    text += `\n`;
+  });
+
+  text += `Tổng kết: ${currentSubscriberReports.length} tài khoản | Thành công: ${totalOk} code | Thất bại: ${totalFail} code\n`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    toast('Đã sao chép báo cáo chi tiết vào clipboard!', 'success');
+  }).catch(() => {
+    toast('Không thể sao chép vào clipboard', 'error');
+  });
+});
+
+api.onSubscriberCodesProgress?.((data) => {
+  if (dom.regAccProgressLog && data?.message) {
+    dom.regAccProgressLog.textContent = `[${data.username}] ${data.message}`;
+  }
 });
 
 // ── Config Modal ───────────────────────────────────────────────

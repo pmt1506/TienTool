@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import dns from 'node:dns';
+dns.setDefaultResultOrder('ipv4first');
 import { app, BrowserWindow, ipcMain, screen, session, dialog } from 'electron';
 import path from 'node:path';
 import { exec, spawn } from 'node:child_process';
@@ -28,7 +30,7 @@ import {
   deleteTemplate,
 } from './services/templateService.js';
 import { loginGame } from './services/loginService.js';
-import { registerCharacter, registerAccount } from './services/registerService.js';
+import { registerCharacter, registerAccount, processSubscriberCodesForAccount } from './services/registerService.js';
 import { startResetMark } from './services/resetMarkService.js';
 import { startVipRewardWeek } from './services/vipRewardService.js';
 import * as koffiService from './koffiService.js';
@@ -436,6 +438,12 @@ ipcMain.handle('game:register-character', async (_event, username, password, ser
 
 ipcMain.handle('game:register-account', async (_event, username, password, options) => {
   return await registerAccount(username, password, options);
+});
+
+ipcMain.handle('game:claim-and-use-subscriber-codes', async (_event, username, password, token, targetServer) => {
+  return await processSubscriberCodesForAccount(username, password, token, targetServer, null, (prog) => {
+    mainWindow?.webContents.send('subscriber-codes:progress', { username, ...prog });
+  });
 });
 
 ipcMain.handle('game:rename-window', async (_event, pid, newName) => {

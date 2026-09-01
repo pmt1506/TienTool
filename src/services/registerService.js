@@ -1,8 +1,11 @@
 import crypto from 'node:crypto';
+import path from 'node:path';
+import fs from 'fs/promises';
+import { app } from 'electron';
 import config from '../config.js';
 import { loginApi } from './loginService.js';
 import { getSerialNumber } from '../utils.js';
-import { getCaptcha } from './apiService.js';
+import { getCaptcha, ocrCaptchaNinja, getAllNickName, getLoginToken } from './apiService.js';
 
 // ─────────────────────────────────────────────────────────────
 // 🔐 GNDDT Crypto Helpers (RSA-1024 PKCS1 v1.5 + MD5)
@@ -127,20 +130,42 @@ async function hop(url, cookieRef, opt = {}) {
 
 export function generateNickName(prefix = 'GNLM', maxLength = 14) {
   const cleanPrefix = (prefix || 'GNLM').trim();
-  const maxSuffixLen = Math.max(2, maxLength - cleanPrefix.length);
-  if (maxSuffixLen <= 0) return cleanPrefix.slice(0, maxLength);
-
-  let suffix = '';
-  if (maxSuffixLen <= 4) {
-    const maxVal = Math.pow(10, maxSuffixLen) - 1;
-    const minVal = Math.pow(10, maxSuffixLen - 1);
-    suffix = String(Math.floor(minVal + Math.random() * (maxVal - minVal + 1)));
-  } else {
-    // 4 digits suffix by default
-    suffix = String(Math.floor(1000 + Math.random() * 8999));
-    if (suffix.length > maxSuffixLen) suffix = suffix.slice(0, maxSuffixLen);
+  const suffixLen = maxLength - cleanPrefix.length;
+  if (suffixLen <= 0) {
+    return cleanPrefix.slice(0, maxLength);
   }
-  return `${cleanPrefix}${suffix}`.slice(0, maxLength);
+
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const digits = '0123456789';
+  const allChars = lowercase + uppercase + digits;
+
+  const randChar = (charset) => charset[Math.floor(Math.random() * charset.length)];
+
+  const chars = [];
+  // Đảm bảo có cả chữ thường, chữ hoa và số nếu độ dài suffix >= 3
+  if (suffixLen >= 3) {
+    chars.push(randChar(lowercase));
+    chars.push(randChar(uppercase));
+    chars.push(randChar(digits));
+  } else if (suffixLen === 2) {
+    chars.push(randChar(lowercase));
+    chars.push(randChar(digits));
+  } else if (suffixLen === 1) {
+    chars.push(randChar(allChars));
+  }
+
+  while (chars.length < suffixLen) {
+    chars.push(randChar(allChars));
+  }
+
+  // Trộn ngẫu nhiên các ký tự suffix
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+
+  return cleanPrefix + chars.join('');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -295,3 +320,377 @@ export async function registerAccount(username, password, { base, email, phone, 
 
   return { success: false, msg: `Đăng ký thất bại sau ${maxAttempts} lần thử captcha` };
 }
+
+// ─────────────────────────────────────────────────────────────
+// 🎁 Subscriber Codes Flow (2100, 2200, 2300, 2500)
+// ─────────────────────────────────────────────────────────────
+
+export function convertStringToHex(str) {
+  const arr = [];
+  for (let i = 0; i < str.length; i++) {
+    arr[i] = ('00' + str.charCodeAt(i).toString(8)).slice(-4);
+  }
+  return arr.join('');
+}
+
+export async function getSubscriberCaptcha(keyCapcha, checkStop) {
+  const { retryDelayMs, minLength, maxAttempts } = config.captcha;
+  const cap = maxAttempts || 10;
+  const apiKey = config.captcha.apiNinjaKey;
+  const apiBase = config.api.base || 'https://api.gnddt.com';
+
+  if (!apiKey) {
+    console.log('❌ Chưa cấu hình API_NINJA — không thể giải captcha.');
+    return null;
+  }
+
+  const parentDir = (typeof app !== 'undefined' && app?.getPath) ? app.getPath('userData') : process.cwd();
+  const filePath = path.join(parentDir, 'sub_captcha.png');
+
+  for (let attempt = 0; attempt < cap; attempt++) {
+    if (checkStop && checkStop()) return null;
+
+    try {
+      const res = await fetch(`${apiBase}/api/oauth/GetCaptcha`, {
+        method: 'POST',
+        headers: {
+          'KeyCapcha': keyCapcha,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Referer': 'https://gnddt.com/',
+          'User-Agent': UA,
+        },
+      });
+
+      const imgString = await res.text();
+      const base64 = imgString.replace(/"/g, '').trim();
+      if (base64 && base64.length > 50) {
+        await fs.writeFile(filePath, Buffer.from(base64, 'base64'));
+        const text = await ocrCaptchaNinja(filePath, apiKey);
+        if (text && text.length >= minLength) {
+          return text;
+        }
+      }
+    } catch (err) {
+      console.warn('[SubscriberCaptcha] Lỗi giải captcha:', err.message);
+    }
+
+    await new Promise((r) => setTimeout(r, retryDelayMs || 800));
+  }
+
+  return null;
+}
+
+export async function generateSingleSubscriberCode(token, keyCapcha, typeCode, checkStop) {
+  const apiBase = config.api.base || 'https://api.gnddt.com';
+  const maxRetries = 6;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (checkStop && checkStop()) {
+      return { code: String(typeCode), success: false, msg: 'Đã dừng theo yêu cầu' };
+    }
+
+    const captcha = await getSubscriberCaptcha(keyCapcha, checkStop);
+    if (!captcha) {
+      return { code: String(typeCode), success: false, msg: 'Không thể giải captcha' };
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/Function/CodeAwardSubscriber`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': token,
+          'Referer': 'https://gnddt.com/',
+          'KeyCapcha': keyCapcha,
+          'User-Agent': UA,
+        },
+        body: JSON.stringify({
+          TypeCode: String(typeCode),
+          Captcha: captcha,
+          AccessToken: '',
+        }),
+      });
+
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        return { code: String(typeCode), success: false, msg: `Phản hồi lỗi: ${text.slice(0, 50)}` };
+      }
+
+      const msg = json?.msg || '';
+
+      // Trường hợp sai captcha -> Thử lại
+      if (json?.result === false && (msg.includes('bảo vệ') || msg.includes('bảo vệ') || msg.toLowerCase().includes('captcha'))) {
+        console.log(`[CodeAwardSubscriber] Code ${typeCode} sai captcha (${captcha}), thử lại (${attempt + 1}/${maxRetries})...`);
+        await new Promise((r) => setTimeout(r, 600));
+        continue;
+      }
+
+      // Trường hợp đã nhận từ trước -> coi như đã có mã code
+      if (json?.result === false && msg.includes('Bạn đã nhận từ trước')) {
+        return { code: String(typeCode), success: true, alreadyAcquired: true, msg };
+      }
+
+      // Thành công lấy code
+      if (json?.result === true) {
+        return { code: String(typeCode), success: true, msg: msg || 'Lấy code thành công' };
+      }
+
+      return { code: String(typeCode), success: false, msg: msg || 'Thất bại' };
+    } catch (err) {
+      if (attempt === maxRetries - 1) {
+        return { code: String(typeCode), success: false, msg: `Lỗi kết nối: ${err.message}` };
+      }
+      await new Promise((r) => setTimeout(r, 800));
+    }
+  }
+
+  return { code: String(typeCode), success: false, msg: 'Hết lượt thử captcha' };
+}
+
+export async function getSubscriberGiftCodes(token) {
+  const apiBase = config.api.base || 'https://api.gnddt.com';
+  try {
+    const res = await fetch(`${apiBase}/api/Function/GetCodeEvent?type=ytb`, {
+      method: 'GET',
+      headers: {
+        Authorization: token,
+        Accept: 'application/json',
+      },
+    });
+
+    const text = await res.text();
+    const data = JSON.parse(text);
+    if (data?.result === true && Array.isArray(data?.infos)) {
+      return data.infos;
+    }
+  } catch (err) {
+    console.error('[getSubscriberGiftCodes] Lỗi lấy danh sách code:', err);
+  }
+  return [];
+}
+
+export async function redeemGiftCode(token, serverId, userId, giftCode, checkStop) {
+  const apiBase = config.api.base || 'https://api.gnddt.com';
+  const maxRetries = 6;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (checkStop && checkStop()) {
+      return { success: false, msg: 'Đã dừng theo yêu cầu' };
+    }
+
+    const captcha = await getCaptcha(checkStop);
+    if (!captcha) {
+      return { success: false, msg: 'Không thể giải captcha để nhận code' };
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/Function/GiftAward`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token,
+        },
+        body: JSON.stringify({
+          Type: 5,
+          ServerId: Number(serverId),
+          UserId: Number(userId),
+          Captcha: captcha,
+          Code: giftCode,
+        }),
+      });
+
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        return { success: false, msg: `Phản hồi server lỗi: ${text.slice(0, 50)}` };
+      }
+
+      const msg = json?.msg || '';
+      if (json?.result === false) {
+        if (
+          msg.includes('Mã bảo vệ không đúng') ||
+          msg.includes('Mã bảo vệ không đúng') ||
+          msg.includes('bảo vệ') ||
+          msg.toLowerCase().includes('captcha')
+        ) {
+          console.log(`[GiftAward] Sai captcha khi nhận ${giftCode}, thử lại (${attempt + 1}/${maxRetries})...`);
+          await new Promise((r) => setTimeout(r, 600));
+          continue;
+        }
+
+        return { success: false, msg: msg || 'Không thể sử dụng code' };
+      }
+
+      return { success: true, msg: msg || 'Nhận code vào nhân vật thành công!' };
+    } catch (err) {
+      if (attempt === maxRetries - 1) {
+        return { success: false, msg: `Lỗi kết nối: ${err.message}` };
+      }
+      await new Promise((r) => setTimeout(r, 800));
+    }
+  }
+
+  return { success: false, msg: 'Sai captcha nhiều lần khi nhận code' };
+}
+
+export const SUBSCRIBER_CODES_CONFIG = [
+  { typeCode: '2100', name: 'Code 1K Sub' },
+  { typeCode: '2200', name: 'Code 2K Sub' },
+  { typeCode: '2300', name: 'Code 3K Sub' },
+  { typeCode: '2500', name: 'Code 5K Sub' },
+];
+
+export async function processSubscriberCodesForAccount(
+  username,
+  password,
+  token,
+  targetServer,
+  checkStop,
+  onProgress
+) {
+  const codesToProcess = SUBSCRIBER_CODES_CONFIG;
+  let authToken = token;
+
+  if (!authToken && username && password) {
+    if (onProgress) onProgress({ step: 'login', message: `Đang lấy token web cho ${username}...` });
+    const loginRes = await getLoginToken(username, password, checkStop);
+    authToken = loginRes?.token;
+  }
+
+  if (!authToken) {
+    return {
+      username,
+      success: false,
+      msg: 'Không thể lấy token đăng nhập web',
+      results: codesToProcess.map((c) => ({ code: c.typeCode, name: c.name, success: false, msg: 'Chưa có token web' })),
+    };
+  }
+
+  // 1. Sinh KeyCapcha từ IP
+  const ip = await publicIp();
+  const keyCapcha = convertStringToHex(ip);
+
+  // 2. Chạy tuần tự 4 lần API CodeAwardSubscriber để lấy/kích hoạt 4 code
+  for (let i = 0; i < codesToProcess.length; i++) {
+    if (checkStop && checkStop()) break;
+    const { typeCode, name } = codesToProcess[i];
+    if (onProgress) onProgress({ step: 'generate', code: typeCode, name, message: `[${name}] Đang lấy mã code...` });
+    const genRes = await generateSingleSubscriberCode(authToken, keyCapcha, typeCode, checkStop);
+    console.log(`[processSubscriber] ${username} gen code ${typeCode} (${name}):`, genRes);
+    await new Promise((r) => setTimeout(r, 400));
+  }
+
+  if (checkStop && checkStop()) {
+    return {
+      username,
+      success: false,
+      msg: 'Đã dừng theo yêu cầu',
+      results: codesToProcess.map((c) => ({ code: c.typeCode, name: c.name, success: false, msg: 'Đã dừng' })),
+    };
+  }
+
+  // 3. Lấy danh sách GiftCode thực tế từ GetCodeEvent?type=ytb
+  if (onProgress) onProgress({ step: 'fetch_codes', message: 'Đang tải danh sách chuỗi code đã nhận...' });
+  const infos = await getSubscriberGiftCodes(authToken);
+  console.log(`[processSubscriber] ${username} fetched infos:`, infos?.length);
+
+  // 4. Tìm UserId và ServerId cho tài khoản (từ GetAllNickName nếu chưa có)
+  if (onProgress) onProgress({ step: 'get_char', message: 'Đang kiểm tra nhân vật để nhập code...' });
+  let userId = 0;
+  let serverId = Number(targetServer || 2);
+  let characterNick = '';
+
+  try {
+    const characters = await getAllNickName(authToken);
+    if (characters && characters.length > 0) {
+      const matched = characters.find((c) => String(c.ServerId) === String(serverId)) || characters[0];
+      userId = matched.UserId;
+      serverId = matched.ServerId;
+      characterNick = matched.NickName;
+    }
+  } catch (err) {
+    console.error(`[processSubscriber] Lỗi getAllNickName cho ${username}:`, err);
+  }
+
+  if (!userId) {
+    return {
+      username,
+      characterNick: '',
+      serverId,
+      success: false,
+      msg: 'Không tìm thấy nhân vật trên server để nhập code',
+      results: codesToProcess.map((c) => ({
+        code: c.typeCode,
+        name: c.name,
+        success: false,
+        msg: 'Không tìm thấy nhân vật',
+      })),
+    };
+  }
+
+  // 5. Nhập lần lượt từng code vào nhân vật qua GiftAward
+  const finalResults = [];
+  for (let i = 0; i < codesToProcess.length; i++) {
+    if (checkStop && checkStop()) {
+      finalResults.push({ code: codesToProcess[i].typeCode, name: codesToProcess[i].name, success: false, msg: 'Đã dừng theo yêu cầu' });
+      continue;
+    }
+
+    const { typeCode, name } = codesToProcess[i];
+    const item = infos.find((info) => String(info.TypeCode) === String(typeCode));
+    const giftCodeStr = item?.GiftCode;
+
+    if (!giftCodeStr) {
+      finalResults.push({
+        code: typeCode,
+        name,
+        giftCode: '',
+        success: false,
+        msg: 'Không tìm thấy mã code từ server',
+      });
+      continue;
+    }
+
+    if (onProgress) onProgress({ step: 'redeem', code: typeCode, name, giftCode: giftCodeStr, message: `[${name}] Đang nhập code vào NV ${characterNick}...` });
+    const redeemRes = await redeemGiftCode(authToken, serverId, userId, giftCodeStr, checkStop);
+
+    finalResults.push({
+      code: typeCode,
+      name,
+      giftCode: giftCodeStr,
+      success: redeemRes.success,
+      msg: redeemRes.msg,
+    });
+
+    if (onProgress) {
+      onProgress({
+        step: 'redeemed',
+        code: typeCode,
+        name,
+        success: redeemRes.success,
+        msg: redeemRes.msg,
+        message: `[${name}] ${redeemRes.success ? '✅ Nhận thành công' : '❌ Thất bại'}: ${redeemRes.msg}`,
+      });
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  const okCount = finalResults.filter((r) => r.success).length;
+  return {
+    username,
+    characterNick,
+    serverId,
+    success: okCount > 0,
+    okCount,
+    totalCount: codesToProcess.length,
+    results: finalResults,
+  };
+}
+
