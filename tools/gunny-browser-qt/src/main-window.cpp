@@ -57,8 +57,26 @@ MainWindow::MainWindow(const QString &swfUrl,
     tryHookSpeed();
 
     connect(m_view, &GameWebView::toolActionRequested, this, &MainWindow::onToolAction);
-    connect(m_bridge, &ToolBridge::flashMessage, this,
-            [this](const QString &m) { showStatus(m, 5000); });
+    // Ghi mọi báo cáo từ AS3 ra tệp. Tiêu đề cửa sổ chỉ hiện được vài giây và
+    // phải có người ngồi nhìn; tệp thì đọc lại được sau.
+    connect(m_bridge, &ToolBridge::flashMessage, this, [this](const QString &m) {
+        showStatus(m, 5000);
+        QFile f(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-flash.log")));
+        if (f.open(QIODevice::Append | QIODevice::Text)) {
+            f.write(QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss ")).toUtf8());
+            f.write(m.toUtf8());
+            f.write("\n");
+        }
+    });
+
+    // --auto-magic <giây>: tự bấm "Kho ma pháp" sau khi game tải xong. Để chạy
+    // thử không cần người ngồi bấm.
+    const int autoArg = QCoreApplication::arguments().indexOf(QStringLiteral("--auto-magic"));
+    if (autoArg > 0 && autoArg + 1 < QCoreApplication::arguments().size()) {
+        const int secs = QCoreApplication::arguments().at(autoArg + 1).toInt();
+        QTimer::singleShot(secs * 1000, this,
+                           [this] { onToolAction(QStringLiteral("open-magic-store")); });
+    }
     connect(m_view, &QWebView::loadFinished, this, [this](bool ok) {
         showStatus(ok ? QStringLiteral("Đã nạp Flash")
                                     : QStringLiteral("Nạp trang thất bại"), 5000);
