@@ -27,6 +27,11 @@ private slots:
     void applySpeed(double multiplier);
 
 private:
+    // Báo trạng thái lên tiêu đề cửa sổ rồi tự trả lại tên cũ. Thay cho thanh
+    // trạng thái: thanh đó chiếm một dải trắng dưới đáy, mà khung game thì cao
+    // cố định nên dải đó chỉ tổ làm cửa sổ lệch khỏi kích thước sân khấu.
+    void showStatus(const QString &text, int msec);
+
     void buildMenuBar();
     void buildSpeedMenu();
     void buildPacketMenu();

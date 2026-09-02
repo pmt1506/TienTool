@@ -4,7 +4,6 @@
 #include <QDateTime>
 #include <QDir>
 #include <QMenuBar>
-#include <QStatusBar>
 #include <QTimer>
 #include <QWebPage>
 
@@ -34,25 +33,34 @@ MainWindow::MainWindow(const QString &swfUrl,
     // nạp trong lúc khởi động, bật muộn là chỉ còn thấy ảnh trang bị với đạn.
     m_network->setUrlLog(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-urls.txt")));
 
+    // Sân khấu Flash có kích thước cố định, nên khung xem cũng phải đúng bằng nó.
+    // Để khung to hơn thì thừa ra dải đen; nhỏ hơn thì game bị cắt.
+    m_view->setFixedSize(stageWidth, stageHeight);
     setCentralWidget(m_view);
     buildMenuBar();
     buildSpeedMenu();
     buildPacketMenu();
     buildOverlayMenu();
-    statusBar()->showMessage(QStringLiteral("Đang tải game…"));
+    showStatus(QStringLiteral("Đang tải game…"), 4000);
 
     tryHookSpeed();
 
     connect(m_view, &GameWebView::toolActionRequested, this, &MainWindow::onToolAction);
     connect(m_bridge, &ToolBridge::flashMessage, this,
-            [this](const QString &m) { statusBar()->showMessage(m, 5000); });
+            [this](const QString &m) { showStatus(m, 5000); });
     connect(m_view, &QWebView::loadFinished, this, [this](bool ok) {
-        statusBar()->showMessage(ok ? QStringLiteral("Đã nạp Flash")
+        showStatus(ok ? QStringLiteral("Đã nạp Flash")
                                     : QStringLiteral("Nạp trang thất bại"), 5000);
     });
 
-    resize(stageWidth, stageHeight + menuBar()->height() + statusBar()->height());
+    adjustSize();
     m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
+}
+
+void MainWindow::showStatus(const QString &text, int msec)
+{
+    setWindowTitle(QStringLiteral("Gunny — %1").arg(text));
+    QTimer::singleShot(msec, this, [this] { setWindowTitle(QStringLiteral("Gunny")); });
 }
 
 void MainWindow::buildMenuBar()
@@ -122,7 +130,7 @@ void MainWindow::buildPacketMenu()
     QAction *show = menu->addAction(QStringLiteral("Xem số liệu"));
     connect(show, &QAction::triggered, this, [this] {
         const PacketProxy::Stats s = PacketProxy::stats();
-        statusBar()->showMessage(
+        showStatus(
             QStringLiteral("Gói: gửi %1 (%2 B) / nhận %3 (%4 B)")
                 .arg(s.sent).arg(s.bytesSent).arg(s.received).arg(s.bytesReceived),
             8000);
@@ -133,7 +141,7 @@ void MainWindow::togglePacketCapture(bool on)
 {
     if (!on) {
         PacketProxy::stopCapture();
-        statusBar()->showMessage(QStringLiteral("Đã dừng ghi: %1").arg(m_capturePath), 8000);
+        showStatus(QStringLiteral("Đã dừng ghi: %1").arg(m_capturePath), 8000);
         return;
     }
 
@@ -144,10 +152,10 @@ void MainWindow::togglePacketCapture(bool on)
                           .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyMMdd-hhmmss"))));
 
     if (PacketProxy::startCapture((const wchar_t *)m_capturePath.utf16())) {
-        statusBar()->showMessage(QStringLiteral("Đang ghi: %1").arg(m_capturePath), 8000);
+        showStatus(QStringLiteral("Đang ghi: %1").arg(m_capturePath), 8000);
     } else {
         m_captureAction->setChecked(false);
-        statusBar()->showMessage(QStringLiteral("Không mở được tệp ghi"), 5000);
+        showStatus(QStringLiteral("Không mở được tệp ghi"), 5000);
     }
 }
 
@@ -164,7 +172,7 @@ void MainWindow::buildOverlayMenu()
 void MainWindow::toggleRuler(bool on)
 {
     m_overlay->setRuler(on);
-    statusBar()->showMessage(
+    showStatus(
         on ? QStringLiteral("Thước: bật") : QStringLiteral("Thước: tắt"), 3000);
 }
 
@@ -184,7 +192,7 @@ void MainWindow::applySpeed(double multiplier)
         SpeedHack::locateFlash();
     }
     if (!SpeedHack::isHooked()) {
-        statusBar()->showMessage(
+        showStatus(
             QStringLiteral("Chưa gắn được vào Flash — chờ game tải xong rồi thử lại"), 4000);
         return;
     }
@@ -203,7 +211,7 @@ void MainWindow::applySpeed(double multiplier)
     // thì Flash không tự đọc đồng hồ, và mọi cách nói dối đồng hồ đều vô ích —
     // nhịp khung hình khi đó do host bơm vào qua timer của plugin.
     const SpeedHack::Stats s = SpeedHack::stats();
-    statusBar()->showMessage(
+    showStatus(
         QStringLiteral("Tốc độ: x%1  (đồng hồ: flash %2 / khác %3)")
             .arg(SpeedHack::multiplier(), 0, 'g', 3)
             .arg(s.fromFlash)
@@ -223,6 +231,6 @@ void MainWindow::onToolAction(const QString &actionId)
     //   1. gửi packet qua proxy socket
     //   2. patch SWF thêm ExternalInterface.addCallback rồi gọi qua m_bridge
     // Ví dụ đường 2:  m_bridge->callFlash("cleanBag");
-    statusBar()->showMessage(
+    showStatus(
         QStringLiteral("Chưa nối hành động: %1").arg(actionId), 4000);
 }
