@@ -12,7 +12,12 @@
 //   ảo = mốc_ảo + (thực - mốc_thực) * hệ_số
 namespace SpeedHack {
 
-// Vá IAT của module (vd L"NPSWF32.dll"). Gọi sau khi Flash đã nạp.
+// Vá IAT của mọi module đang nạp trong tiến trình — cùng phạm vi mà Cheat
+// Engine tác động. Gọi lại định kỳ để bắt các module nạp sau (Flash nạp trễ,
+// sau khi trang dựng xong thẻ <embed>). Trả về số ô đã vá trong lần này.
+int applyToAll();
+
+// Vá IAT của một module cụ thể (vd L"NPSWF32.dll").
 // An toàn khi gọi lại nhiều lần. Trả false nếu chưa tìm thấy module.
 bool applyTo(const wchar_t *moduleName);
 

@@ -103,16 +103,18 @@ void MainWindow::buildSpeedMenu()
 
 void MainWindow::tryHookSpeed()
 {
-    if (SpeedHack::applyTo(L"NPSWF32.dll")) {
-        return;
-    }
-    // Flash chỉ được nạp khi trang dựng xong <embed>; thử lại tới khi thấy.
-    QTimer::singleShot(1000, this, &MainWindow::tryHookSpeed);
+    // Quét lại toàn tiến trình theo chu kỳ: Flash nạp trễ (sau khi trang dựng
+    // xong <embed>), và mỗi module mới nạp lại mang IAT chưa vá.
+    SpeedHack::applyToAll();
+    QTimer::singleShot(2000, this, &MainWindow::tryHookSpeed);
 }
 
 void MainWindow::applySpeed(double multiplier)
 {
-    if (!SpeedHack::isHooked() && !SpeedHack::applyTo(L"NPSWF32.dll")) {
+    if (!SpeedHack::isHooked()) {
+        SpeedHack::applyToAll();
+    }
+    if (!SpeedHack::isHooked()) {
         statusBar()->showMessage(
             QStringLiteral("Chưa gắn được vào Flash — chờ game tải xong rồi thử lại"), 4000);
         return;
