@@ -1,12 +1,15 @@
 #include "main-window.h"
 
 #include <QActionGroup>
+#include <QDateTime>
+#include <QDir>
 #include <QMenuBar>
 #include <QStatusBar>
 #include <QTimer>
 #include <QWebPage>
 
 #include "game-web-view.h"
+#include "packet-proxy.h"
 #include "referer-network-manager.h"
 #include "speed-dialog.h"
 #include "speed-hack.h"
@@ -29,6 +32,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     setCentralWidget(m_view);
     buildMenuBar();
     buildSpeedMenu();
+    buildPacketMenu();
     statusBar()->showMessage(QStringLiteral("Đang tải game…"));
 
     tryHookSpeed();
@@ -99,6 +103,51 @@ void MainWindow::buildSpeedMenu()
         connect(&dlg, &SpeedDialog::multiplierPreview, this, &MainWindow::applySpeed);
         dlg.exec();
     });
+}
+
+void MainWindow::buildPacketMenu()
+{
+    QMenu *menu = menuBar()->addMenu(QStringLiteral("Gói tin"));
+
+    m_captureAction = menu->addAction(QStringLiteral("Ghi ra tệp"));
+    m_captureAction->setCheckable(true);
+    connect(m_captureAction, &QAction::toggled, this, &MainWindow::togglePacketCapture);
+
+    QAction *show = menu->addAction(QStringLiteral("Xem số liệu"));
+    connect(show, &QAction::triggered, this, [this] {
+        const PacketProxy::Stats s = PacketProxy::stats();
+        statusBar()->showMessage(
+            QStringLiteral("Gói: gửi %1 (%2 B) / nhận %3 (%4 B)")
+                .arg(s.sent).arg(s.bytesSent).arg(s.received).arg(s.bytesReceived),
+            8000);
+    });
+}
+
+void MainWindow::togglePacketCapture(bool on)
+{
+    if (!on) {
+        PacketProxy::stopCapture();
+        m_network->setUrlLog(QString());
+        statusBar()->showMessage(QStringLiteral("Đã dừng ghi: %1").arg(m_capturePath), 8000);
+        return;
+    }
+
+    // Mỗi phiên một tệp riêng để so sánh được hai lần bắt với nhau.
+    m_capturePath =
+        QDir(QDir::tempPath())
+            .filePath(QStringLiteral("gunny-packets-%1.log")
+                          .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyMMdd-hhmmss"))));
+
+    // Kèm nhật ký URL: gói tin cho biết trận đấu diễn ra thế nào, URL cho biết
+    // SWF nào chứa logic đó để về sau đọc/patch.
+    m_network->setUrlLog(m_capturePath + QStringLiteral(".urls.txt"));
+
+    if (PacketProxy::startCapture((const wchar_t *)m_capturePath.utf16())) {
+        statusBar()->showMessage(QStringLiteral("Đang ghi: %1").arg(m_capturePath), 8000);
+    } else {
+        m_captureAction->setChecked(false);
+        statusBar()->showMessage(QStringLiteral("Không mở được tệp ghi"), 5000);
+    }
 }
 
 void MainWindow::tryHookSpeed()

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFile>
 #include <QNetworkAccessManager>
 #include <QString>
 
@@ -22,6 +23,11 @@ public:
     // (đường dẫn file local hoặc URL khác). Dùng để serve SWF đã patch.
     void addSwapRule(const QString &urlContains, const QString &replacement);
 
+    // Ghi mọi URL game tải về ra tệp. Cách duy nhất chắc chắn để biết SWF nào
+    // chứa logic trận đấu: tên chúng dựng lúc chạy, đoán mò chỉ ra 404.
+    // Đường dẫn rỗng để tắt.
+    void setUrlLog(const QString &path);
+
 protected:
     QNetworkReply *createRequest(Operation op,
                                  const QNetworkRequest &request,
@@ -30,4 +36,5 @@ protected:
 private:
     QString m_referer;
     QList<QPair<QString, QString>> m_swapRules;
+    QFile m_urlLog;
 };

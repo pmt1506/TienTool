@@ -28,6 +28,9 @@ private slots:
 private:
     void buildMenuBar();
     void buildSpeedMenu();
+    void buildPacketMenu();
+    // Bật/tắt ghi gói tin ra tệp hex để phân tích ngoại tuyến.
+    void togglePacketCapture(bool on);
     // Flash nạp trễ sau khi trang render -> dò module rồi mới vá được IAT.
     void tryHookSpeed();
 
@@ -41,4 +44,6 @@ private:
     QAction *m_speedNormal = nullptr;
     QAction *m_speedTurbo = nullptr;
     QAction *m_speedCustom = nullptr;
+    QAction *m_captureAction = nullptr;
+    QString m_capturePath;
 };

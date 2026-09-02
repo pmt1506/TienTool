@@ -19,6 +19,8 @@ TARGET = gunny-browser-qt
 SOURCES += \
     src/main.cpp \
     src/main-window.cpp \
+    src/flash-module.cpp \
+    src/packet-proxy.cpp \
     src/game-web-view.cpp \
     src/local-page-server.cpp \
     src/referer-network-manager.cpp \
@@ -33,6 +35,8 @@ SOURCES += \
 
 HEADERS += \
     src/main-window.h \
+    src/flash-module.h \
+    src/packet-proxy.h \
     src/game-web-view.h \
     src/local-page-server.h \
     src/referer-network-manager.h \
@@ -45,3 +49,6 @@ RESOURCES += resources/resources.qrc
 # MinHook: vá inline vào thân hàm — cùng cơ chế Cheat Engine dùng cho speedhack.
 # Vá IAT không ăn thua vì NPSWF32.dll không import hàm thời gian nào.
 INCLUDEPATH += third_party/minhook/include
+
+# packet-proxy vá vào send/recv của winsock.
+LIBS += -lws2_32

@@ -1,22 +1,15 @@
 #include "speed-hack.h"
 
 #include <windows.h>
-#include <tlhelp32.h>
-
 #include <atomic>
-#include <cwchar>
 
 #include "MinHook.h"
+#include "flash-module.h"
 
 namespace {
 
 std::atomic<double> g_mult(1.0);
 std::atomic<bool> g_installed(false);
-
-// Khoảng địa chỉ của NPSWF32.dll. Bẫy so địa chỉ trả về với khoảng này để biết
-// lời gọi phát ra từ Flash hay từ Qt.
-std::atomic<uintptr_t> g_flashBase(0);
-std::atomic<uintptr_t> g_flashEnd(0);
 
 std::atomic<uint64_t> g_callsFlash(0);
 std::atomic<uint64_t> g_callsOther(0);
@@ -42,19 +35,9 @@ double g_virtualBaseQpc = 0.0;
 // Địa chỉ trả về có nằm trong Flash không? __builtin_return_address(0) trong hàm
 // bẫy cho ra chỗ mà NGƯỜI GỌI hàm gốc sẽ quay về, vì detour chỉ là một lệnh jmp
 // đặt ở đầu hàm — khung ngăn xếp vẫn là của lời gọi ban đầu.
-inline bool callerIsFlash(void *retAddr)
-{
-    const uintptr_t base = g_flashBase.load(std::memory_order_relaxed);
-    if (!base) {
-        return false;
-    }
-    const uintptr_t a = (uintptr_t)retAddr;
-    return a >= base && a < g_flashEnd.load(std::memory_order_relaxed);
-}
-
 inline bool accountAndDecide(void *retAddr)
 {
-    if (callerIsFlash(retAddr)) {
+    if (FlashModule::containsAddress(retAddr)) {
         g_callsFlash.fetch_add(1, std::memory_order_relaxed);
         return true;
     }
@@ -131,7 +114,7 @@ int install()
     if (g_installed.load()) {
         return 0;
     }
-    if (MH_Initialize() != MH_OK) {
+    if (!FlashModule::ensureHookEngine()) {
         return 0;
     }
 
@@ -146,7 +129,6 @@ int install()
     n += hookOne(winmm, "timeGetTime", (void *)hookedTimeGetTime, &g_origTimeGetTime);
 
     if (n == 0 || MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
-        MH_Uninitialize();
         return 0;
     }
 
@@ -166,34 +148,7 @@ int install()
     return n;
 }
 
-bool locateFlash()
-{
-    if (g_flashBase.load()) {
-        return true;
-    }
-
-    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
-    if (snap == INVALID_HANDLE_VALUE) {
-        return false;
-    }
-
-    bool found = false;
-    MODULEENTRY32W me;
-    me.dwSize = sizeof(me);
-    if (Module32FirstW(snap, &me)) {
-        do {
-            // WebKit có thể nạp plugin dưới tên NPSWF32_32_0_0_465.dll -> khớp tiền tố.
-            if (_wcsnicmp(me.szModule, L"NPSWF", 5) == 0) {
-                g_flashEnd.store((uintptr_t)me.modBaseAddr + me.modBaseSize);
-                g_flashBase.store((uintptr_t)me.modBaseAddr);
-                found = true;
-                break;
-            }
-        } while (Module32NextW(snap, &me));
-    }
-    CloseHandle(snap);
-    return found;
-}
+bool locateFlash() { return FlashModule::locate(); }
 
 void setMultiplier(double m)
 {
@@ -220,7 +175,7 @@ void setMultiplier(double m)
 
 double multiplier() { return g_mult.load(); }
 
-bool isHooked() { return g_installed.load() && g_flashBase.load() != 0; }
+bool isHooked() { return g_installed.load() && FlashModule::found(); }
 
 Stats stats()
 {

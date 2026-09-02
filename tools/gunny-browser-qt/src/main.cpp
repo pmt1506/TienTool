@@ -11,6 +11,7 @@
 #include <QFileInfo>
 
 #include "main-window.h"
+#include "packet-proxy.h"
 #include "speed-hack.h"
 
 int main(int argc, char *argv[])
@@ -19,6 +20,10 @@ int main(int argc, char *argv[])
     // nên module nào nạp sau — kể cả NPSWF32.dll — cũng đi vào bẫy, không cần
     // canh đúng lúc Flash nạp như bản vá IAT trước đây.
     SpeedHack::install();
+
+    // Bẫy winsock cũng phải nằm sẵn từ đây: socket game được mở ngay khi
+    // Loading.swf chạy xong, muộn hơn là lỡ mất phần bắt tay đầu phiên.
+    PacketProxy::install();
 
     // Ép dùng OpenGL desktop thay vì ANGLE/phần mềm. Game bật wmode="direct"
     // (Stage3D + Starling); đường composite bằng phần mềm là nguồn giật chính

@@ -13,6 +13,18 @@ void RefererNetworkManager::addSwapRule(const QString &urlContains, const QStrin
     m_swapRules.append({urlContains, replacement});
 }
 
+void RefererNetworkManager::setUrlLog(const QString &path)
+{
+    if (m_urlLog.isOpen()) {
+        m_urlLog.close();
+    }
+    if (path.isEmpty()) {
+        return;
+    }
+    m_urlLog.setFileName(path);
+    m_urlLog.open(QIODevice::WriteOnly | QIODevice::Truncate);
+}
+
 QNetworkReply *RefererNetworkManager::createRequest(Operation op,
                                                     const QNetworkRequest &request,
                                                     QIODevice *outgoingData)
@@ -30,6 +42,12 @@ QNetworkReply *RefererNetworkManager::createRequest(Operation op,
     patched.setRawHeader("x-requested-with", "ShockwaveFlash/26.0.0.151");
 
     const QString url = request.url().toString();
+    if (m_urlLog.isOpen()) {
+        m_urlLog.write(url.toUtf8());
+        m_urlLog.write("\n");
+        m_urlLog.flush();
+    }
+
     for (const auto &rule : m_swapRules) {
         if (url.contains(rule.first)) {
             patched.setUrl(QUrl(rule.second));
