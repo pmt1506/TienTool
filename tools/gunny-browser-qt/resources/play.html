@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Gunny</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+    #game { display: block; }
+  </style>
+</head>
+<body>
+  <!--
+    Tham số giữ đúng như trang PlayGame.aspx thật:
+      allowScriptAccess="always"  -> bắt buộc để JS gọi được ExternalInterface
+      wmode="direct"              -> Stage3D/Starling chạy GPU (đổi sang
+                                     "window" nếu bị giật, xem report về lag)
+    __SWF_URL__ / __WIDTH__ / __HEIGHT__ do GameWebView::loadGame thay vào.
+  -->
+  <embed id="game"
+         name="game"
+         src="__SWF_URL__"
+         width="__WIDTH__"
+         height="__HEIGHT__"
+         quality="high"
+         bgcolor="#000000"
+         wmode="direct"
+         allowscriptaccess="always"
+         allowfullscreen="true"
+         type="application/x-shockwave-flash" />
+
+  <script type="text/javascript">
+    // Hàm game gọi ra host qua ExternalInterface.call(...). Chuyển tiếp về C++
+    // bằng object `tool` đã gắn qua addToJavaScriptWindowObject.
+    function BrowserAgent() { return navigator.userAgent; }
+    function IsDesktop() { return true; }
+
+    function forward(name) {
+      return function () {
+        try {
+          var args = Array.prototype.slice.call(arguments).join(', ');
+          if (window.tool) { window.tool.log(name + '(' + args + ')'); }
+        } catch (e) { /* host chưa sẵn sàng thì bỏ qua */ }
+      };
+    }
+
+    var hostCalls = ['ExternalLoadStart', 'ExternalLoadStop', 'WindowReturn',
+                     'toLocation', 'tellVersion', 'loadConfig',
+                     'setDailyTask', 'setDailyActivity', 'setFatigue'];
+    for (var i = 0; i < hostCalls.length; i++) {
+      window[hostCalls[i]] = forward(hostCalls[i]);
+    }
+  </script>
+</body>
+</html>

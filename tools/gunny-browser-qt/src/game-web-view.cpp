@@ -1,0 +1,77 @@
+#include "game-web-view.h"
+
+#include <QContextMenuEvent>
+#include <QFile>
+#include <QMenu>
+#include <QWebFrame>
+#include <QWebPage>
+#include <QWebSettings>
+
+#include "tool-bridge.h"
+
+GameWebView::GameWebView(ToolBridge *bridge, QWidget *parent)
+    : QWebView(parent), m_bridge(bridge)
+{
+    QWebSettings *s = settings();
+    s->setAttribute(QWebSettings::PluginsEnabled, true);          // bật NPAPI Flash
+    s->setAttribute(QWebSettings::JavascriptEnabled, true);
+    s->setAttribute(QWebSettings::LocalContentCanAccessRemoteUrls, true);
+    s->setAttribute(QWebSettings::AcceleratedCompositingEnabled, true);
+    s->setAttribute(QWebSettings::WebGLEnabled, true);
+
+    // Nền đen giống trang game; tránh nháy trắng lúc Flash chưa dựng xong.
+    QPalette pal = palette();
+    pal.setBrush(QPalette::Base, Qt::black);
+    setPalette(pal);
+
+    connect(page()->mainFrame(), &QWebFrame::javaScriptWindowObjectCleared,
+            this, &GameWebView::reinstallBridge);
+}
+
+void GameWebView::reinstallBridge()
+{
+    QWebFrame *frame = page()->mainFrame();
+    m_bridge->setFrame(frame);
+    frame->addToJavaScriptWindowObject(QStringLiteral("tool"), m_bridge);
+}
+
+void GameWebView::loadGame(const QString &swfUrl, int stageWidth, int stageHeight)
+{
+    QFile tpl(QStringLiteral(":/play.html"));
+    if (!tpl.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        setHtml(QStringLiteral("<h3>Thiếu resource play.html</h3>"));
+        return;
+    }
+    QString html = QString::fromUtf8(tpl.readAll());
+    html.replace(QStringLiteral("__SWF_URL__"), swfUrl.toHtmlEscaped());
+    html.replace(QStringLiteral("__WIDTH__"), QString::number(stageWidth));
+    html.replace(QStringLiteral("__HEIGHT__"), QString::number(stageHeight));
+
+    // baseUrl đặt về trang game để URL tương đối trong SWF phân giải đúng.
+    setHtml(html, QUrl(QStringLiteral("http://play.gnddt.com/")));
+}
+
+void GameWebView::contextMenuEvent(QContextMenuEvent *event)
+{
+    // Nuốt menu mặc định của QtWebKit (Reload/Back/View Source...) và thay bằng
+    // menu tiện ích. Flash không hề biết chuyện này.
+    QMenu menu(this);
+
+    const QList<QPair<QString, QString>> items = {
+        {QStringLiteral("clean-bag"), QStringLiteral("Dọn túi")},
+        {QStringLiteral("clean-mail"), QStringLiteral("Dọn thư")},
+        {QStringLiteral("open-magic-store"), QStringLiteral("Mở kho ma pháp")},
+        {QStringLiteral("toggle-overlay"), QStringLiteral("Hiện bảng cài đặt")},
+    };
+    for (const auto &item : items) {
+        QAction *act = menu.addAction(item.second);
+        const QString id = item.first;
+        connect(act, &QAction::triggered, this, [this, id] { emit toolActionRequested(id); });
+    }
+
+    menu.addSeparator();
+    QAction *reload = menu.addAction(QStringLiteral("Tải lại game"));
+    connect(reload, &QAction::triggered, this, [this] { emit toolActionRequested(QStringLiteral("reload")); });
+
+    menu.exec(event->globalPos());
+}
