@@ -22,14 +22,18 @@ const double kTickHalf = 6.0;
 const double kTickQuarter = 3.0;
 
 const QColor kShadow(0, 0, 0, 160);
-const QColor kInk(255, 240, 90, 235);
+// Vạch tròn chẵn (một khoảng đầy đủ) màu đỏ; trục và các vạch lẻ 0.25/0.5 màu tím.
+const QColor kWhole(255, 60, 60, 240);
+const QColor kInk(190, 110, 255, 235);
 
 }  // namespace
 
 OverlayWindow::OverlayWindow(QWidget *target)
-    : QWidget(nullptr,
-              Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool
-                  | Qt::WindowTransparentForInput),
+    // Cửa sổ Tool có cha là cửa sổ game: nó chỉ nổi trên đúng cửa sổ cha, và tự
+    // thu/ẩn theo cha. KHÔNG dùng WindowStaysOnTopHint với cha là nullptr —
+    // làm thế thì thước nổi trên mọi ứng dụng khác của máy, không riêng gì game.
+    : QWidget(target ? target->window() : nullptr,
+              Qt::FramelessWindowHint | Qt::Tool | Qt::WindowTransparentForInput),
       m_target(target)
 {
     setAttribute(Qt::WA_TranslucentBackground);
@@ -82,11 +86,17 @@ bool OverlayWindow::eventFilter(QObject *watched, QEvent *event)
     switch (event->type()) {
     case QEvent::Move:
     case QEvent::Resize:
-    case QEvent::Show:
         if (isVisible()) {
             syncGeometry();
         }
         break;
+    // Chuyển sang ứng dụng khác thì thước phải biến mất cùng cửa sổ game, chứ
+    // không lơ lửng trên màn hình làm việc.
+    case QEvent::WindowActivate:
+    case QEvent::Show:
+        refreshVisibility();
+        break;
+    case QEvent::WindowDeactivate:
     case QEvent::Hide:
     case QEvent::Close:
         hide();
@@ -122,14 +132,22 @@ void OverlayWindow::paintRuler(QPainter &p)
 
         // Vạch trên thước ngang: bước 0.25 khoảng, vạch dài dần ở 0.5 và 1.
         for (int q = 0; q <= kCols * 4; ++q) {
+            const bool whole = q % 4 == 0;
             const double x = unitX * q / 4.0;
-            const double len = q % 4 == 0 ? kTickFull : (q % 2 == 0 ? kTickHalf : kTickQuarter);
+            const double len = whole ? kTickFull : (q % 2 == 0 ? kTickHalf : kTickQuarter);
+            if (!shadow) {
+                p.setPen(QPen(whole ? kWhole : kInk, whole ? 1.6 : 1.0));
+            }
             p.drawLine(QPointF(x, axisY - len), QPointF(x, axisY + len));
         }
         // Vạch trên thước dọc.
         for (int q = 0; q <= kRows * 4; ++q) {
+            const bool whole = q % 4 == 0;
             const double y = unitY * q / 4.0;
-            const double len = q % 4 == 0 ? kTickFull : (q % 2 == 0 ? kTickHalf : kTickQuarter);
+            const double len = whole ? kTickFull : (q % 2 == 0 ? kTickHalf : kTickQuarter);
+            if (!shadow) {
+                p.setPen(QPen(whole ? kWhole : kInk, whole ? 1.6 : 1.0));
+            }
             p.drawLine(QPointF(axisX - len, y), QPointF(axisX + len, y));
         }
     }
@@ -140,14 +158,14 @@ void OverlayWindow::paintRuler(QPainter &p)
         const QPointF at(unitX * i + 3, axisY - kTickFull - 3);
         p.setPen(kShadow);
         p.drawText(at + QPointF(1, 1), QString::number(i));
-        p.setPen(kInk);
+        p.setPen(kWhole);
         p.drawText(at, QString::number(i));
     }
     for (int j = 1; j < kRows; ++j) {
         const QPointF at(axisX + kTickFull + 4, unitY * j - 3);
         p.setPen(kShadow);
         p.drawText(at + QPointF(1, 1), QString::number(j));
-        p.setPen(kInk);
+        p.setPen(kWhole);
         p.drawText(at, QString::number(j));
     }
 }
