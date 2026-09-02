@@ -103,16 +103,18 @@ void MainWindow::buildSpeedMenu()
 
 void MainWindow::tryHookSpeed()
 {
-    // Quét lại toàn tiến trình theo chu kỳ: Flash nạp trễ (sau khi trang dựng
-    // xong <embed>), và mỗi module mới nạp lại mang IAT chưa vá.
-    SpeedHack::applyToAll();
-    QTimer::singleShot(2000, this, &MainWindow::tryHookSpeed);
+    // Bẫy đã nằm sẵn trong kernel32 từ main(); ở đây chỉ còn việc dò khoảng địa
+    // chỉ của NPSWF32.dll để lọc người gọi. Flash nạp trễ (sau khi trang dựng
+    // xong <embed>) nên phải hỏi lại theo chu kỳ cho tới khi thấy.
+    if (!SpeedHack::locateFlash()) {
+        QTimer::singleShot(2000, this, &MainWindow::tryHookSpeed);
+    }
 }
 
 void MainWindow::applySpeed(double multiplier)
 {
     if (!SpeedHack::isHooked()) {
-        SpeedHack::applyToAll();
+        SpeedHack::locateFlash();
     }
     if (!SpeedHack::isHooked()) {
         statusBar()->showMessage(
@@ -130,8 +132,16 @@ void MainWindow::applySpeed(double multiplier)
         else m_speedCustom->setChecked(true);
     }
 
+    // Kèm số lần đồng hồ bị hỏi, tách theo nguồn gọi. Nếu "flash" đứng yên ở 0
+    // thì Flash không tự đọc đồng hồ, và mọi cách nói dối đồng hồ đều vô ích —
+    // nhịp khung hình khi đó do host bơm vào qua timer của plugin.
+    const SpeedHack::Stats s = SpeedHack::stats();
     statusBar()->showMessage(
-        QStringLiteral("Tốc độ: x%1").arg(SpeedHack::multiplier(), 0, 'g', 3), 3000);
+        QStringLiteral("Tốc độ: x%1  (đồng hồ: flash %2 / khác %3)")
+            .arg(SpeedHack::multiplier(), 0, 'g', 3)
+            .arg(s.fromFlash)
+            .arg(s.fromElsewhere),
+        6000);
 }
 
 void MainWindow::onToolAction(const QString &actionId)

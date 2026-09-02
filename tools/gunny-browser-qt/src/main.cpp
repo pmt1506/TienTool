@@ -11,9 +11,15 @@
 #include <QFileInfo>
 
 #include "main-window.h"
+#include "speed-hack.h"
 
 int main(int argc, char *argv[])
 {
+    // Đặt bẫy đồng hồ trước mọi thứ khác. Bẫy nằm trong thân hàm của kernel32
+    // nên module nào nạp sau — kể cả NPSWF32.dll — cũng đi vào bẫy, không cần
+    // canh đúng lúc Flash nạp như bản vá IAT trước đây.
+    SpeedHack::install();
+
     // Ép dùng OpenGL desktop thay vì ANGLE/phần mềm. Game bật wmode="direct"
     // (Stage3D + Starling); đường composite bằng phần mềm là nguồn giật chính
     // của client gốc.

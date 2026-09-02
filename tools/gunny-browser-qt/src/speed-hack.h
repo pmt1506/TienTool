@@ -1,31 +1,43 @@
 #pragma once
 
-// Chỉnh tốc độ game bằng cách đổi hướng các hàm đo thời gian mà Flash gọi.
+#include <cstdint>
+
+// Chỉnh tốc độ game bằng cách nói dối các hàm đo thời gian mà Flash gọi.
 //
-// Cách làm: vá bảng IAT (Import Address Table) của NPSWF32.dll, thay con trỏ
-// của timeGetTime / GetTickCount / GetTickCount64 / QueryPerformanceCounter
-// bằng phiên bản riêng có nhân hệ số. Chỉ vá IAT của module Flash nên Qt và
-// phần còn lại của app vẫn chạy thời gian thật — timer giao diện, mạng, animation
-// của menu không bị ảnh hưởng.
+// Cách làm giống hệt Cheat Engine: KHÔNG vá IAT mà vá thẳng vào THÂN HÀM
+// (inline detour) của GetTickCount / GetTickCount64 / QueryPerformanceCounter /
+// timeGetTime. Vá IAT đã thử và thất bại vì NPSWF32.dll chỉ import 22 hàm, không
+// có hàm thời gian nào — Flash tra chúng lúc chạy. Vá thân hàm thì Flash lấy địa
+// chỉ kiểu gì cũng đi vào bẫy.
 //
-// Thời gian ảo được neo lại mỗi lần đổi hệ số nên không bao giờ nhảy lùi:
+// Vá thân hàm là vá chung cho cả tiến trình, nên để chỉ tác động vào Flash mà
+// không kéo theo Qt, mỗi lần bẫy chạy ta soi ĐỊA CHỈ TRẢ VỀ: rơi trong khoảng
+// địa chỉ của NPSWF32.dll thì trả giờ ảo, ngoài ra trả giờ thật. Timer giao
+// diện, mạng, animation menu của Qt vì thế chạy đúng tốc độ.
+//
+// Giờ ảo được neo lại mỗi lần đổi hệ số nên không bao giờ nhảy lùi:
 //   ảo = mốc_ảo + (thực - mốc_thực) * hệ_số
 namespace SpeedHack {
 
-// Vá IAT của mọi module đang nạp trong tiến trình — cùng phạm vi mà Cheat
-// Engine tác động. Gọi lại định kỳ để bắt các module nạp sau (Flash nạp trễ,
-// sau khi trang dựng xong thẻ <embed>). Trả về số ô đã vá trong lần này.
-int applyToAll();
+// Đặt bẫy vào các hàm thời gian. Gọi một lần lúc khởi động, trước cả khi Flash
+// nạp — bẫy nằm sẵn, module nào nạp sau cũng dính. Trả về số hàm bẫy được.
+int install();
 
-// Vá IAT của một module cụ thể (vd L"NPSWF32.dll").
-// An toàn khi gọi lại nhiều lần. Trả false nếu chưa tìm thấy module.
-bool applyTo(const wchar_t *moduleName);
+// Tìm NPSWF32.dll và ghi lại khoảng địa chỉ của nó để lọc địa chỉ trả về.
+// Flash nạp trễ (sau khi trang dựng xong thẻ <embed>) nên phải gọi lại định kỳ.
+// Trả true khi đã tìm thấy.
+bool locateFlash();
 
 // Hệ số tốc độ, 1.0 = bình thường. Kẹp trong [0.1, 20.0].
 void setMultiplier(double m);
 double multiplier();
 
-// Đã vá thành công chưa.
+// Đã đặt được bẫy và đã tìm thấy module Flash chưa.
 bool isHooked();
+
+// Số lần đồng hồ bị hỏi, tách theo nguồn gọi. Dùng để trả lời câu hỏi mấu chốt:
+// Flash có thật sự tự đọc đồng hồ không, hay nhịp khung hình do host bơm vào?
+struct Stats { uint64_t fromFlash; uint64_t fromElsewhere; };
+Stats stats();
 
 }  // namespace SpeedHack
