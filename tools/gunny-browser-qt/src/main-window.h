@@ -5,6 +5,7 @@
 #include <QString>
 
 class GameWebView;
+class OverlayWindow;
 class RefererNetworkManager;
 class ToolBridge;
 
@@ -29,6 +30,10 @@ private:
     void buildMenuBar();
     void buildSpeedMenu();
     void buildPacketMenu();
+    void buildOverlayMenu();
+    // Vẽ một parabol mẫu để kiểm chứng overlay có nằm trên được Flash wmode=direct
+    // hay không. Dữ liệu thật (góc/gió/lực) chưa có nên tạm dùng đường giả.
+    void toggleTestTrajectory(bool on);
     // Bật/tắt ghi gói tin ra tệp hex để phân tích ngoại tuyến.
     void togglePacketCapture(bool on);
     // Flash nạp trễ sau khi trang render -> dò module rồi mới vá được IAT.
@@ -45,5 +50,6 @@ private:
     QAction *m_speedTurbo = nullptr;
     QAction *m_speedCustom = nullptr;
     QAction *m_captureAction = nullptr;
+    OverlayWindow *m_overlay = nullptr;
     QString m_capturePath;
 };
