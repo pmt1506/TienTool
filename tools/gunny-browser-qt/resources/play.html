@@ -34,6 +34,23 @@
     function BrowserAgent() { return navigator.userAgent; }
     function IsDesktop() { return true; }
 
+    // Hàng lệnh gửi vào SWF đã patch.
+    //
+    // Không gọi thẳng JS -> Flash: qua NPObject thì chập chờn với wmode=direct,
+    // lúc thấy callback lúc không, kể cả callback của game gốc. Chiều ngược lại
+    // luôn chạy, nên SWF hỏi hàm này 250ms một lần và tự lấy lệnh về.
+    window.__toolCmd = '';
+    function toolPoll() {
+      var c = window.__toolCmd || '';
+      window.__toolCmd = '';
+      return c;
+    }
+
+    // SWF báo kết quả ngược ra; chuyển tiếp về C++ để hiện trên tiêu đề.
+    function toolLog(msg) {
+      try { if (window.tool) { window.tool.log(String(msg)); } } catch (e) {}
+    }
+
     function forward(name) {
       return function () {
         try {

@@ -30,6 +30,13 @@ public:
     // đã ở dạng literal JavaScript (vd: "1, 'abc'"). Trả về kết quả dạng chuỗi.
     QString callFlash(const QString &callback, const QString &jsonArgs = QString());
 
+    // Đặt một lệnh vào hàng đợi cho SWF đã patch lấy về.
+    //
+    // Không gọi thẳng callback: chiều JS -> Flash qua NPObject chập chờn với
+    // wmode=direct. SWF hỏi hàng đợi này 250ms một lần rồi báo kết quả ngược ra
+    // qua toolLog, tới đây thành flashMessage.
+    void queueCommand(const QString &command);
+
     // Hỏi xem những callback nào thực sự có trên object Flash. Dùng để phân biệt
     // "bản patch không chạy" với "ExternalInterface không hoạt động".
     QString probeCallbacks();

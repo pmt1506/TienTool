@@ -27,6 +27,17 @@ QString ToolBridge::callFlash(const QString &callback, const QString &jsonArgs)
     return m_frame->evaluateJavaScript(script).toString();
 }
 
+void ToolBridge::queueCommand(const QString &command)
+{
+    if (!m_frame) {
+        return;
+    }
+    QString escaped = command;
+    escaped.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
+    escaped.replace(QLatin1Char('\''), QLatin1String("\\'"));
+    m_frame->evaluateJavaScript(QStringLiteral("window.__toolCmd='%1';").arg(escaped));
+}
+
 QString ToolBridge::probeCallbacks()
 {
     if (!m_frame) {

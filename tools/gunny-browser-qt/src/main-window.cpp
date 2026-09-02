@@ -253,15 +253,10 @@ void MainWindow::onToolAction(const QString &actionId)
         // So sánh với callback mà game GỐC đăng ký: nếu cái đó cũng không thấy
         // thì lỗi nằm ở ExternalInterface/allowScriptAccess chứ không phải ở
         // bản patch.
-        const QString r = m_bridge->callFlash(QStringLiteral("toolOpenMagicHouse"),
-                                              QStringLiteral("1"));
-        if (r == QLatin1String("ok")) {
-            showStatus(QStringLiteral("Mở kho ma pháp"), 3000);
-        } else {
-            // Kèm danh sách callback khi hỏng: phân biệt được "chưa đăng ký"
-            // với "đăng ký rồi nhưng AS3 ném lỗi".
-            showStatus(QStringLiteral("%1 | %2").arg(r, m_bridge->probeCallbacks()), 20000);
-        }
+        // Đặt lệnh vào hàng đợi; SWF lấy về trong vòng 250ms rồi báo kết quả
+        // ngược ra qua toolLog -> flashMessage -> tiêu đề cửa sổ.
+        m_bridge->queueCommand(QStringLiteral("magic:1"));
+        showStatus(QStringLiteral("Đã gửi lệnh mở kho…"), 3000);
         return;
     }
 
