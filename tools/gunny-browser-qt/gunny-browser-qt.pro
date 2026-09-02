@@ -22,6 +22,8 @@ SOURCES += \
     src/game-web-view.cpp \
     src/local-page-server.cpp \
     src/referer-network-manager.cpp \
+    src/speed-dialog.cpp \
+    src/speed-hack.cpp \
     src/tool-bridge.cpp
 
 HEADERS += \
@@ -29,6 +31,8 @@ HEADERS += \
     src/game-web-view.h \
     src/local-page-server.h \
     src/referer-network-manager.h \
+    src/speed-dialog.h \
+    src/speed-hack.h \
     src/tool-bridge.h
 
 RESOURCES += resources/resources.qrc

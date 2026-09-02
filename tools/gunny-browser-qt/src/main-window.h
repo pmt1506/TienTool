@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QAction>
 #include <QMainWindow>
 #include <QString>
 
@@ -21,9 +22,14 @@ public:
 
 private slots:
     void onToolAction(const QString &actionId);
+    // Đặt hệ số tốc độ, cập nhật dấu tích trên menu và thanh trạng thái.
+    void applySpeed(double multiplier);
 
 private:
     void buildMenuBar();
+    void buildSpeedMenu();
+    // Flash nạp trễ sau khi trang render -> dò module rồi mới vá được IAT.
+    void tryHookSpeed();
 
     GameWebView *m_view = nullptr;
     RefererNetworkManager *m_network = nullptr;
@@ -31,4 +37,8 @@ private:
     QString m_swfUrl;
     int m_stageWidth;
     int m_stageHeight;
+
+    QAction *m_speedNormal = nullptr;
+    QAction *m_speedTurbo = nullptr;
+    QAction *m_speedCustom = nullptr;
 };

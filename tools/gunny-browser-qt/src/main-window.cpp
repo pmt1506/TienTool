@@ -1,11 +1,15 @@
 #include "main-window.h"
 
+#include <QActionGroup>
 #include <QMenuBar>
 #include <QStatusBar>
+#include <QTimer>
 #include <QWebPage>
 
 #include "game-web-view.h"
 #include "referer-network-manager.h"
+#include "speed-dialog.h"
+#include "speed-hack.h"
 #include "tool-bridge.h"
 
 MainWindow::MainWindow(const QString &swfUrl,
@@ -24,7 +28,10 @@ MainWindow::MainWindow(const QString &swfUrl,
 
     setCentralWidget(m_view);
     buildMenuBar();
+    buildSpeedMenu();
     statusBar()->showMessage(QStringLiteral("Đang tải game…"));
+
+    tryHookSpeed();
 
     connect(m_view, &GameWebView::toolActionRequested, this, &MainWindow::onToolAction);
     connect(m_bridge, &ToolBridge::flashMessage, this,
@@ -62,6 +69,67 @@ void MainWindow::buildMenuBar()
         const QString id = QString::fromUtf8(e.id);
         connect(act, &QAction::triggered, this, [this, id] { onToolAction(id); });
     }
+}
+
+void MainWindow::buildSpeedMenu()
+{
+    QMenu *menu = menuBar()->addMenu(QStringLiteral("Cheat Speed"));
+
+    // Ba mục loại trừ nhau -> nhóm lại để Qt tự quản dấu tích.
+    auto *group = new QActionGroup(this);
+    group->setExclusive(true);
+
+    auto addMode = [&](const QString &text, bool checked) {
+        QAction *a = menu->addAction(text);
+        a->setCheckable(true);
+        a->setChecked(checked);
+        group->addAction(a);
+        return a;
+    };
+
+    m_speedNormal = addMode(QStringLiteral("Bình thường (x1)"), true);
+    m_speedTurbo = addMode(QStringLiteral("Tối ưu (x5)"), false);
+    m_speedCustom = addMode(QStringLiteral("Tùy chỉnh…"), false);
+
+    connect(m_speedNormal, &QAction::triggered, this, [this] { applySpeed(1.0); });
+    connect(m_speedTurbo, &QAction::triggered, this, [this] { applySpeed(5.0); });
+    connect(m_speedCustom, &QAction::triggered, this, [this] {
+        SpeedDialog dlg(SpeedHack::multiplier(), this);
+        // Áp dụng ngay trong lúc kéo; hộp thoại tự trả lại giá trị cũ nếu Hủy.
+        connect(&dlg, &SpeedDialog::multiplierPreview, this, &MainWindow::applySpeed);
+        dlg.exec();
+    });
+}
+
+void MainWindow::tryHookSpeed()
+{
+    if (SpeedHack::applyTo(L"NPSWF32.dll")) {
+        return;
+    }
+    // Flash chỉ được nạp khi trang dựng xong <embed>; thử lại tới khi thấy.
+    QTimer::singleShot(1000, this, &MainWindow::tryHookSpeed);
+}
+
+void MainWindow::applySpeed(double multiplier)
+{
+    if (!SpeedHack::isHooked() && !SpeedHack::applyTo(L"NPSWF32.dll")) {
+        statusBar()->showMessage(
+            QStringLiteral("Chưa gắn được vào Flash — chờ game tải xong rồi thử lại"), 4000);
+        return;
+    }
+
+    SpeedHack::setMultiplier(multiplier);
+
+    // Cập nhật dấu tích cho khớp khi tốc độ được đặt từ hộp thoại.
+    if (m_speedNormal) {
+        const double m = SpeedHack::multiplier();
+        if (qFuzzyCompare(m, 1.0)) m_speedNormal->setChecked(true);
+        else if (qFuzzyCompare(m, 5.0)) m_speedTurbo->setChecked(true);
+        else m_speedCustom->setChecked(true);
+    }
+
+    statusBar()->showMessage(
+        QStringLiteral("Tốc độ: x%1").arg(SpeedHack::multiplier(), 0, 'g', 3), 3000);
 }
 
 void MainWindow::onToolAction(const QString &actionId)

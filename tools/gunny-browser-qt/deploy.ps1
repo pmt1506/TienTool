@@ -35,6 +35,14 @@ function Find-Dll([string]$name) {
     return $null
 }
 
+# Qt 5.5.1 ship cả bản release và debug cạnh nhau (Qt5Gui.dll / Qt5Guid.dll).
+# Bản debug nặng gấp hàng chục lần và kéo theo cả chuỗi Qt debug -> loại bỏ.
+function Test-DebugDll([System.IO.FileInfo]$file) {
+    $base = $file.BaseName
+    if (-not $base.EndsWith('d')) { return $false }
+    return Test-Path (Join-Path $file.Directory.FullName ($base.Substring(0, $base.Length - 1) + '.dll'))
+}
+
 # Duyệt đệ quy từ exe + các plugin Qt, gom mọi DLL có trong kit/mingw.
 $queue = New-Object System.Collections.Queue
 $queue.Enqueue("$Rel\gunny-browser-qt.exe")
@@ -48,6 +56,7 @@ foreach ($d in $pluginDirs) {
     if (Test-Path "$Kit\plugins\$d") {
         New-Item -ItemType Directory -Force "$Rel\$d" | Out-Null
         foreach ($f in Get-ChildItem "$Kit\plugins\$d" -Filter *.dll) {
+            if (Test-DebugDll $f) { continue }
             Copy-Item $f.FullName "$Rel\$d" -Force
             $queue.Enqueue($f.FullName)
         }
