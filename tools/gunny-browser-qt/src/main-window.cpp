@@ -29,6 +29,10 @@ MainWindow::MainWindow(const QString &swfUrl,
     m_network = new RefererNetworkManager(referer, this);
     m_view->page()->setNetworkAccessManager(m_network);
 
+    // Ghi URL ngay từ đầu chứ không đợi bật ở menu: SWF chứa logic game được
+    // nạp trong lúc khởi động, bật muộn là chỉ còn thấy ảnh trang bị với đạn.
+    m_network->setUrlLog(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-urls.txt")));
+
     setCentralWidget(m_view);
     buildMenuBar();
     buildSpeedMenu();
@@ -127,7 +131,6 @@ void MainWindow::togglePacketCapture(bool on)
 {
     if (!on) {
         PacketProxy::stopCapture();
-        m_network->setUrlLog(QString());
         statusBar()->showMessage(QStringLiteral("Đã dừng ghi: %1").arg(m_capturePath), 8000);
         return;
     }
@@ -137,10 +140,6 @@ void MainWindow::togglePacketCapture(bool on)
         QDir(QDir::tempPath())
             .filePath(QStringLiteral("gunny-packets-%1.log")
                           .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyMMdd-hhmmss"))));
-
-    // Kèm nhật ký URL: gói tin cho biết trận đấu diễn ra thế nào, URL cho biết
-    // SWF nào chứa logic đó để về sau đọc/patch.
-    m_network->setUrlLog(m_capturePath + QStringLiteral(".urls.txt"));
 
     if (PacketProxy::startCapture((const wchar_t *)m_capturePath.utf16())) {
         statusBar()->showMessage(QStringLiteral("Đang ghi: %1").arg(m_capturePath), 8000);

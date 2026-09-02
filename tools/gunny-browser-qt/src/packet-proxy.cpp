@@ -39,7 +39,23 @@ void writeHex(FILE *f, const uint8_t *data, size_t len)
     }
 }
 
-void record(PacketProxy::Direction dir, const uint8_t *data, size_t len)
+// Địa chỉ đầu kia của socket, dạng "1.2.3.4:9001". Không có thông tin này thì
+// không phân biệt được luồng game với chat, tải tài nguyên hay thứ gì khác —
+// và mọi phân tích nội dung đều là đoán mò.
+void peerName(SOCKET s, char *buf, size_t cap)
+{
+    sockaddr_in addr;
+    int len = sizeof(addr);
+    if (getpeername(s, (sockaddr *)&addr, &len) == 0 && addr.sin_family == AF_INET) {
+        const uint8_t *o = (const uint8_t *)&addr.sin_addr;
+        std::snprintf(buf, cap, "%u.%u.%u.%u:%u", o[0], o[1], o[2], o[3],
+                      (unsigned)ntohs(addr.sin_port));
+    } else {
+        std::snprintf(buf, cap, "?");
+    }
+}
+
+void record(SOCKET s, PacketProxy::Direction dir, const uint8_t *data, size_t len)
 {
     if (!len) {
         return;
@@ -55,9 +71,12 @@ void record(PacketProxy::Direction dir, const uint8_t *data, size_t len)
 
     std::lock_guard<std::mutex> lock(g_mutex);
     if (g_log) {
-        // Một dòng một gói: thời điểm, chiều, độ dài, rồi toàn bộ byte dạng hex.
+        // Một dòng một gói: thời điểm, chiều, đầu kia, độ dài, rồi byte dạng hex.
         // Dạng này grep/diff được giữa hai lần bắt để tìm gói vào trận.
-        std::fprintf(g_log, "%lu %s %zu ", (unsigned long)GetTickCount(), out ? "OUT" : "IN", len);
+        char peer[32];
+        peerName(s, peer, sizeof(peer));
+        std::fprintf(g_log, "%lu %s %s %zu ", (unsigned long)GetTickCount(),
+                     out ? "OUT" : "IN", peer, len);
         writeHex(g_log, data, len);
         std::fputc('\n', g_log);
         std::fflush(g_log);
@@ -76,7 +95,7 @@ int WSAAPI hookedSend(SOCKET s, const char *buf, int len, int flags)
     const bool mine = fromFlash(__builtin_return_address(0));
     const int n = g_origSend(s, buf, len, flags);
     if (mine && n > 0) {
-        record(PacketProxy::Direction::Outgoing, (const uint8_t *)buf, (size_t)n);
+        record(s, PacketProxy::Direction::Outgoing, (const uint8_t *)buf, (size_t)n);
     }
     return n;
 }
@@ -86,7 +105,7 @@ int WSAAPI hookedRecv(SOCKET s, char *buf, int len, int flags)
     const bool mine = fromFlash(__builtin_return_address(0));
     const int n = g_origRecv(s, buf, len, flags);
     if (mine && n > 0) {
-        record(PacketProxy::Direction::Incoming, (const uint8_t *)buf, (size_t)n);
+        record(s, PacketProxy::Direction::Incoming, (const uint8_t *)buf, (size_t)n);
     }
     return n;
 }
@@ -94,12 +113,13 @@ int WSAAPI hookedRecv(SOCKET s, char *buf, int len, int flags)
 // WSASend/WSARecv nhận một mảng buffer. Chỉ ghi được khi lời gọi hoàn tất ngay
 // (overlapped == nullptr); dạng overlapped thật sự thì dữ liệu tới sau, ở
 // completion routine — nếu nhật ký trống mà game vẫn chạy thì phải bẫy thêm chỗ đó.
-void recordBuffers(PacketProxy::Direction dir, LPWSABUF bufs, DWORD count, DWORD transferred)
+void recordBuffers(SOCKET s, PacketProxy::Direction dir, LPWSABUF bufs, DWORD count,
+                   DWORD transferred)
 {
     DWORD left = transferred;
     for (DWORD i = 0; i < count && left; ++i) {
         const DWORD take = bufs[i].len < left ? bufs[i].len : left;
-        record(dir, (const uint8_t *)bufs[i].buf, take);
+        record(s, dir, (const uint8_t *)bufs[i].buf, take);
         left -= take;
     }
 }
@@ -110,7 +130,7 @@ int WSAAPI hookedWsaSend(SOCKET s, LPWSABUF bufs, DWORD count, LPDWORD sent, DWO
     const bool mine = fromFlash(__builtin_return_address(0));
     const int r = g_origWsaSend(s, bufs, count, sent, flags, ov, cr);
     if (mine && r == 0 && !ov && sent) {
-        recordBuffers(PacketProxy::Direction::Outgoing, bufs, count, *sent);
+        recordBuffers(s, PacketProxy::Direction::Outgoing, bufs, count, *sent);
     }
     return r;
 }
@@ -121,7 +141,7 @@ int WSAAPI hookedWsaRecv(SOCKET s, LPWSABUF bufs, DWORD count, LPDWORD received,
     const bool mine = fromFlash(__builtin_return_address(0));
     const int r = g_origWsaRecv(s, bufs, count, received, flags, ov, cr);
     if (mine && r == 0 && !ov && received) {
-        recordBuffers(PacketProxy::Direction::Incoming, bufs, count, *received);
+        recordBuffers(s, PacketProxy::Direction::Incoming, bufs, count, *received);
     }
     return r;
 }
