@@ -246,8 +246,22 @@ void MainWindow::onToolAction(const QString &actionId)
         // Tab 1 mở thẳng WarehouseView ("Kho báu") — xem __changeHandler của
         // magicHouse.MagicHouseMainView. Callback do bản Loading.swf đã patch
         // đăng ký; game gốc không mở sẵn cửa nào gọi được từ ngoài.
-        m_bridge->callFlash(QStringLiteral("toolOpenMagicHouse"), QStringLiteral("1"));
-        showStatus(QStringLiteral("Mở kho ma pháp…"), 3000);
+        // Hiện kết quả trả về chứ không nuốt: chuỗi đó phân biệt được ba kiểu
+        // hỏng khác nhau — "ERR:" là JS không gọi được (callback chưa đăng ký,
+        // tức bản patch chưa chạy), "err:" là AS3 ném lỗi (tìm không ra lớp),
+        // "ok" là đã dispatch xong.
+        // So sánh với callback mà game GỐC đăng ký: nếu cái đó cũng không thấy
+        // thì lỗi nằm ở ExternalInterface/allowScriptAccess chứ không phải ở
+        // bản patch.
+        const QString r = m_bridge->callFlash(QStringLiteral("toolOpenMagicHouse"),
+                                              QStringLiteral("1"));
+        if (r == QLatin1String("ok")) {
+            showStatus(QStringLiteral("Mở kho ma pháp"), 3000);
+        } else {
+            // Kèm danh sách callback khi hỏng: phân biệt được "chưa đăng ký"
+            // với "đăng ký rồi nhưng AS3 ném lỗi".
+            showStatus(QStringLiteral("%1 | %2").arg(r, m_bridge->probeCallbacks()), 20000);
+        }
         return;
     }
 

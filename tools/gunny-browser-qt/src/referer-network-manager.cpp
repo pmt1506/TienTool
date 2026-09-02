@@ -62,6 +62,11 @@ QNetworkReply *RefererNetworkManager::createRequest(Operation op,
 
     for (const auto &ov : m_contentOverrides) {
         if (url.contains(ov.first)) {
+            if (m_urlLog.isOpen()) {
+                m_urlLog.write("  ^^ TRAO NOI DUNG (" + QByteArray::number(ov.second.size())
+                               + " byte)\n");
+                m_urlLog.flush();
+            }
             return new LocalFileReply(patched, ov.second, this);
         }
     }

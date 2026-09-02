@@ -30,6 +30,10 @@ public:
     // đã ở dạng literal JavaScript (vd: "1, 'abc'"). Trả về kết quả dạng chuỗi.
     QString callFlash(const QString &callback, const QString &jsonArgs = QString());
 
+    // Hỏi xem những callback nào thực sự có trên object Flash. Dùng để phân biệt
+    // "bản patch không chạy" với "ExternalInterface không hoạt động".
+    QString probeCallbacks();
+
 public slots:
     // Các slot dưới đây gọi được trực tiếp từ JS qua object `tool`.
     void log(const QString &message);

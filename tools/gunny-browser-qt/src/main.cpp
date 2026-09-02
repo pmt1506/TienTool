@@ -35,8 +35,22 @@ int main(int argc, char *argv[])
 
     // QtWebKit tìm plugin NPAPI theo QTWEBKIT_PLUGIN_PATH. Trỏ vào plugins/
     // cạnh exe để NPSWF32.dll đi kèm bản build, không phụ thuộc Flash hệ thống.
-    const QString pluginDir =
+    //
+    // Chọn phiên bản Flash bằng --flash <tên>: đặt mỗi bản NPSWF32.dll vào một
+    // thư mục con plugins/<tên>/ (vd plugins/11, plugins/32) rồi trỏ đường dẫn
+    // plugin vào đó. Không truyền thì dùng thẳng plugins/. Đây là cách LazyGunny
+    // cho đổi giữa các bản Flash — mỗi bản dựng lại khác nhau, bản cũ đôi khi
+    // chạy mượt hơn hoặc bỏ qua một số kiểm tra của bản mới.
+    QString pluginDir =
         QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins"));
+    const int flashArg = QCoreApplication::arguments().indexOf(QStringLiteral("--flash"));
+    if (flashArg > 0 && flashArg + 1 < QCoreApplication::arguments().size()) {
+        const QString sub =
+            QDir(pluginDir).filePath(QCoreApplication::arguments().at(flashArg + 1));
+        if (QDir(sub).exists()) {
+            pluginDir = sub;
+        }
+    }
     qputenv("QTWEBKIT_PLUGIN_PATH", QFile::encodeName(QDir::toNativeSeparators(pluginDir)));
 
     QCommandLineParser parser;
@@ -63,7 +77,14 @@ int main(int argc, char *argv[])
         QStringLiteral("referer"), QStringLiteral("Referer gắn vào request tới game."),
         QStringLiteral("url"), QStringLiteral("http://play.gnddt.com/PlayGame.aspx"));
 
-    parser.addOptions({swfOpt, titleOpt, widthOpt, heightOpt, refererOpt});
+    // Đã đọc thủ công phía trên (phải đặt trước khi QtWebKit dò plugin), khai
+    // báo ở đây chỉ để parser không coi là tham số lạ và để hiện trong --help.
+    const QCommandLineOption flashOpt(
+        QStringLiteral("flash"),
+        QStringLiteral("Thư mục con trong plugins/ chứa NPSWF32.dll muốn dùng."),
+        QStringLiteral("tên"));
+
+    parser.addOptions({swfOpt, titleOpt, widthOpt, heightOpt, refererOpt, flashOpt});
     parser.process(app);
 
     const QString swfUrl = parser.value(swfOpt);

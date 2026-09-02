@@ -27,6 +27,22 @@ QString ToolBridge::callFlash(const QString &callback, const QString &jsonArgs)
     return m_frame->evaluateJavaScript(script).toString();
 }
 
+QString ToolBridge::probeCallbacks()
+{
+    if (!m_frame) {
+        return QStringLiteral("chưa có frame");
+    }
+    // typeof trên NPObject trả "function" cho callback đã đăng ký, "undefined"
+    // cho tên không có. Không cần gọi thật nên không gây tác dụng phụ.
+    const QString script = QStringLiteral(
+        "(function(){var o=document.getElementById('game');"
+        "if(!o)return 'khong thay object';"
+        "var n=['toolPing','SetFlashLoadExternal','setLoginType','IsDesktop'],r=[];"
+        "for(var i=0;i<n.length;i++){try{r.push(n[i]+'='+(typeof o[n[i]]));}"
+        "catch(e){r.push(n[i]+'=X');}}return r.join('  ');})()");
+    return m_frame->evaluateJavaScript(script).toString();
+}
+
 void ToolBridge::log(const QString &message)
 {
     qInfo().noquote() << "[flash]" << message;
