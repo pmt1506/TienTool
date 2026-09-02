@@ -54,6 +54,53 @@ vừa lấy được góc/gió/lực cho thước ngắm, vừa lấy được h
 `RefererNetworkManager::addSwapRule()` dựng sẵn từ trước chính là để phục vụ việc
 này: tráo `Loading.swf` bằng bản đã patch.
 
+## Cập nhật sau khi cài JPEXS (0:35)
+
+Đã cài JRE 17 portable + JPEXS 21.0.5, giải mã được `Loading.swf` (356 script).
+
+**Sửa lại hai kết luận sai ở trên:**
+
+1. `cmodule.decry` KHÔNG phải mã hoá gói tin. Nó là module Alchemy dùng bởi
+   `com.pickgliss.loader.ModuleLoader.decry()` để giải mã SWF module tải về.
+   Mà thực tế gần như không dùng: quét 8000+ file cache, có 1228 SWF thường,
+   đúng 2 file mang dấu `"^_^"` của `NewCrypto`, phần còn lại là PNG/JPG.
+   `ModuleLoader` chỉ gọi `decry()` khi 3 byte đầu khác `"CWS"`.
+2. `NewCrypto` (com/crypto) chỉ obfuscate file tài nguyên: tiền tố UTF `"^_^"`,
+   rồi đảo bit một byte ở vị trí 16. Không liên quan socket.
+
+**Tìm ra code game thật.** Không nằm trong bất kỳ SWF nào trên đĩa —
+`game.swf`/`gameBattle.swf`/`gameiii.swf` chỉ chứa tên symbol đồ hoạ
+(`asset.game.angle`, `emblemWind*`, `asset.game.power:ShootMsg`).
+
+Code nằm trong **SWF giả dạng PNG**:
+
+| URL | Kích thước | ABC bytecode |
+|---|---|---|
+| `res1.gnddt.com/flash/4.png` | 8.1 MB | **19.0 MB** |
+| `res1.gnddt.com/flash/2.png` | 3.6 MB | 7.9 MB |
+| `res1.gnddt.com/flash/3.png` | 2.7 MB | — |
+| `res1.gnddt.com/flash/1.png` | 326 KB | — |
+
+Server trả `Content-Type: image/png`. Tải trực tiếp được, không cần phiên đăng nhập.
+
+Lấy từ cache `.sol` của Flash: `%APPDATA%\Macromedia\Flash Player\#SharedObjects\
+3TFZ9AL9\res1.gnddt.com\flash-4-png.sol` (`LoaderSavingManager` lưu dưới
+SharedObject tên `7road/files`). Bóc bằng cách tìm chữ ký `CWS` rồi cắt tới hết.
+
+Lớp liên quan tới bắn trong `4.png`:
+
+```
+game.actions:ShootBombAction
+gameStarling.actions:ShootBombAction
+game.view.effects:ShootPercentView
+gameStarling.view.effects:ShootPercentView3D
+```
+
+Hằng số: `BEGIN_SHOOT`, `ANGLE_CHANGED`, `ANGLE_TO_RADIAN`, `ANGLE_P1/P2/P3`,
+`CHANGEMAXFORCE`, `BREAKFORCESLV`, `EMITTER_TYPE_GRAVITY`.
+
+Đây là đích cho cả thước ngắm, tự bắn, lẫn tầng mã hoá gói tin.
+
 ## Việc còn treo
 
 - Cài JPEXS (cần Java) để giải mã AS3 của `Loading.swf`.
