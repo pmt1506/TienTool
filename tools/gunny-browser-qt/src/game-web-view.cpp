@@ -7,10 +7,11 @@
 #include <QWebPage>
 #include <QWebSettings>
 
+#include "local-page-server.h"
 #include "tool-bridge.h"
 
 GameWebView::GameWebView(ToolBridge *bridge, QWidget *parent)
-    : QWebView(parent), m_bridge(bridge)
+    : QWebView(parent), m_bridge(bridge), m_pageServer(new LocalPageServer(this))
 {
     QWebSettings *s = settings();
     s->setAttribute(QWebSettings::PluginsEnabled, true);          // bật NPAPI Flash
@@ -47,8 +48,15 @@ void GameWebView::loadGame(const QString &swfUrl, int stageWidth, int stageHeigh
     html.replace(QStringLiteral("__WIDTH__"), QString::number(stageWidth));
     html.replace(QStringLiteral("__HEIGHT__"), QString::number(stageHeight));
 
-    // baseUrl đặt về trang game để URL tương đối trong SWF phân giải đúng.
-    setHtml(html, QUrl(QStringLiteral("http://play.gnddt.com/")));
+    // Phải phục vụ qua HTTP thật, không dùng setHtml(): document do setHtml
+    // tạo ra không có URL nên Flash thấy origin rỗng và tự abort
+    // (STATUS_BREAKPOINT). GunnyClient gốc cũng chạy HTTP server local vì vậy.
+    const QString url = m_pageServer->start(html.toUtf8());
+    if (url.isEmpty()) {
+        setHtml(QStringLiteral("<h3>Không mở được HTTP server local</h3>"));
+        return;
+    }
+    load(QUrl(url));
 }
 
 void GameWebView::contextMenuEvent(QContextMenuEvent *event)

@@ -92,7 +92,7 @@ export async function publicIp() {
   return cachedIp;
 }
 
-function questHeaders() {
+export function questHeaders() {
   return {
     'User-Agent': UA,
     Referer: `${PLAY_HOST}/PlayGameV1?rand=0.5`,
@@ -101,7 +101,7 @@ function questHeaders() {
 }
 
 // GET/POST mang theo cookies và đi theo redirect thủ công
-async function hop(url, cookieRef, opt = {}) {
+export async function hop(url, cookieRef, opt = {}) {
   const r = await fetch(url, {
     method: opt.method || 'GET',
     body: opt.body,

@@ -2,6 +2,7 @@
 
 #include <QWebView>
 
+class LocalPageServer;
 class ToolBridge;
 
 // QWebView chứa game, kèm menu chuột phải riêng.
@@ -33,4 +34,5 @@ private slots:
 
 private:
     ToolBridge *m_bridge;
+    LocalPageServer *m_pageServer;
 };

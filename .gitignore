@@ -97,3 +97,6 @@ out/
 dist/
 
 download.png
+
+# Qt shell build output
+tools/gunny-browser-qt/build/

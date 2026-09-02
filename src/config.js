@@ -25,6 +25,10 @@ const config = {
   // Thư mục cài GunnyBrowser — trùng với đường dẫn dùng trong loginService.
   game: {
     clientDir: 'C:/Program Files (x86)/gunnyclient',
+    // Launcher tự viết (Qt + Flash). Có thì dùng, không thì lùi về
+    // GunnyBrowser.exe của client gốc.
+    browserExe: runtimeEnv.GUNNY_BROWSER_EXE ||
+      'tools/gunny-browser-qt/build/release/gunny-browser-qt.exe',
   },
   // Nguồn tài nguyên game để tính năng "Cập nhật" tải về (giống GunnyClient gốc).
   resource: {

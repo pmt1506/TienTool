@@ -5,6 +5,8 @@ import fs from "fs";
 import { shell } from "electron";
 import { getSerialNumber } from "../utils.js";
 import { ensureCharacterExists } from "./registerService.js";
+import { createGameSession } from "./gameSessionService.js";
+import config from "../config.js";
 
 
 export async function loginApi(userName, password, serialNumber) {
@@ -95,17 +97,21 @@ export async function loginGame(userName, password, serverID, accountType, prefi
             console.log(`[Login] Skipping character check for account ${userName} (type: ${accountType}, checkReg: ${checkReg})`);
         }
 
-        // 2. Launch GunnyBrowser
-        const args = [
-            userName,
-            token,
-            serverID.toString(),
-            "0",
-            serialNumber,
-            "0"
-        ];
+        // 2. Mở game. Ưu tiên launcher tự viết (nhận --swf và tự gắn Referer
+        //    play.gnddt.com); chưa build thì lùi về GunnyBrowser.exe gốc.
+        let filePath = path.resolve(config.game.browserExe);
+        let args;
 
-        const filePath = "C:/Program Files (x86)/gunnyclient/GunnyBrowser.exe";
+        if (fs.existsSync(filePath)) {
+            const session = await createGameSession(userName, token, serverID);
+            if (!session.success) {
+                return { success: false, msg: session.msg };
+            }
+            args = ["--swf", session.swfUrl, "--title", `Gunny - ${userName}`];
+        } else {
+            filePath = `${config.game.clientDir}/GunnyBrowser.exe`;
+            args = [userName, token, serverID.toString(), "0", serialNumber, "0"];
+        }
 
         if (!fs.existsSync(filePath)) {
             shell.openExternal("https://drive.google.com/drive/folders/1lhFDUdq1_TKkh1P8WmLH0XFULCOm-Ryc");
@@ -116,7 +122,8 @@ export async function loginGame(userName, password, serverID, accountType, prefi
         }
 
         const appPlayer = spawn(filePath, args, {
-            cwd: "C:/Program Files (x86)/gunnyclient",
+            // Chạy trong thư mục của chính exe: Qt tìm plugin và DLL cạnh nó.
+            cwd: path.dirname(filePath),
             detached: true,
             stdio: "ignore"
         });
