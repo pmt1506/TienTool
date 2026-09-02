@@ -90,13 +90,13 @@ bool OverlayWindow::eventFilter(QObject *watched, QEvent *event)
             syncGeometry();
         }
         break;
-    // Chuyển sang ứng dụng khác thì thước phải biến mất cùng cửa sổ game, chứ
-    // không lơ lửng trên màn hình làm việc.
-    case QEvent::WindowActivate:
+    // Không ẩn khi cửa sổ game mất focus. Overlay là cửa sổ con của cửa sổ game
+    // nên Windows đã lo đúng thứ tự lớp: luôn nằm trên game, và tự lùi xuống
+    // dưới khi người dùng chuyển sang ứng dụng khác. Tự ẩn thêm ở đây chỉ làm
+    // thước biến mất mỗi lần click ra ngoài rồi quay lại.
     case QEvent::Show:
         refreshVisibility();
         break;
-    case QEvent::WindowDeactivate:
     case QEvent::Hide:
     case QEvent::Close:
         hide();
