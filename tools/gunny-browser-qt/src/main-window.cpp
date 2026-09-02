@@ -156,16 +156,16 @@ void MainWindow::buildOverlayMenu()
     m_overlay = new OverlayWindow(m_view);
 
     QMenu *menu = menuBar()->addMenu(QStringLiteral("Thước"));
-    QAction *grid = menu->addAction(QStringLiteral("Lưới đo (10 x 7)"));
-    grid->setCheckable(true);
-    connect(grid, &QAction::toggled, this, &MainWindow::toggleGrid);
+    QAction *ruler = menu->addAction(QStringLiteral("Hiện thước"));
+    ruler->setCheckable(true);
+    connect(ruler, &QAction::toggled, this, &MainWindow::toggleRuler);
 }
 
-void MainWindow::toggleGrid(bool on)
+void MainWindow::toggleRuler(bool on)
 {
-    m_overlay->setGrid(on, 10, 7);
+    m_overlay->setRuler(on);
     statusBar()->showMessage(
-        on ? QStringLiteral("Lưới đo: bật") : QStringLiteral("Lưới đo: tắt"), 3000);
+        on ? QStringLiteral("Thước: bật") : QStringLiteral("Thước: tắt"), 3000);
 }
 
 void MainWindow::tryHookSpeed()

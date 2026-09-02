@@ -31,8 +31,8 @@ private:
     void buildSpeedMenu();
     void buildPacketMenu();
     void buildOverlayMenu();
-    // Bật/tắt lưới đo chia đều 10 cột x 7 hàng trên khung game.
-    void toggleGrid(bool on);
+    // Bật/tắt thước đo (một thanh ngang, một thanh dọc, có vạch chia).
+    void toggleRuler(bool on);
     // Bật/tắt ghi gói tin ra tệp hex để phân tích ngoại tuyến.
     void togglePacketCapture(bool on);
     // Flash nạp trễ sau khi trang render -> dò module rồi mới vá được IAT.

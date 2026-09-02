@@ -21,11 +21,16 @@ public:
     // `target` là widget khung game; overlay tự bám theo vị trí và kích thước của nó.
     explicit OverlayWindow(QWidget *target);
 
-    // Lưới đo: chia đều khung game thành `cols` khoảng ngang và `rows` khoảng dọc.
-    // Không cần dữ liệu gì từ game nên dùng được ngay, và tự nó đã là thước ước
-    // lượng khoảng cách tới mục tiêu.
-    void setGrid(bool on, int cols = 10, int rows = 7);
-    bool gridEnabled() const { return m_grid; }
+    // Thước đo: một thanh ngang và một thanh dọc, chia vạch như thước thật.
+    //
+    // Khung game được coi như chia thành 10 khoảng ngang x 7 khoảng dọc. Thước
+    // ngang nằm ở đường chia dọc thứ 5 tính từ trên xuống; thước dọc nằm ở đường
+    // chia ngang thứ 6 tính từ trái sang. Mỗi khoảng có vạch chia 0.25 / 0.5 / 1,
+    // vạch nguyên được đánh số.
+    //
+    // Không cần dữ liệu gì từ game nên dùng được ngay.
+    void setRuler(bool on);
+    bool rulerEnabled() const { return m_ruler; }
 
     // Đường đạn, theo toạ độ khung game (gốc góc trên trái). Để trống khi chưa
     // có dữ liệu — chưa đọc được vị trí nhân vật, góc, gió và lực thì không vẽ
@@ -42,10 +47,9 @@ protected:
 private:
     // Hiện nếu có thứ để vẽ, ẩn nếu không.
     void refreshVisibility();
+    void paintRuler(QPainter &p);
 
     QWidget *m_target;
     QVector<QPointF> m_points;
-    bool m_grid = false;
-    int m_cols = 10;
-    int m_rows = 7;
+    bool m_ruler = false;
 };

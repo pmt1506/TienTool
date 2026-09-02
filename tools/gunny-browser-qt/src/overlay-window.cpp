@@ -6,6 +6,26 @@
 #include <QPainterPath>
 #include <QPen>
 
+namespace {
+
+// Khung game quy ước chia thành 10 khoảng ngang x 7 khoảng dọc.
+const int kCols = 10;
+const int kRows = 7;
+// Thước ngang đặt ở đường chia thứ 5 từ trên xuống, thước dọc ở đường chia thứ 6
+// từ trái sang.
+const int kRulerRow = 5;
+const int kRulerCol = 6;
+
+// Chiều dài vạch, tính từ trục thước ra mỗi bên.
+const double kTickFull = 9.0;
+const double kTickHalf = 6.0;
+const double kTickQuarter = 3.0;
+
+const QColor kShadow(0, 0, 0, 160);
+const QColor kInk(255, 240, 90, 235);
+
+}  // namespace
+
 OverlayWindow::OverlayWindow(QWidget *target)
     : QWidget(nullptr,
               Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool
@@ -24,11 +44,9 @@ OverlayWindow::OverlayWindow(QWidget *target)
     }
 }
 
-void OverlayWindow::setGrid(bool on, int cols, int rows)
+void OverlayWindow::setRuler(bool on)
 {
-    m_grid = on;
-    m_cols = qMax(1, cols);
-    m_rows = qMax(1, rows);
+    m_ruler = on;
     refreshVisibility();
 }
 
@@ -40,7 +58,7 @@ void OverlayWindow::setTrajectory(const QVector<QPointF> &points)
 
 void OverlayWindow::refreshVisibility()
 {
-    if (!m_grid && m_points.size() < 2) {
+    if (!m_ruler && m_points.size() < 2) {
         hide();
         return;
     }
@@ -79,44 +97,68 @@ bool OverlayWindow::eventFilter(QObject *watched, QEvent *event)
     return QWidget::eventFilter(watched, event);
 }
 
+void OverlayWindow::paintRuler(QPainter &p)
+{
+    const double w = width();
+    const double h = height();
+    const double unitX = w / kCols;   // một khoảng cách theo chiều ngang
+    const double unitY = h / kRows;   // một khoảng cách theo chiều dọc
+    const double axisY = unitY * kRulerRow;
+    const double axisX = unitX * kRulerCol;
+
+    QFont f = p.font();
+    f.setPixelSize(11);
+    f.setBold(true);
+    p.setFont(f);
+
+    // Vẽ hai lượt: nét đen dày bên dưới rồi nét sáng mảnh bên trên, để thước đọc
+    // được cả trên nền trời sáng lẫn nền đất tối.
+    for (int pass = 0; pass < 2; ++pass) {
+        const bool shadow = pass == 0;
+        p.setPen(QPen(shadow ? kShadow : kInk, shadow ? 3.0 : 1.0));
+
+        p.drawLine(QPointF(0, axisY), QPointF(w, axisY));
+        p.drawLine(QPointF(axisX, 0), QPointF(axisX, h));
+
+        // Vạch trên thước ngang: bước 0.25 khoảng, vạch dài dần ở 0.5 và 1.
+        for (int q = 0; q <= kCols * 4; ++q) {
+            const double x = unitX * q / 4.0;
+            const double len = q % 4 == 0 ? kTickFull : (q % 2 == 0 ? kTickHalf : kTickQuarter);
+            p.drawLine(QPointF(x, axisY - len), QPointF(x, axisY + len));
+        }
+        // Vạch trên thước dọc.
+        for (int q = 0; q <= kRows * 4; ++q) {
+            const double y = unitY * q / 4.0;
+            const double len = q % 4 == 0 ? kTickFull : (q % 2 == 0 ? kTickHalf : kTickQuarter);
+            p.drawLine(QPointF(axisX - len, y), QPointF(axisX + len, y));
+        }
+    }
+
+    // Đánh số các vạch nguyên. Đếm từ mép trái và mép trên, cùng hệ quy chiếu với
+    // cách mô tả vị trí thước (khoảng thứ 5 từ trên, thứ 6 từ trái).
+    for (int i = 1; i < kCols; ++i) {
+        const QPointF at(unitX * i + 3, axisY - kTickFull - 3);
+        p.setPen(kShadow);
+        p.drawText(at + QPointF(1, 1), QString::number(i));
+        p.setPen(kInk);
+        p.drawText(at, QString::number(i));
+    }
+    for (int j = 1; j < kRows; ++j) {
+        const QPointF at(axisX + kTickFull + 4, unitY * j - 3);
+        p.setPen(kShadow);
+        p.drawText(at + QPointF(1, 1), QString::number(j));
+        p.setPen(kInk);
+        p.drawText(at, QString::number(j));
+    }
+}
+
 void OverlayWindow::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    if (m_grid) {
-        const double w = width();
-        const double h = height();
-        const double dx = w / m_cols;
-        const double dy = h / m_rows;
-
-        QFont f = p.font();
-        f.setPixelSize(10);
-        p.setFont(f);
-
-        // Vẽ hai lượt: nét đen mờ bên dưới rồi nét sáng bên trên, để lưới đọc
-        // được cả trên nền trời sáng lẫn nền đất tối.
-        for (int pass = 0; pass < 2; ++pass) {
-            p.setPen(pass == 0 ? QPen(QColor(0, 0, 0, 90), 3)
-                               : QPen(QColor(255, 255, 255, 110), 1));
-            for (int i = 1; i < m_cols; ++i) {
-                const double x = dx * i;
-                p.drawLine(QPointF(x, 0), QPointF(x, h));
-            }
-            for (int j = 1; j < m_rows; ++j) {
-                const double y = dy * j;
-                p.drawLine(QPointF(0, y), QPointF(w, y));
-            }
-        }
-
-        // Đánh số cột để đếm nhanh khoảng cách tới mục tiêu.
-        p.setPen(QColor(255, 255, 255, 190));
-        for (int i = 1; i < m_cols; ++i) {
-            p.drawText(QPointF(dx * i + 3, 12), QString::number(i));
-        }
-        for (int j = 1; j < m_rows; ++j) {
-            p.drawText(QPointF(3, dy * j - 3), QString::number(j));
-        }
+    if (m_ruler) {
+        paintRuler(p);
     }
 
     if (m_points.size() >= 2) {
