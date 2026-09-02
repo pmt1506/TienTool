@@ -1,6 +1,27 @@
 # Cheat Speed trên Qt/Flash — hook IAT cài được nhưng KHÔNG ăn
 
-Date: 2026-09-02 | Branch: `feat/gunny-flash-launcher` | Trạng thái: **LỖI, chưa dùng được**
+Date: 2026-09-02 | Branch: `feat/gunny-flash-launcher` | Trạng thái: **ĐÃ GIẢI QUYẾT** (`83b30b3`)
+
+## Kết luận (2026-09-02 23:10)
+
+Hướng IAT trong báo cáo này là ngõ cụt, đã bỏ. Cách chạy được:
+
+- Inline hook thẳng vào thân hàm `GetTickCount` / `GetTickCount64` /
+  `QueryPerformanceCounter` / `timeGetTime` bằng MinHook — đúng cơ chế Cheat
+  Engine dùng. Flash tra đồng hồ lúc chạy nên không có ô IAT nào để vá, nhưng
+  vá thân hàm thì nó lấy địa chỉ kiểu gì cũng đi vào bẫy.
+- Vá thân hàm ảnh hưởng cả tiến trình, nên mỗi bẫy soi `__builtin_return_address(0)`
+  và chỉ nói dối khi người gọi nằm trong khoảng địa chỉ của `NPSWF32.dll`. Qt
+  giữ nguyên giờ thật.
+- Bẫy đặt trong `main()` trước `QApplication`, module nạp sau vẫn dính.
+
+Giả thuyết "nhịp khung hình do host bơm vào, Flash không đọc đồng hồ" nêu ở
+dưới đã bị bác bỏ: bộ đếm cho thấy Flash đọc đồng hồ thật, và x5 ăn ngay.
+
+Phần còn lại của báo cáo giữ nguyên làm hồ sơ vì sao hướng IAT thất bại.
+
+---
+
 
 ## Hiện trạng
 
