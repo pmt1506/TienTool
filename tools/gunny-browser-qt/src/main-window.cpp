@@ -156,40 +156,16 @@ void MainWindow::buildOverlayMenu()
     m_overlay = new OverlayWindow(m_view);
 
     QMenu *menu = menuBar()->addMenu(QStringLiteral("Thước"));
-    QAction *test = menu->addAction(QStringLiteral("Vẽ thử đường bắn"));
-    test->setCheckable(true);
-    connect(test, &QAction::toggled, this, &MainWindow::toggleTestTrajectory);
+    QAction *grid = menu->addAction(QStringLiteral("Lưới đo (10 x 7)"));
+    grid->setCheckable(true);
+    connect(grid, &QAction::toggled, this, &MainWindow::toggleGrid);
 }
 
-void MainWindow::toggleTestTrajectory(bool on)
+void MainWindow::toggleGrid(bool on)
 {
-    if (!on) {
-        m_overlay->clearTrajectory();
-        statusBar()->showMessage(QStringLiteral("Đã tắt thước"), 3000);
-        return;
-    }
-
-    // Parabol giả: xuất phát từ mép trái, đỉnh ở giữa khung. Chỉ để nhìn xem
-    // đường có nằm trên Flash không — hằng số vật lý thật còn phải moi từ
-    // game.actions:ShootBombAction.
-    const double w = m_stageWidth;
-    const double h = m_stageHeight;
-    const double x0 = w * 0.15, y0 = h * 0.75;
-    const double x1 = w * 0.85;
-    const double peak = h * 0.25;
-
-    QVector<QPointF> pts;
-    for (int i = 0; i <= 60; ++i) {
-        const double t = i / 60.0;
-        const double x = x0 + (x1 - x0) * t;
-        // parabol chuẩn hoá: 4t(1-t) đạt 1 ở giữa
-        const double y = y0 - (y0 - peak) * 4.0 * t * (1.0 - t);
-        pts.append(QPointF(x, y));
-    }
-    m_overlay->setTrajectory(pts);
+    m_overlay->setGrid(on, 10, 7);
     statusBar()->showMessage(
-        QStringLiteral("Nếu thấy đường xanh trên game -> overlay thắng được wmode=direct"),
-        8000);
+        on ? QStringLiteral("Lưới đo: bật") : QStringLiteral("Lưới đo: tắt"), 3000);
 }
 
 void MainWindow::tryHookSpeed()

@@ -1,6 +1,7 @@
 #include "overlay-window.h"
 
 #include <QEvent>
+#include <QFont>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
@@ -23,22 +24,29 @@ OverlayWindow::OverlayWindow(QWidget *target)
     }
 }
 
+void OverlayWindow::setGrid(bool on, int cols, int rows)
+{
+    m_grid = on;
+    m_cols = qMax(1, cols);
+    m_rows = qMax(1, rows);
+    refreshVisibility();
+}
+
 void OverlayWindow::setTrajectory(const QVector<QPointF> &points)
 {
     m_points = points;
-    if (m_points.isEmpty()) {
+    refreshVisibility();
+}
+
+void OverlayWindow::refreshVisibility()
+{
+    if (!m_grid && m_points.size() < 2) {
         hide();
         return;
     }
     syncGeometry();
     show();
     update();
-}
-
-void OverlayWindow::clearTrajectory()
-{
-    m_points.clear();
-    hide();
 }
 
 void OverlayWindow::syncGeometry()
@@ -73,27 +81,57 @@ bool OverlayWindow::eventFilter(QObject *watched, QEvent *event)
 
 void OverlayWindow::paintEvent(QPaintEvent *)
 {
-    if (m_points.size() < 2) {
-        return;
-    }
-
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    QPainterPath path(m_points.first());
-    for (int i = 1; i < m_points.size(); ++i) {
-        path.lineTo(m_points.at(i));
+    if (m_grid) {
+        const double w = width();
+        const double h = height();
+        const double dx = w / m_cols;
+        const double dy = h / m_rows;
+
+        QFont f = p.font();
+        f.setPixelSize(10);
+        p.setFont(f);
+
+        // Vẽ hai lượt: nét đen mờ bên dưới rồi nét sáng bên trên, để lưới đọc
+        // được cả trên nền trời sáng lẫn nền đất tối.
+        for (int pass = 0; pass < 2; ++pass) {
+            p.setPen(pass == 0 ? QPen(QColor(0, 0, 0, 90), 3)
+                               : QPen(QColor(255, 255, 255, 110), 1));
+            for (int i = 1; i < m_cols; ++i) {
+                const double x = dx * i;
+                p.drawLine(QPointF(x, 0), QPointF(x, h));
+            }
+            for (int j = 1; j < m_rows; ++j) {
+                const double y = dy * j;
+                p.drawLine(QPointF(0, y), QPointF(w, y));
+            }
+        }
+
+        // Đánh số cột để đếm nhanh khoảng cách tới mục tiêu.
+        p.setPen(QColor(255, 255, 255, 190));
+        for (int i = 1; i < m_cols; ++i) {
+            p.drawText(QPointF(dx * i + 3, 12), QString::number(i));
+        }
+        for (int j = 1; j < m_rows; ++j) {
+            p.drawText(QPointF(3, dy * j - 3), QString::number(j));
+        }
     }
 
-    // Viền tối bên dưới để đường vẫn đọc được trên nền sáng của bản đồ.
-    p.setPen(QPen(QColor(0, 0, 0, 150), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    p.drawPath(path);
-    p.setPen(QPen(QColor(60, 220, 120, 230), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    p.drawPath(path);
+    if (m_points.size() >= 2) {
+        QPainterPath path(m_points.first());
+        for (int i = 1; i < m_points.size(); ++i) {
+            path.lineTo(m_points.at(i));
+        }
+        p.setPen(QPen(QColor(0, 0, 0, 150), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.drawPath(path);
+        p.setPen(QPen(QColor(60, 220, 120, 230), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.drawPath(path);
 
-    // Đánh dấu điểm chạm đất.
-    const QPointF end = m_points.last();
-    p.setBrush(QColor(60, 220, 120, 200));
-    p.setPen(QPen(QColor(0, 0, 0, 180), 1.5));
-    p.drawEllipse(end, 4.5, 4.5);
+        const QPointF end = m_points.last();
+        p.setBrush(QColor(60, 220, 120, 200));
+        p.setPen(QPen(QColor(0, 0, 0, 180), 1.5));
+        p.drawEllipse(end, 4.5, 4.5);
+    }
 }

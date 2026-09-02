@@ -31,9 +31,8 @@ private:
     void buildSpeedMenu();
     void buildPacketMenu();
     void buildOverlayMenu();
-    // Vẽ một parabol mẫu để kiểm chứng overlay có nằm trên được Flash wmode=direct
-    // hay không. Dữ liệu thật (góc/gió/lực) chưa có nên tạm dùng đường giả.
-    void toggleTestTrajectory(bool on);
+    // Bật/tắt lưới đo chia đều 10 cột x 7 hàng trên khung game.
+    void toggleGrid(bool on);
     // Bật/tắt ghi gói tin ra tệp hex để phân tích ngoại tuyến.
     void togglePacketCapture(bool on);
     // Flash nạp trễ sau khi trang render -> dò module rồi mới vá được IAT.
