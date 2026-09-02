@@ -3,6 +3,8 @@
 #include <QNetworkRequest>
 #include <QUrl>
 
+#include "local-file-reply.h"
+
 RefererNetworkManager::RefererNetworkManager(QString referer, QObject *parent)
     : QNetworkAccessManager(parent), m_referer(std::move(referer))
 {
@@ -11,6 +13,16 @@ RefererNetworkManager::RefererNetworkManager(QString referer, QObject *parent)
 void RefererNetworkManager::addSwapRule(const QString &urlContains, const QString &replacement)
 {
     m_swapRules.append({urlContains, replacement});
+}
+
+void RefererNetworkManager::addContentOverride(const QString &urlContains,
+                                               const QString &localFile)
+{
+    QFile f(localFile);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    m_contentOverrides.append({urlContains, f.readAll()});
 }
 
 void RefererNetworkManager::setUrlLog(const QString &path)
@@ -46,6 +58,12 @@ QNetworkReply *RefererNetworkManager::createRequest(Operation op,
         m_urlLog.write(url.toUtf8());
         m_urlLog.write("\n");
         m_urlLog.flush();
+    }
+
+    for (const auto &ov : m_contentOverrides) {
+        if (url.contains(ov.first)) {
+            return new LocalFileReply(patched, ov.second, this);
+        }
     }
 
     for (const auto &rule : m_swapRules) {

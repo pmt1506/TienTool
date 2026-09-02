@@ -22,6 +22,7 @@ SOURCES += \
     src/flash-module.cpp \
     src/packet-proxy.cpp \
     src/overlay-window.cpp \
+    src/local-file-reply.cpp \
     src/game-web-view.cpp \
     src/local-page-server.cpp \
     src/referer-network-manager.cpp \
@@ -39,6 +40,7 @@ HEADERS += \
     src/flash-module.h \
     src/packet-proxy.h \
     src/overlay-window.h \
+    src/local-file-reply.h \
     src/game-web-view.h \
     src/local-page-server.h \
     src/referer-network-manager.h \

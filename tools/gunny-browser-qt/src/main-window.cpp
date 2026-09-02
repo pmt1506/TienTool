@@ -1,8 +1,10 @@
 #include "main-window.h"
 
 #include <QActionGroup>
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QMenuBar>
 #include <QTimer>
 #include <QWebPage>
@@ -32,6 +34,15 @@ MainWindow::MainWindow(const QString &swfUrl,
     // Ghi URL ngay từ đầu chứ không đợi bật ở menu: SWF chứa logic game được
     // nạp trong lúc khởi động, bật muộn là chỉ còn thấy ảnh trang bị với đạn.
     m_network->setUrlLog(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-urls.txt")));
+
+    // Bản Loading.swf đã patch thêm ExternalInterface callback. Phục vụ nó tại
+    // đúng URL gốc để Flash vẫn xếp SWF vào sandbox của res1.gnddt.com. Không có
+    // tệp thì bỏ qua, game chạy như thường, chỉ mất mấy nút gọi vào AS3.
+    const QString patched =
+        QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("patched/Loading.swf"));
+    if (QFile::exists(patched)) {
+        m_network->addContentOverride(QStringLiteral("/Loading.swf"), patched);
+    }
 
     // Sân khấu Flash có kích thước cố định, nên khung xem cũng phải đúng bằng nó.
     // Để khung to hơn thì thừa ra dải đen; nhỏ hơn thì game bị cắt.
@@ -75,6 +86,11 @@ void MainWindow::buildMenuBar()
         {"Tiện ích", "open-magic-store", "Mở kho ma pháp"},
         {"Tiện ích", "clear-cache", "Xóa cache"},
     };
+
+    // Nút dùng thường xuyên đặt thẳng trên thanh menu, không giấu trong menu con.
+    QAction *magic = menuBar()->addAction(QStringLiteral("Kho ma pháp"));
+    connect(magic, &QAction::triggered, this,
+            [this] { onToolAction(QStringLiteral("open-magic-store")); });
 
     QHash<QString, QMenu *> menus;
     for (const Entry &e : entries) {
@@ -223,6 +239,15 @@ void MainWindow::onToolAction(const QString &actionId)
 {
     if (actionId == QLatin1String("reload")) {
         m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
+        return;
+    }
+
+    if (actionId == QLatin1String("open-magic-store")) {
+        // Tab 1 mở thẳng WarehouseView ("Kho báu") — xem __changeHandler của
+        // magicHouse.MagicHouseMainView. Callback do bản Loading.swf đã patch
+        // đăng ký; game gốc không mở sẵn cửa nào gọi được từ ngoài.
+        m_bridge->callFlash(QStringLiteral("toolOpenMagicHouse"), QStringLiteral("1"));
+        showStatus(QStringLiteral("Mở kho ma pháp…"), 3000);
         return;
     }
 

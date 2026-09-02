@@ -28,6 +28,11 @@ public:
     // Đường dẫn rỗng để tắt.
     void setUrlLog(const QString &path);
 
+    // Tráo NỘI DUNG của request khớp `urlContains` bằng tệp `localFile`, giữ
+    // nguyên URL. Dùng để phục vụ SWF đã patch: đổi URL sang localhost sẽ đổi
+    // origin sandbox của Flash và mất quyền gọi sang gnddt.com.
+    void addContentOverride(const QString &urlContains, const QString &localFile);
+
 protected:
     QNetworkReply *createRequest(Operation op,
                                  const QNetworkRequest &request,
@@ -36,5 +41,6 @@ protected:
 private:
     QString m_referer;
     QList<QPair<QString, QString>> m_swapRules;
+    QList<QPair<QString, QByteArray>> m_contentOverrides;
     QFile m_urlLog;
 };
