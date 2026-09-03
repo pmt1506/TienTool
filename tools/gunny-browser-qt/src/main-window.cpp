@@ -119,6 +119,7 @@ void MainWindow::buildMenuBar()
         {"Tiện ích", "list-bag", "Liệt kê túi (ra log)"},
         {"Tiện ích", "open-slot", "Mở ô túi…"},
         {"Tiện ích", "open-batch", "Mở nhanh (hết số lượng)"},
+        {"Tiện ích", "use-pet", "Dùng nhanh phụ kiện thú & pet"},
     };
 
     QHash<QString, QMenu *> menus;
@@ -362,6 +363,15 @@ void MainWindow::onToolAction(const QString &actionId)
 {
     if (actionId == QLatin1String("reload")) {
         m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
+        return;
+    }
+
+    if (actionId == QLatin1String("use-pet")) {
+        // Phụ kiện thú là mảnh sưu tập thú cưỡi: CategoryID 11 kèm Property1
+        // 82, kích hoạt bằng sendActiveHorsePicCherish(Place) — một gói cho
+        // mỗi ô, không có số lượng.
+        m_bridge->queueCommand(QStringLiteral("p:"));
+        showStatus(QStringLiteral("Đang dùng phụ kiện thú…"), 8000);
         return;
     }
 

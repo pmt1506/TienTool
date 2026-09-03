@@ -236,14 +236,20 @@ CMD_BODY = (
     + op("callproperty", "%s, 1" % pub("substr"))
     + op("setproperty", pub("quality")) + op("jump", "LcEnd") + "\n"
     + "LcNotQuality:\n"
-    + op("getlocal3") + op("pushstring", '"s:"') + op("ifne", "LcNotBatch") + "\n"
+    + op("getlocal3") + op("pushstring", '"s:"') + op("ifne", "LcNotPet") + "\n"
     # Nhớ lại để khối ép bên trên đặt vào stage mỗi nhịp.
     + CLS + op("getlocal2") + op("pushbyte", "2")
     + op("callproperty", "%s, 1" % pub("substr"))
     + op("setproperty", pub("_toolScale")) + op("jump", "LcEnd") + "\n"
+    + "LcNotPet:\n"
+    + op("getlocal3") + op("pushstring", '"p:"') + op("ifne", "LcNotBatch") + "\n"
+    + report(CLS + op("pushbyte", "0")
+             + op("callproperty", "%s, 1" % pub("toolPet")))
+    + op("jump", "LcEnd") + "\n"
     + "LcNotBatch:\n"
     + op("getlocal3") + op("pushstring", '"x:"') + op("ifne", "LcNotOpen") + "\n"
-    + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolOpenStep"))
+    + report(CLS + op("pushbyte", "0")
+             + op("callproperty", "%s, 1" % pub("toolOpenBatch")))
     + op("jump", "LcEnd") + "\n"
     + "LcNotOpen:\n"
     + op("getlocal3") + op("pushstring", '"o:"') + op("ifne", "LcNotList") + "\n"
@@ -595,6 +601,7 @@ LIST_BODY = (
 #
 # CategoryID 68 (chọn nhẫn) và nhóm đổi giới tính mở ra bảng chọn nên bỏ qua.
 R_OUT, R_TPL, R_CAT, R_CNT = 2, 3, 5, 6
+R_CNT2 = 13
 
 CARD_IDS = [11998, 11997, 11901, 11902, 11903, 11904, 11905,
             12535, 11956, 11955, 12746]
@@ -716,11 +723,13 @@ OPEN_SLOT_BODY = (
 
 # Mở nhanh: chồng hộp đầu tiên mở nhiều được, mở HẾT số lượng. Điều kiện lấy
 # thẳng từ hai vị từ CellMenu dùng để quyết định có hiện nút "Nhiều" hay không.
-# Mỗi lần gọi chỉ một chồng: gói mang một Place, và mở xong thì túi đổi.
+# Quét cả túi trong một lượt: mỗi chồng một gói mang Place riêng, chồng này mở
+# không đổi vị trí chồng kia, nên không cần chờ giữa các gói.
 OPEN_BATCH_BODY = (
     "LobTry:\n"
     + bag_and_out()
-    + op("pushbyte", "0") + store(R_I) + "\n"
+    + op("pushbyte", "0") + store(R_I)
+    + op("pushbyte", "0") + store(R_CNT2) + "\n"
     + "Lob1:\n"
     + local(R_I) + op("pushbyte", "60") + op("ifge", "Lob1End") + "\n"
     + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
@@ -746,13 +755,17 @@ OPEN_BATCH_BODY = (
     + describe()
     + open_dispatch("LobDone", "LobSkip") + "\n"
     + "LobDone:\n"
-    + op("add") + op("returnvalue") + "\n"
+    + op("add") + store(R_KEY)
+    + report(local(R_KEY))
+    + local(R_CNT2) + op("increment_i") + store(R_CNT2)
+    + op("jump", "Lob1Next") + "\n"
     + "LobSkip:\n"
     + op("pop") + "\n"
     + "Lob1Next:\n"
     + local(R_I) + op("increment_i") + store(R_I) + op("jump", "Lob1") + "\n"
     + "Lob1End:\n"
-    + ret("het hop mo nhanh duoc") + "\n"
+    + op("pushstring", '"da mo "') + local(R_CNT2) + op("add")
+    + op("pushstring", '" chong hop"') + op("add") + op("returnvalue") + "\n"
     + "LobEnd:\n"
     + "LobCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
     + store(R_KEY) + "\n"
@@ -760,37 +773,159 @@ OPEN_BATCH_BODY = (
     + op("returnvalue"))
 
 
+# ------------------------------------------------------------------- toolPet
+
+# Dùng nhanh phụ kiện thú, cả túi trong một lượt. BagView nhận ra chúng bằng
+# CategoryID 11 kèm
+# Property1 82 rồi gửi đúng một gói mang số ô:
+#
+#     SocketManager.Instance.out.sendActiveHorsePicCherish(info.Place)
+#
+# Đây là mảnh sưu tập thú cưỡi nên không có số lượng — mỗi ô một gói. Các gói
+# độc lập với nhau, không gói nào cần kết quả của gói trước, nên gửi hết một
+# lượt được; không phải giãn nhịp như xếp túi hay mở hộp.
+PET_BODY = (
+    "LptTry:\n"
+    + bag_and_out()
+    + op("pushbyte", "0") + store(R_I)
+    + op("pushbyte", "0") + store(R_CNT) + "\n"
+    + "Lpt1:\n"
+    + local(R_I) + op("pushbyte", "60") + op("ifge", "Lpt1End") + "\n"
+    + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
+    + store(R_ITEM)
+    + local(R_ITEM) + op("iffalse", "Lpt1Next") + "\n"
+    # Mảnh sưu tập thú cưỡi.
+    + local(R_ITEM) + get_prop("CategoryID") + op("pushbyte", "11")
+    + op("ifne", "LptCard") + "\n"
+    + local(R_ITEM) + get_prop("Property1") + op("pushbyte", "82")
+    + op("ifne", "Lpt1Next") + "\n"
+    + local(R_OUT) + local(R_ITEM) + get_prop("Place")
+    + op("callpropvoid", "%s, 1" % pub("sendActiveHorsePicCherish"))
+    + local(R_CNT) + op("increment_i") + store(R_CNT)
+    + op("jump", "Lpt1Next") + "\n"
+    # Phụ kiện pet: CategoryID 62 kèm Property1 1, gói khác và mang thêm BagType.
+    + "LptCard:\n"
+    + local(R_ITEM) + get_prop("CategoryID") + op("pushbyte", "62")
+    + op("ifne", "Lpt1Next") + "\n"
+    + local(R_ITEM) + get_prop("Property1") + op("pushbyte", "1")
+    + op("ifne", "Lpt1Next") + "\n"
+    + local(R_OUT) + local(R_ITEM) + get_prop("BagType")
+    + local(R_ITEM) + get_prop("Place")
+    + op("callpropvoid", "%s, 2" % pub("sendUsePetTemporaryCard"))
+    + local(R_CNT) + op("increment_i") + store(R_CNT) + "\n"
+    + "Lpt1Next:\n"
+    + local(R_I) + op("increment_i") + store(R_I) + op("jump", "Lpt1") + "\n"
+    + "Lpt1End:\n"
+    + op("pushstring", '"da dung "') + local(R_CNT) + op("add")
+    + op("pushstring", '" phu kien"') + op("add") + op("returnvalue") + "\n"
+    + "LptEnd:\n"
+    + "LptCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_KEY) + "\n"
+    + op("pushstring", '"phu kien thu loi: "') + local(R_KEY) + op("add")
+    + op("returnvalue"))
 
 
-# Mở nhanh chạy lặp: mỗi giây một chồng, tối đa 20 chồng. Giãn ra để server kịp
-# trả kết quả, không thì lần quét sau vẫn thấy chồng vừa mở.
-OPEN_STEP_BODY = (
-    "LzTry:\n"
-    + CLS + get_prop("_toolOpenStep") + op("convert_i") + op("setlocal3")
-    + op("getlocal3") + op("iffalse", "LzEnd") + "\n"
-    + op("getlocal3") + op("decrement_i") + op("setlocal2")
-    + op("getlocal2") + op("pushbyte", "4") + op("modulo") + op("convert_i")
-    + op("iftrue", "LzNext") + "\n"
-    + report(CLS + op("pushbyte", "0")
-             + op("callproperty", "%s, 1" % pub("toolOpenBatch")))
-    + "LzNext:\n"
-    + op("getlocal3") + op("increment_i") + op("setlocal3")
-    + op("getlocal3") + op("pushshort", "240") + op("ifle", "LzStore")
-    + op("pushbyte", "0") + op("setlocal3") + "\n"
-    + "LzStore:\n"
-    + CLS + op("getlocal3") + op("setproperty", pub("_toolOpenStep")) + "\n"
-    + "LzEnd:\n" + op("jump", "LzAfter") + "\n"
-    + "LzCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+# ------------------------------------------------------------------ toolMenu
+
+# Thay menu chuột phải. Đặt trên root của Loading.swf — SWF game nằm bên trong
+# nó — và gọi hideBuiltInItems() để bỏ Zoom In/Out/Show All/Chất lượng. Ba mục
+# cuối (Settings, Global Settings, About) là của chính Flash Player, không API
+# nào bỏ được, và người dùng muốn giữ chúng.
+#
+# Mỗi mục dùng chung một hàm xử lý, phân biệt bằng caption: làm mỗi mục một hàm
+# thì phải sinh thêm chừng ấy method mà chẳng được gì.
+MENU_ITEMS = [
+    ("M\u1edf kho ma ph\u00e1p", "magic"),
+    ("D\u1ecdn t\u00fai", "bag"),
+    ("D\u1ecdn th\u01b0", "mail"),
+    ("M\u1edf nhanh h\u1ed9p", "box"),
+    ("D\u00f9ng nhanh ph\u1ee5 ki\u1ec7n th\u00fa & pet", "pet"),
+]
+
+CM = 'QName(PackageNamespace("flash.ui"), "ContextMenu")'
+CMI = 'QName(PackageNamespace("flash.ui"), "ContextMenuItem")'
+
+R_MENU, R_ITEM2 = 2, 3
+
+# Gán menu lên từng con của Stage. Không gán lên chính Stage được: nó ném
+# Error #2071 "The Stage class does not implement this property or method", và
+# `root` của lớp hiển thị lại chính là Stage vì lớp được thêm thẳng vào đó.
+#
+# Flash chọn contextMenu của đối tượng trong cùng dưới con trỏ, nên chỗ nào
+# game đã tự gắn menu thì menu của game vẫn thắng.
+
+MENU_BODY = (
+    "LmuTry:\n"
+    + CLS + get_prop("_toolMenuSet") + op("iftrue", "LmuEnd") + "\n"
+    + STAGE + op("iffalse", "LmuEnd") + "\n"
+    + op("findpropstrict", CM) + op("constructprop", "%s, 0" % CM)
+    + store(R_MENU)
+    + local(R_MENU) + op("callpropvoid", "%s, 0" % pub("hideBuiltInItems")) + "\n"
+    + "".join(
+        op("findpropstrict", CMI) + op("pushstring", '"%s"' % cap)
+        + op("constructprop", "%s, 1" % CMI) + store(R_ITEM2)
+        + local(R_ITEM2) + op("pushstring", '"menuItemSelect"')
+        + CLS + get_prop("toolMenuPick")
+        + op("callpropvoid", "%s, 2" % pub("addEventListener"))
+        + local(R_MENU) + get_prop("customItems") + local(R_ITEM2)
+        + op("callpropvoid", "%s, 1" % pub("push")) + "\n"
+        for cap, _ in MENU_ITEMS)
+    + op("pushbyte", "0") + store(R_I) + "\n"
+    + "LmuChild:\n"
+    + local(R_I) + STAGE + get_prop("numChildren") + op("ifge", "LmuDone") + "\n"
+    + STAGE + local(R_I) + op("callproperty", "%s, 1" % pub("getChildAt"))
+    + local(R_MENU) + op("setproperty", pub("contextMenu")) + "\n"
+    + local(R_I) + op("increment_i") + store(R_I) + op("jump", "LmuChild") + "\n"
+    + "LmuDone:\n"
+    + CLS + op("pushtrue") + op("setproperty", pub("_toolMenuSet")) + "\n"
+    + "LmuEnd:\n" + op("jump", "LmuAfter") + "\n"
+    # Báo lỗi chứ không nuốt: nuốt thì hỏng kiểu nào cũng chỉ thấy menu cũ.
+    + "LmuCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + op("setlocal3") + "\n"
+    + report(op("pushstring", '"menu chuot phai hong: "') + op("getlocal3")
+             + op("add"))
+    + CLS + op("pushtrue") + op("setproperty", pub("_toolMenuSet")) + "\n"
+    + "LmuAfter:\n")
+
+
+# Bấm một mục: so caption rồi chạy đúng việc, không đi vòng qua hàng đợi lệnh
+# của trang.
+def menu_case(cap, kind, nxt):
+    head = (op("getlocal1") + get_prop("target") + get_prop("caption")
+            + op("pushstring", '"%s"' % cap) + op("ifne", nxt) + "\n")
+    if kind == "magic":
+        body = CLS + op("pushbyte", "1") + op("callpropvoid", "%s, 1" % pub("toolOpenMagicHouse"))
+    elif kind == "bag":
+        body = CLS + op("pushbyte", "1") + op("setproperty", pub("_toolBagStep"))
+    elif kind == "mail":
+        body = (CLS + op("pushbyte", "0") + op("setproperty", pub("_toolMailWait"))
+                + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolMailStep")))
+    elif kind == "box":
+        body = report(CLS + op("pushbyte", "0")
+                      + op("callproperty", "%s, 1" % pub("toolOpenBatch")))
+    else:
+        body = report(CLS + op("pushbyte", "0")
+                      + op("callproperty", "%s, 1" % pub("toolPet")))
+    return head + body + op("returnvoid") + "\n"
+
+
+PICK_BODY = (
+    "LmpTry:\n"
+    + "".join(menu_case(cap, kind, "LmpCase%d" % (i + 1))
+              + "LmpCase%d:\n" % (i + 1)
+              for i, (cap, kind) in enumerate(MENU_ITEMS))
+    + op("returnvoid") + "\n"
+    + "LmpEnd:\n"
+    + "LmpCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
     + op("setlocal2") + "\n"
-    + report(op("pushstring", '"mo nhanh hong: "') + op("getlocal2") + op("add"))
-    + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolOpenStep")) + "\n"
-    + "LzAfter:\n")
+    + report(op("pushstring", '"menu loi: "') + op("getlocal2") + op("add"))
+    + op("returnvoid"))
 
 
-TICK_BODY = (STATE_BODY + ENFORCE_BODY + BAG_STEP_BODY + MAIL_STEP_BODY
-             + OPEN_STEP_BODY + CMD_BODY)
-TICK_TRY = (try_block("s") + try_block("e") + try_block("b") + try_block("n")
-            + try_block("z") + try_block("c"))
+TICK_BODY = (STATE_BODY + ENFORCE_BODY + MENU_BODY + BAG_STEP_BODY
+             + MAIL_STEP_BODY + CMD_BODY)
+TICK_TRY = (try_block("s") + try_block("e") + try_block("mu")
+            + try_block("b") + try_block("n") + try_block("c"))
 
 # ---------------------------------------------------------------------- lắp ráp
 
@@ -849,7 +984,7 @@ TRAITS = (
     + slot("_toolBagStep", pub("int"))
     + slot("_toolMailStep", pub("int"))
     + slot("_toolMailWait", pub("int"))
-    + slot("_toolOpenStep", pub("int"))
+    + slot("_toolMenuSet", pub("Boolean"))
     + (slot("_toolSeen", pub("Object")) if probe else "")
     + method("toolTick", pub("Object"), TICK_BODY, TICK_TRY)
     + method("toolOpenMagicHouse", pub("int"), OPEN_BODY, try_block("o"))
@@ -858,6 +993,8 @@ TRAITS = (
     + method("toolBagList", pub("int"), LIST_BODY, try_block("l"))
     + method("toolOpenSlot", pub("int"), OPEN_SLOT_BODY, try_block("oq"))
     + method("toolOpenBatch", pub("int"), OPEN_BATCH_BODY, try_block("ob"))
+    + method("toolPet", pub("int"), PET_BODY, try_block("pt"))
+    + method("toolMenuPick", pub("Object"), PICK_BODY, try_block("mp"))
     + "end ; class\n")
 
 assert s.rstrip().endswith("end ; class")
