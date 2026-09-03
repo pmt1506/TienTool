@@ -89,5 +89,13 @@ if (Test-Path $FlashDll) {
     Write-Warning "Khong thay NPSWF32.dll tai $FlashDll"
 }
 
+# Loading.swf da va: main.cpp phuc vu tep nay tai dung URL goc de Flash van xep
+# no vao sandbox cua res1.gnddt.com. Khong co tep thi game van chay, chi mat nut
+# "Kho ma phap".
+if (Test-Path "$PSScriptRoot\patched\Loading.swf") {
+    New-Item -ItemType Directory -Force "$Rel\patched" | Out-Null
+    Copy-Item "$PSScriptRoot\patched\Loading.swf" "$Rel\patched\" -Force
+}
+
 "$($toCopy.Count) DLL (da giai de quy), $($pluginDirs.Count) thu muc plugin"
 "tong: $([math]::Round((Get-ChildItem $Rel -Recurse -File | Measure-Object Length -Sum).Sum/1MB,1)) MB"

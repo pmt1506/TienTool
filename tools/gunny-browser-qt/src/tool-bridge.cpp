@@ -45,12 +45,19 @@ QString ToolBridge::probeCallbacks()
     }
     // typeof trên NPObject trả "function" cho callback đã đăng ký, "undefined"
     // cho tên không có. Không cần gọi thật nên không gây tác dụng phụ.
+    // Gọi thật chứ không chỉ typeof: "Error calling method on NPObject" xuất
+    // hiện cả khi callback tồn tại, nên phải so callback của ta với callback
+    // GỐC của game để biết lỗi nằm ở bản vá hay ở cả chiều JS -> Flash.
     const QString script = QStringLiteral(
         "(function(){var o=document.getElementById('game');"
         "if(!o)return 'khong thay object';"
-        "var n=['toolPing','SetFlashLoadExternal','setLoginType','IsDesktop'],r=[];"
-        "for(var i=0;i<n.length;i++){try{r.push(n[i]+'='+(typeof o[n[i]]));}"
-        "catch(e){r.push(n[i]+'=X');}}return r.join('  ');})()");
+        "var r=[];"
+        "function t(l,f){try{r.push(l+'='+String(f()));}catch(e){r.push(l+'!'+e);}}"
+        "t('typeof toolMagic',function(){return typeof o.toolMagic;});"
+        "t('toolMagic(1)',function(){return o.toolMagic(1);});"
+        "t('toolMagic()',function(){return o.toolMagic();});"
+        "t('SetFlashLoadExternal()',function(){return o.SetFlashLoadExternal();});"
+        "return r.join(' | ');})()");
     return m_frame->evaluateJavaScript(script).toString();
 }
 

@@ -271,8 +271,11 @@ void MainWindow::onToolAction(const QString &actionId)
         // So sánh với callback mà game GỐC đăng ký: nếu cái đó cũng không thấy
         // thì lỗi nằm ở ExternalInterface/allowScriptAccess chứ không phải ở
         // bản patch.
-        // Đặt lệnh vào hàng đợi; SWF lấy về trong vòng 250ms rồi báo kết quả
-        // ngược ra qua toolLog -> flashMessage -> tiêu đề cửa sổ.
+        // Đặt lệnh vào hàng đợi cho SWF đã vá lấy về. Không gọi thẳng callback:
+        // chiều JS -> Flash hỏng hẳn ở QtWebKit — gọi cả callback GỐC của game
+        // (SetFlashLoadExternal) cũng ra "Error calling method on NPObject".
+        // Chiều ngược lại (ExternalInterface.call) thì chạy tốt, nên SWF hỏi
+        // hàng đợi này 250ms một lần rồi báo kết quả về qua toolLog.
         m_bridge->queueCommand(QStringLiteral("magic:1"));
         showStatus(QStringLiteral("Đã gửi lệnh mở kho…"), 3000);
         return;
