@@ -113,10 +113,12 @@ void MainWindow::buildMenuBar()
     static const Entry entries[] = {
         {"Giao diện", "toggle-overlay", "Hiện bảng cài đặt"},
         {"Giao diện", "reload", "Tải lại game"},
+        {"Tiện ích", "daily-award", "Nhận quà điểm danh"},
         {"Tiện ích", "clean-bag", "Dọn túi"},
         {"Tiện ích", "clean-mail", "Dọn thư"},
         {"Tiện ích", "clear-cache", "Xóa cache"},
         {"Tiện ích", "list-bag", "Liệt kê túi (ra log)"},
+        {"Tiện ích", "list-calendar", "Trạng thái điểm danh (ra log)"},
         {"Tiện ích", "open-slot", "Mở ô túi…"},
         {"Tiện ích", "open-batch", "Mở nhanh (hết số lượng)"},
         {"Tiện ích", "use-pet", "Dùng nhanh phụ kiện thú & pet"},
@@ -406,6 +408,21 @@ void MainWindow::onToolAction(const QString &actionId)
         // hộp: phân loại phải dựa trên dữ liệu thật, mở nhầm là mất đồ.
         m_bridge->queueCommand(QStringLiteral("l:"));
         showStatus(QStringLiteral("Đang liệt kê túi…"), 4000);
+        return;
+    }
+
+    if (actionId == QLatin1String("list-calendar")) {
+        // calendar.CalendarManager nằm ở module giao diện: phải mở bảng lịch
+        // một lần thì lớp mới có, trước đó lệnh này chỉ báo được lỗi #1065.
+        m_bridge->queueCommand(QStringLiteral("c:"));
+        showStatus(QStringLiteral("Đang đọc bảng lịch…"), 4000);
+        return;
+    }
+
+    if (actionId == QLatin1String("daily-award")) {
+        // Bản vá tự gửi một lần sau khi vào sảnh; nút này để gửi lại bằng tay.
+        m_bridge->queueCommand(QStringLiteral("d:"));
+        showStatus(QStringLiteral("Đang điểm danh…"), 4000);
         return;
     }
 
