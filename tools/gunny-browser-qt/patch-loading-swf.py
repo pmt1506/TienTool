@@ -33,9 +33,16 @@ PUB = 'QName(PackageNamespace(""), %s)'
 def get_class(name):
     """getDefinitionByName(name) -> Class trên đỉnh stack.
 
-    Bấm nút ngay khi vừa vào game thì ra Error #1065: lớp giao diện chưa nạp
-    xong. Không phải lỗi của bản vá — bản game chính thức cũng đơ mấy giây ở
-    thao tác đầu tiên. Bấm lại sau đó là chạy.
+    Bấm nút trước khi người chơi chạm vào bất cứ giao diện nào thì ra Error
+    #1065. Không phải do chưa đủ thời gian: thử lại 10 lần trong 20 giây vẫn
+    #1065 y nguyên. Lớp `magicHouse.*` nằm ở ApplicationDomain khác và chỉ hiện
+    ra với domain của Loading.swf sau khi game tự nạp module giao diện lần đầu —
+    đúng cú đơ vài giây mà bản game chính thức cũng có.
+
+    `ClassUtils.uiSourceDomain.getDefinition()` cũng đã thử, vẫn #1065.
+
+    Muốn hết hẳn thì phải vá SWF game (res1.gnddt.com/flash/4.png) để chính nó
+    gọi HelperUIModuleLoad sớm; ở Loading.swf thì không với tới được.
     """
     return (
         '     getlex              QName(PackageNamespace("flash.utils"), "getDefinitionByName")\n'
