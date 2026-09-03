@@ -7,6 +7,7 @@
 #include <QSettings>
 #include <QDir>
 #include <QFile>
+#include <QInputDialog>
 #include <QMenuBar>
 #include <QTimer>
 #include <QWebPage>
@@ -115,6 +116,9 @@ void MainWindow::buildMenuBar()
         {"Tiện ích", "clean-bag", "Dọn túi"},
         {"Tiện ích", "clean-mail", "Dọn thư"},
         {"Tiện ích", "clear-cache", "Xóa cache"},
+        {"Tiện ích", "list-bag", "Liệt kê túi (ra log)"},
+        {"Tiện ích", "open-slot", "Mở ô túi…"},
+        {"Tiện ích", "open-batch", "Mở nhanh (hết số lượng)"},
     };
 
     QHash<QString, QMenu *> menus;
@@ -358,6 +362,40 @@ void MainWindow::onToolAction(const QString &actionId)
 {
     if (actionId == QLatin1String("reload")) {
         m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
+        return;
+    }
+
+    if (actionId == QLatin1String("open-batch")) {
+        // Đúng bằng "Nhiều" > MAX > Đồng ý trong game, lặp cho từng chồng hộp.
+        // Điều kiện lấy thẳng từ EquipType.isOpenBatch/isCanBatchHandler — hai
+        // vị từ CellMenu dùng để quyết định có hiện nút "Nhiều" hay không.
+        m_bridge->queueCommand(QStringLiteral("x:"));
+        showStatus(QStringLiteral("Đang mở nhanh…"), 8000);
+        return;
+    }
+
+    if (actionId == QLatin1String("open-slot")) {
+        // Mở đúng một ô để thử từng loại. Cả túi đạo cụ đều là CategoryID 11 và
+        // BagView chỉ rẽ hai nhánh cho nhóm đó, nhưng nhóm ấy còn có cả vật
+        // liệu — chưa rõ cờ nào cho phép mở, nên chưa quét cả túi.
+        bool ok = false;
+        // Đánh số 1–49 cho khớp với 7x7 ô người chơi nhìn thấy; bên trong game
+        // đếm từ 0.
+        const int slot = QInputDialog::getInt(
+            this, QStringLiteral("Mở ô túi"),
+            QStringLiteral("Ô số (1–49), xem \"Liệt kê túi\" để biết ô nào là gì:"),
+            1, 1, 49, 1, &ok);
+        if (ok) {
+            m_bridge->queueCommand(QStringLiteral("o:%1").arg(slot - 1));
+        }
+        return;
+    }
+
+    if (actionId == QLatin1String("list-bag")) {
+        // Ghi từng ô túi ra %TEMP%\gunny-flash.log. Cần trước khi tự động mở
+        // hộp: phân loại phải dựa trên dữ liệu thật, mở nhầm là mất đồ.
+        m_bridge->queueCommand(QStringLiteral("l:"));
+        showStatus(QStringLiteral("Đang liệt kê túi…"), 4000);
         return;
     }
 

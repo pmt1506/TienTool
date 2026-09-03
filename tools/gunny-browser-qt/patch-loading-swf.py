@@ -236,11 +236,26 @@ CMD_BODY = (
     + op("callproperty", "%s, 1" % pub("substr"))
     + op("setproperty", pub("quality")) + op("jump", "LcEnd") + "\n"
     + "LcNotQuality:\n"
-    + op("getlocal3") + op("pushstring", '"s:"') + op("ifne", "LcNotMail") + "\n"
+    + op("getlocal3") + op("pushstring", '"s:"') + op("ifne", "LcNotBatch") + "\n"
     # Nhớ lại để khối ép bên trên đặt vào stage mỗi nhịp.
     + CLS + op("getlocal2") + op("pushbyte", "2")
     + op("callproperty", "%s, 1" % pub("substr"))
     + op("setproperty", pub("_toolScale")) + op("jump", "LcEnd") + "\n"
+    + "LcNotBatch:\n"
+    + op("getlocal3") + op("pushstring", '"x:"') + op("ifne", "LcNotOpen") + "\n"
+    + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolOpenStep"))
+    + op("jump", "LcEnd") + "\n"
+    + "LcNotOpen:\n"
+    + op("getlocal3") + op("pushstring", '"o:"') + op("ifne", "LcNotList") + "\n"
+    + report(CLS + op("getlocal2") + op("pushbyte", "2")
+             + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+             + op("callproperty", "%s, 1" % pub("toolOpenSlot")))
+    + op("jump", "LcEnd") + "\n"
+    + "LcNotList:\n"
+    + op("getlocal3") + op("pushstring", '"l:"') + op("ifne", "LcNotMail") + "\n"
+    + report(CLS + op("pushbyte", "0")
+             + op("callproperty", "%s, 1" % pub("toolBagList")))
+    + op("jump", "LcEnd") + "\n"
     + "LcNotMail:\n"
       + op("getlocal3") + op("pushstring", '"m:"') + op("ifne", "LcNotBag") + "\n"
     + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolMailStep"))
@@ -363,7 +378,9 @@ PART_SCAN_BAG = (
     # Vòng 2 — quét 48 ô túi, ghép vào ô đã nhớ.
     op("pushbyte", "0") + store(R_I) + "\n"
     + "Lp2:\n"
-    + local(R_I) + op("pushbyte", "48") + op("ifge", "Lp2End") + "\n"
+    # Bản gốc dừng ở 48 nên bỏ sót ô thứ 49 — túi là 7x7. Quét rộng hơn sức
+    # chứa không hại gì: ô ngoài trả về null, mà ta chỉ ghép vào ô két đã có sẵn.
+    + local(R_I) + op("pushbyte", "60") + op("ifge", "Lp2End") + "\n"
     + local(R_BAG) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
     + store(R_ITEM)
     + local(R_ITEM) + op("iffalse", "Lp2Next") + "\n"
@@ -525,10 +542,241 @@ MAIL_BODY = (
     + op("returnvalue"))
 
 
+# ---------------------------------------------------------------- toolBagList
+
+# Ghi ra từng ô túi: số ô, TemplateID, CategoryID, Property1, Property3, số
+# lượng. Dùng để phân loại hộp bằng dữ liệu thật trước khi gửi lệnh mở nào.
+#
+# Rương chọn item nhận ra bằng CategoryID 11 kèm Property1 66 — đó là nhánh mở
+# RewardSelectBox trong BagView.__cellOpen.
+LIST_BODY = (
+    "LlTry:\n"
+    + get_class("ddt.manager.PlayerManager") + get_prop("Instance") + get_prop("Self")
+    + op("pushbyte", "1") + op("callproperty", "%s, 1" % pub("getBag"))
+    + store(R_BANK) + "\n"
+    + op("pushbyte", "0") + store(R_I) + "\n"
+    + "Ll1:\n"
+    + local(R_I) + op("pushbyte", "60") + op("ifge", "Ll1End") + "\n"
+    + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
+    + store(R_ITEM)
+    + local(R_ITEM) + op("iffalse", "Ll1Next") + "\n"
+    + report(op("pushstring", '"o "') + local(R_I) + op("add")
+             + op("pushstring", '" tpl="') + op("add")
+             + local(R_ITEM) + get_prop("TemplateID") + op("add")
+             + op("pushstring", '" cat="') + op("add")
+             + local(R_ITEM) + get_prop("CategoryID") + op("add")
+             + op("pushstring", '" p1="') + op("add")
+             + local(R_ITEM) + get_prop("Property1") + op("add")
+             + op("pushstring", '" p3="') + op("add")
+             + local(R_ITEM) + get_prop("Property3") + op("add")
+             + op("pushstring", '" x"') + op("add")
+             + local(R_ITEM) + get_prop("Count") + op("add"))
+    + "Ll1Next:\n"
+    + local(R_I) + op("increment_i") + store(R_I) + op("jump", "Ll1") + "\n"
+    + "Ll1End:\n"
+    + ret("liet ke tui xong") + "\n"
+    + "LlEnd:\n"
+    + "LlCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_KEY) + "\n"
+    + op("pushstring", '"liet ke tui loi: "') + local(R_KEY) + op("add")
+    + op("returnvalue"))
+# --------------------------------------------------- mở hộp: phần dùng chung
+
+# Không có một lệnh mở chung. Cả BagView.__cellOpen lẫn hàm bấm "Đồng ý" của
+# OpenBatchView đều là cây rẽ nhánh theo TemplateID/CategoryID, mỗi họ hộp một
+# gói riêng — gửi nhầm gói thì server im lặng bỏ qua.
+#
+#   thẻ bài (11901…)      sendUseCard(BagType, Place, [TemplateID], PayType,
+#                                     false, true, count)
+#   4 mã hộp ngẫu nhiên   sendOpenRandomBox(Place, count)
+#   CategoryID 18         sendOpenCardBox(Place, count, BagType)
+#   CategoryID 66         sendOpenSpecialCardBox(Place, count, BagType)
+#   còn lại               sendItemOpenUp(BagType, Place, count)
+#
+# CategoryID 68 (chọn nhẫn) và nhóm đổi giới tính mở ra bảng chọn nên bỏ qua.
+R_OUT, R_TPL, R_CAT, R_CNT = 2, 3, 5, 6
+
+CARD_IDS = [11998, 11997, 11901, 11902, 11903, 11904, 11905,
+            12535, 11956, 11955, 12746]
+RANDOM_IDS = [112108, 112150, 1120538, 1120539]
+SKIP_IDS = [1120412, 1120413, 1120414, 1120433, 1120434]
+
+
+def id_in(ids, target):
+    """indexOf trên mảng hằng: gọn hơn một chuỗi so sánh dài."""
+    return ("".join(op("pushint", str(i)) for i in ids)
+            + op("newarray", str(len(ids)))
+            + local(R_TPL)
+            + op("callproperty", "%s, 1" % pub("indexOf"))
+            + op("pushbyte", "0") + op("ifge", target) + "\n")
+
+
+def read_item():
+    """Đọc TemplateID/CategoryID/Count của R_ITEM ra thanh ghi."""
+    return (local(R_ITEM) + get_prop("TemplateID") + store(R_TPL)
+            + local(R_ITEM) + get_prop("CategoryID") + store(R_CAT)
+            + local(R_ITEM) + get_prop("Count") + store(R_CNT) + "\n")
+
+
+def describe():
+    """Chuỗi mô tả đầy đủ một món, để tra cứu về sau."""
+    out = op("pushstring", '"o "') + local(R_I) + op("add")
+    for name in ("TemplateID", "CategoryID", "Property1", "Property2",
+                 "Property3", "Property4", "Count"):
+        out += (op("pushstring", '" %s="' % name.replace("Property", "p")
+                                              .replace("TemplateID", "tpl")
+                                              .replace("CategoryID", "cat")
+                                              .replace("Count", "x"))
+                + op("add") + local(R_ITEM) + get_prop(name) + op("add"))
+    return out
+
+
+def open_dispatch(done, skip):
+    """Gửi đúng gói cho món ở R_ITEM, số lượng ở R_CNT."""
+    return (local(R_CAT) + op("pushbyte", "68") + op("ifeq", skip) + "\n"
+            + id_in(SKIP_IDS, skip)
+            + id_in(CARD_IDS, "LxCard")
+            + id_in(RANDOM_IDS, "LxRandom")
+            + local(R_CAT) + op("pushbyte", "18") + op("ifeq", "LxCard18") + "\n"
+            + local(R_CAT) + op("pushbyte", "66") + op("ifeq", "LxCard66") + "\n"
+            + local(R_OUT) + local(R_ITEM) + get_prop("BagType")
+            + local(R_ITEM) + get_prop("Place") + local(R_CNT)
+            + op("callpropvoid", "%s, 3" % pub("sendItemOpenUp"))
+            + op("pushstring", '" -> sendItemOpenUp"')
+            + op("jump", done) + "\n"
+            + "LxCard:\n"
+            + local(R_OUT) + local(R_ITEM) + get_prop("BagType")
+            + local(R_ITEM) + get_prop("Place")
+            + local(R_TPL) + op("newarray", "1")
+            + local(R_ITEM) + get_prop("PayType")
+            + op("pushfalse") + op("pushtrue") + local(R_CNT)
+            + op("callpropvoid", "%s, 7" % pub("sendUseCard"))
+            + op("pushstring", '" -> sendUseCard"')
+            + op("jump", done) + "\n"
+            + "LxRandom:\n"
+            + local(R_OUT) + local(R_ITEM) + get_prop("Place") + local(R_CNT)
+            + op("callpropvoid", "%s, 2" % pub("sendOpenRandomBox"))
+            + op("pushstring", '" -> sendOpenRandomBox"')
+            + op("jump", done) + "\n"
+            + "LxCard18:\n"
+            + local(R_OUT) + local(R_ITEM) + get_prop("Place") + local(R_CNT)
+            + local(R_ITEM) + get_prop("BagType")
+            + op("callpropvoid", "%s, 3" % pub("sendOpenCardBox"))
+            + op("pushstring", '" -> sendOpenCardBox"')
+            + op("jump", done) + "\n"
+            + "LxCard66:\n"
+            + local(R_OUT) + local(R_ITEM) + get_prop("Place") + local(R_CNT)
+            + local(R_ITEM) + get_prop("BagType")
+            + op("callpropvoid", "%s, 3" % pub("sendOpenSpecialCardBox"))
+            + op("pushstring", '" -> sendOpenSpecialCardBox"') + "\n")
+
+
+def bag_and_out():
+    return (get_class("ddt.manager.PlayerManager") + get_prop("Instance")
+            + get_prop("Self")
+            + op("pushbyte", "1") + op("callproperty", "%s, 1" % pub("getBag"))
+            + store(R_BANK)
+            + get_class("ddt.manager.SocketManager") + get_prop("Instance")
+            + get_prop("out") + store(R_OUT) + "\n")
+
+
+# --------------------------------------------------------------- toolOpenSlot
+
+# Mở đúng một ô, số lượng 1, và ghi ra mọi thuộc tính của món cùng tên gói đã
+# gửi — để tra cứu loại nào đi nhánh nào.
+OPEN_SLOT_BODY = (
+    "LoqTry:\n"
+    + bag_and_out()
+    + op("getlocal1") + store(R_I)
+    + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
+    + store(R_ITEM)
+    + local(R_ITEM) + op("iffalse", "LoqEmpty") + "\n"
+    + read_item()
+    + op("pushbyte", "1") + store(R_CNT) + "\n"
+    + describe()
+    + open_dispatch("LoqDone", "LoqSkip") + "\n"
+    + "LoqDone:\n"
+    + op("add") + op("returnvalue") + "\n"
+    + "LoqSkip:\n"
+    + op("pushstring", '" -> bo qua, loai mo ra bang chon"') + op("add")
+    + op("returnvalue") + "\n"
+    + "LoqEmpty:\n"
+    + ret("o trong") + "\n"
+    + "LoqEnd:\n"
+    + "LoqCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_KEY) + "\n"
+    + op("pushstring", '"mo o loi: "') + local(R_KEY) + op("add")
+    + op("returnvalue"))
+
+# -------------------------------------------------------------- toolOpenBatch
+
+# Mở nhanh: chồng hộp đầu tiên mở nhiều được, mở HẾT số lượng. Điều kiện lấy
+# thẳng từ hai vị từ CellMenu dùng để quyết định có hiện nút "Nhiều" hay không.
+# Mỗi lần gọi chỉ một chồng: gói mang một Place, và mở xong thì túi đổi.
+OPEN_BATCH_BODY = (
+    "LobTry:\n"
+    + bag_and_out()
+    + op("pushbyte", "0") + store(R_I) + "\n"
+    + "Lob1:\n"
+    + local(R_I) + op("pushbyte", "60") + op("ifge", "Lob1End") + "\n"
+    + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
+    + store(R_ITEM)
+    + local(R_ITEM) + op("iffalse", "Lob1Next") + "\n"
+    + get_class("ddt.data.EquipType") + local(R_ITEM)
+    + op("callproperty", "%s, 1" % pub("isOpenBatch"))
+    + op("iffalse", "Lob1Next") + "\n"
+    + get_class("ddt.data.EquipType") + local(R_ITEM)
+    + op("callproperty", "%s, 1" % pub("isCanBatchHandler"))
+    + op("iffalse", "Lob1Next") + "\n"
+    + read_item()
+    + describe()
+    + open_dispatch("LobDone", "LobSkip") + "\n"
+    + "LobDone:\n"
+    + op("add") + op("returnvalue") + "\n"
+    + "LobSkip:\n"
+    + op("pop") + "\n"
+    + "Lob1Next:\n"
+    + local(R_I) + op("increment_i") + store(R_I) + op("jump", "Lob1") + "\n"
+    + "Lob1End:\n"
+    + ret("het hop mo nhanh duoc") + "\n"
+    + "LobEnd:\n"
+    + "LobCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_KEY) + "\n"
+    + op("pushstring", '"mo nhanh loi: "') + local(R_KEY) + op("add")
+    + op("returnvalue"))
+
+
+
+
+# Mở nhanh chạy lặp: mỗi giây một chồng, tối đa 20 chồng. Giãn ra để server kịp
+# trả kết quả, không thì lần quét sau vẫn thấy chồng vừa mở.
+OPEN_STEP_BODY = (
+    "LzTry:\n"
+    + CLS + get_prop("_toolOpenStep") + op("convert_i") + op("setlocal3")
+    + op("getlocal3") + op("iffalse", "LzEnd") + "\n"
+    + op("getlocal3") + op("decrement_i") + op("setlocal2")
+    + op("getlocal2") + op("pushbyte", "4") + op("modulo") + op("convert_i")
+    + op("iftrue", "LzNext") + "\n"
+    + report(CLS + op("pushbyte", "0")
+             + op("callproperty", "%s, 1" % pub("toolOpenBatch")))
+    + "LzNext:\n"
+    + op("getlocal3") + op("increment_i") + op("setlocal3")
+    + op("getlocal3") + op("pushshort", "80") + op("ifle", "LzStore")
+    + op("pushbyte", "0") + op("setlocal3") + "\n"
+    + "LzStore:\n"
+    + CLS + op("getlocal3") + op("setproperty", pub("_toolOpenStep")) + "\n"
+    + "LzEnd:\n" + op("jump", "LzAfter") + "\n"
+    + "LzCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + op("setlocal2") + "\n"
+    + report(op("pushstring", '"mo nhanh hong: "') + op("getlocal2") + op("add"))
+    + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolOpenStep")) + "\n"
+    + "LzAfter:\n")
+
+
 TICK_BODY = (STATE_BODY + ENFORCE_BODY + BAG_STEP_BODY + MAIL_STEP_BODY
-             + CMD_BODY)
+             + OPEN_STEP_BODY + CMD_BODY)
 TICK_TRY = (try_block("s") + try_block("e") + try_block("b") + try_block("n")
-            + try_block("c"))
+            + try_block("z") + try_block("c"))
 
 # ---------------------------------------------------------------------- lắp ráp
 
@@ -587,11 +835,15 @@ TRAITS = (
     + slot("_toolBagStep", pub("int"))
     + slot("_toolMailStep", pub("int"))
     + slot("_toolMailWait", pub("int"))
+    + slot("_toolOpenStep", pub("int"))
     + (slot("_toolSeen", pub("Object")) if probe else "")
     + method("toolTick", pub("Object"), TICK_BODY, TICK_TRY)
     + method("toolOpenMagicHouse", pub("int"), OPEN_BODY, try_block("o"))
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
     + method("toolMail", pub("int"), MAIL_BODY, try_block("m"))
+    + method("toolBagList", pub("int"), LIST_BODY, try_block("l"))
+    + method("toolOpenSlot", pub("int"), OPEN_SLOT_BODY, try_block("oq"))
+    + method("toolOpenBatch", pub("int"), OPEN_BATCH_BODY, try_block("ob"))
     + "end ; class\n")
 
 assert s.rstrip().endswith("end ; class")
