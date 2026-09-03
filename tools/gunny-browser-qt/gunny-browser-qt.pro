@@ -20,7 +20,6 @@ SOURCES += \
     src/main.cpp \
     src/main-window.cpp \
     src/flash-module.cpp \
-    src/packet-proxy.cpp \
     src/overlay-window.cpp \
     src/local-file-reply.cpp \
     src/game-web-view.cpp \
@@ -38,7 +37,6 @@ SOURCES += \
 HEADERS += \
     src/main-window.h \
     src/flash-module.h \
-    src/packet-proxy.h \
     src/overlay-window.h \
     src/local-file-reply.h \
     src/game-web-view.h \
@@ -54,5 +52,3 @@ RESOURCES += resources/resources.qrc
 # Vá IAT không ăn thua vì NPSWF32.dll không import hàm thời gian nào.
 INCLUDEPATH += third_party/minhook/include
 
-# packet-proxy vá vào send/recv của winsock.
-LIBS += -lws2_32

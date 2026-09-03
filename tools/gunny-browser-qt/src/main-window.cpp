@@ -13,7 +13,6 @@
 
 #include "game-web-view.h"
 #include "overlay-window.h"
-#include "packet-proxy.h"
 #include "referer-network-manager.h"
 #include "speed-dialog.h"
 #include "speed-hack.h"
@@ -50,11 +49,12 @@ MainWindow::MainWindow(const QString &swfUrl,
     // Để khung to hơn thì thừa ra dải đen; nhỏ hơn thì game bị cắt.
     m_view->setFixedSize(stageWidth, stageHeight);
     setCentralWidget(m_view);
+    // Thứ tự trên thanh menu theo đúng thứ tự gọi ở đây.
+    buildGraphicsMenu();
     buildMenuBar();
     buildSpeedMenu();
-    buildPacketMenu();
     buildOverlayMenu();
-    buildGraphicsMenu();
+    buildMagicAction();
     showStatus(QStringLiteral("Đang tải game…"), 4000);
 
     tryHookSpeed();
@@ -114,14 +114,8 @@ void MainWindow::buildMenuBar()
         {"Giao diện", "reload", "Tải lại game"},
         {"Tiện ích", "clean-bag", "Dọn túi"},
         {"Tiện ích", "clean-mail", "Dọn thư"},
-        {"Tiện ích", "open-magic-store", "Mở kho ma pháp"},
         {"Tiện ích", "clear-cache", "Xóa cache"},
     };
-
-    // Nút dùng thường xuyên đặt thẳng trên thanh menu, không giấu trong menu con.
-    QAction *magic = menuBar()->addAction(QStringLiteral("Kho ma pháp"));
-    connect(magic, &QAction::triggered, this,
-            [this] { onToolAction(QStringLiteral("open-magic-store")); });
 
     QHash<QString, QMenu *> menus;
     for (const Entry &e : entries) {
@@ -134,6 +128,14 @@ void MainWindow::buildMenuBar()
         const QString id = QString::fromUtf8(e.id);
         connect(act, &QAction::triggered, this, [this, id] { onToolAction(id); });
     }
+}
+
+void MainWindow::buildMagicAction()
+{
+    // Nút dùng thường xuyên đặt thẳng trên thanh menu, không giấu trong menu con.
+    QAction *magic = menuBar()->addAction(QStringLiteral("Kho ma pháp"));
+    connect(magic, &QAction::triggered, this,
+            [this] { onToolAction(QStringLiteral("open-magic-store")); });
 }
 
 void MainWindow::buildSpeedMenu()
@@ -164,46 +166,6 @@ void MainWindow::buildSpeedMenu()
         connect(&dlg, &SpeedDialog::multiplierPreview, this, &MainWindow::applySpeed);
         dlg.exec();
     });
-}
-
-void MainWindow::buildPacketMenu()
-{
-    QMenu *menu = menuBar()->addMenu(QStringLiteral("Gói tin"));
-
-    m_captureAction = menu->addAction(QStringLiteral("Ghi ra tệp"));
-    m_captureAction->setCheckable(true);
-    connect(m_captureAction, &QAction::toggled, this, &MainWindow::togglePacketCapture);
-
-    QAction *show = menu->addAction(QStringLiteral("Xem số liệu"));
-    connect(show, &QAction::triggered, this, [this] {
-        const PacketProxy::Stats s = PacketProxy::stats();
-        showStatus(
-            QStringLiteral("Gói: gửi %1 (%2 B) / nhận %3 (%4 B)")
-                .arg(s.sent).arg(s.bytesSent).arg(s.received).arg(s.bytesReceived),
-            8000);
-    });
-}
-
-void MainWindow::togglePacketCapture(bool on)
-{
-    if (!on) {
-        PacketProxy::stopCapture();
-        showStatus(QStringLiteral("Đã dừng ghi: %1").arg(m_capturePath), 8000);
-        return;
-    }
-
-    // Mỗi phiên một tệp riêng để so sánh được hai lần bắt với nhau.
-    m_capturePath =
-        QDir(QDir::tempPath())
-            .filePath(QStringLiteral("gunny-packets-%1.log")
-                          .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyMMdd-hhmmss"))));
-
-    if (PacketProxy::startCapture((const wchar_t *)m_capturePath.utf16())) {
-        showStatus(QStringLiteral("Đang ghi: %1").arg(m_capturePath), 8000);
-    } else {
-        m_captureAction->setChecked(false);
-        showStatus(QStringLiteral("Không mở được tệp ghi"), 5000);
-    }
 }
 
 void MainWindow::buildOverlayMenu()
@@ -422,11 +384,9 @@ void MainWindow::onToolAction(const QString &actionId)
         return;
     }
 
-    // Các tính năng game (dọn túi, dọn thư, mở kho…) là hành động phía server.
-    // Hai đường triển khai, chưa cái nào nối vào đây:
-    //   1. gửi packet qua proxy socket
-    //   2. patch SWF thêm ExternalInterface.addCallback rồi gọi qua m_bridge
-    // Ví dụ đường 2:  m_bridge->callFlash("cleanBag");
+    // Dọn túi, dọn thư, xóa cache chưa nối. Cách làm giống hệt "Mở kho ma
+    // pháp": thêm một lệnh vào hàng đợi và cho bản vá SWF gọi hàm tương ứng
+    // trong AS3 (xem patch-loading-swf.py).
     showStatus(
         QStringLiteral("Chưa nối hành động: %1").arg(actionId), 4000);
 }

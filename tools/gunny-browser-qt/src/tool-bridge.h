@@ -15,8 +15,8 @@ class QWebFrame;
 //
 // Callback game ĐÃ đăng ký sẵn (rút từ Loading.swf/DDT_Loading.swf):
 //   SetFlashLoadExternal, setLoginType, IsDesktop
-// Muốn có thêm hàm riêng (dọn túi, mở kho...) thì phải patch SWF để thêm
-// ExternalInterface.addCallback, hoặc đi đường packet qua proxy socket.
+// Muốn có thêm hàm riêng (dọn túi, mở kho...) thì phải patch SWF; xem
+// patch-loading-swf.py.
 class ToolBridge : public QObject
 {
     Q_OBJECT

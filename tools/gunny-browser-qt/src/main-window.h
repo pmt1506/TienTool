@@ -34,12 +34,12 @@ private:
 
     void buildMenuBar();
     void buildSpeedMenu();
-    void buildPacketMenu();
     void buildOverlayMenu();
     // Bật/tắt thước đo (một thanh ngang, một thanh dọc, có vạch chia).
     void toggleRuler(bool on);
     // Bật/tắt thước theo trạng thái game do bản vá SWF báo ra.
     void onGameState(const QString &state);
+    void buildMagicAction();
     void buildGraphicsMenu();
     void buildFlashMenu(QMenu *parent);
     // Đọc lựa chọn đã lưu và chuyển cho khung xem, dùng cho lần nạp đầu tiên.
@@ -48,7 +48,6 @@ private:
     static QString qualityValue();
     static QString scaleValue();
     // Bật/tắt ghi gói tin ra tệp hex để phân tích ngoại tuyến.
-    void togglePacketCapture(bool on);
     // Flash nạp trễ sau khi trang render -> dò module rồi mới vá được IAT.
     void tryHookSpeed();
 
@@ -62,10 +61,8 @@ private:
     QAction *m_speedNormal = nullptr;
     QAction *m_speedTurbo = nullptr;
     QAction *m_speedCustom = nullptr;
-    QAction *m_captureAction = nullptr;
     OverlayWindow *m_overlay = nullptr;
     QAction *m_rulerAction = nullptr;
     QAction *m_rulerAuto = nullptr;
     bool m_scaleSent = false;
-    QString m_capturePath;
 };
