@@ -1,5 +1,7 @@
 #include "referer-network-manager.h"
 
+#include <QElapsedTimer>
+#include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QUrl>
 
@@ -8,6 +10,7 @@
 RefererNetworkManager::RefererNetworkManager(QString referer, QObject *parent)
     : QNetworkAccessManager(parent), m_referer(std::move(referer))
 {
+    m_since.start();
 }
 
 void RefererNetworkManager::addSwapRule(const QString &urlContains, const QString &replacement)
@@ -55,6 +58,7 @@ QNetworkReply *RefererNetworkManager::createRequest(Operation op,
 
     const QString url = request.url().toString();
     if (m_urlLog.isOpen()) {
+        m_urlLog.write(QByteArray::number(m_since.elapsed()) + " ");
         m_urlLog.write(url.toUtf8());
         m_urlLog.write("\n");
         m_urlLog.flush();
@@ -78,5 +82,26 @@ QNetworkReply *RefererNetworkManager::createRequest(Operation op,
         }
     }
 
-    return QNetworkAccessManager::createRequest(op, patched, outgoingData);
+    QNetworkReply *reply = QNetworkAccessManager::createRequest(op, patched, outgoingData);
+
+    // Ghi thời gian và cỡ từng request. Cú đơ vài giây ở thao tác đầu tiên có
+    // thể do tải tài nguyên, cũng có thể do Flash dựng giao diện; chỉ có số đo
+    // mới phân biệt được.
+    if (m_urlLog.isOpen()) {
+        auto *timer = new QElapsedTimer;
+        timer->start();
+        connect(reply, &QNetworkReply::finished, this, [this, reply, timer] {
+            if (m_urlLog.isOpen()) {
+                // Content-Length chứ không phải bytesAvailable(): trang đọc hết
+                // dữ liệu trước khi finished() bắn, lúc đó bộ đệm đã rỗng.
+                m_urlLog.write("  ^^ " + QByteArray::number((qint64)timer->elapsed()) + "ms "
+                               + reply->header(QNetworkRequest::ContentLengthHeader).toByteArray()
+                               + "B xong=" + QByteArray::number(m_since.elapsed()) + "\n");
+                m_urlLog.flush();
+            }
+            delete timer;
+        });
+    }
+
+    return reply;
 }

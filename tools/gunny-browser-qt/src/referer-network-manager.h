@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QFile>
 #include <QNetworkAccessManager>
 #include <QString>
@@ -43,4 +44,6 @@ private:
     QList<QPair<QString, QString>> m_swapRules;
     QList<QPair<QString, QByteArray>> m_contentOverrides;
     QFile m_urlLog;
+    // Mốc chung để mọi dòng nhật ký so được với nhau theo thời gian thật.
+    QElapsedTimer m_since;
 };

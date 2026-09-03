@@ -276,6 +276,8 @@ void MainWindow::onToolAction(const QString &actionId)
         // (SetFlashLoadExternal) cũng ra "Error calling method on NPObject".
         // Chiều ngược lại (ExternalInterface.call) thì chạy tốt, nên SWF hỏi
         // hàng đợi này 250ms một lần rồi báo kết quả về qua toolLog.
+        // Đúng một lệnh cho mỗi lần bấm. Gửi lại nhiều lần thì lệnh còn treo
+        // trong hàng đợi và tự nổ vào thao tác kế tiếp của người chơi.
         m_bridge->queueCommand(QStringLiteral("magic:1"));
         showStatus(QStringLiteral("Đã gửi lệnh mở kho…"), 3000);
         return;
