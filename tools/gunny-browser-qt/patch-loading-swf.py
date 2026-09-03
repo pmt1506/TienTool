@@ -23,6 +23,7 @@ cinit chạy trước khi ExternalInterface sẵn sàng.
 Lệnh nhận qua hàng đợi của trang:
     q:<mức>    chất lượng vẽ (high/medium/low)
     s:<kiểu>   kiểu co giãn (showAll/noScale), giữ lại và ép mỗi nhịp
+    m:         dọn thư: nhận hết đính kèm rồi xếp túi
     b:         xếp túi vào cả 5 két, mỗi két một gói, giãn ra cho server kịp
     còn lại    mở kho ma pháp, tab Kho báu
 """
@@ -235,11 +236,15 @@ CMD_BODY = (
     + op("callproperty", "%s, 1" % pub("substr"))
     + op("setproperty", pub("quality")) + op("jump", "LcEnd") + "\n"
     + "LcNotQuality:\n"
-    + op("getlocal3") + op("pushstring", '"s:"') + op("ifne", "LcNotBag") + "\n"
+    + op("getlocal3") + op("pushstring", '"s:"') + op("ifne", "LcNotMail") + "\n"
     # Nhớ lại để khối ép bên trên đặt vào stage mỗi nhịp.
     + CLS + op("getlocal2") + op("pushbyte", "2")
     + op("callproperty", "%s, 1" % pub("substr"))
     + op("setproperty", pub("_toolScale")) + op("jump", "LcEnd") + "\n"
+    + "LcNotMail:\n"
+      + op("getlocal3") + op("pushstring", '"m:"') + op("ifne", "LcNotBag") + "\n"
+    + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolMailStep"))
+    + op("jump", "LcEnd") + "\n"
     + "LcNotBag:\n"
     + op("getlocal3") + op("pushstring", '"b:"') + op("ifne", "LcMagic") + "\n"
     + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolBagStep"))
@@ -251,8 +256,6 @@ CMD_BODY = (
     + "LcCatch:\n" + catch_prologue() + op("pop") + "\n"
     + "LcAfter:\n" + op("returnvoid"))
 
-TICK_BODY = STATE_BODY + ENFORCE_BODY + BAG_STEP_BODY + CMD_BODY
-TICK_TRY = try_block("s") + try_block("e") + try_block("b") + try_block("c")
 
 # ------------------------------------------------------------ toolOpenMagicHouse
 
@@ -420,6 +423,113 @@ PUSH_BANK_BODY = ("".join(PARTS[:bag_stage])
                   + (ret("giai doan %d" % bag_stage) if bag_stage < 4 else "")
                   + PART_TAIL)
 
+# Dọn thư chạy theo nhịp giống xếp túi, nhưng giãn 2 giây vì danh sách thư tải
+# qua HTTP chứ không qua socket game.
+MAIL_STEP_BODY = (
+    "LnTry:\n"
+    + CLS + get_prop("_toolMailStep") + op("convert_i") + op("setlocal3")
+    + op("getlocal3") + op("iffalse", "LnEnd") + "\n"
+    + op("getlocal3") + op("decrement_i") + op("setlocal2")
+    + op("getlocal2") + op("pushbyte", "2") + op("modulo") + op("convert_i")
+    + op("iftrue", "LnNext") + "\n"
+    + op("getlocal2") + op("pushbyte", "2") + op("divide") + op("convert_i")
+    + op("setlocal2")
+    + op("getlocal2") + op("pushbyte", "3") + op("iflt", "LnReady") + "\n"
+    # Xong phần thư: giao lại cho bộ xếp túi và dừng.
+    + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolBagStep"))
+    + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolMailStep"))
+    + op("jump", "LnEnd") + "\n"
+
+    # Nhịp nhận đính kèm chờ theo cờ isLoaded của EmailModel chứ không chờ theo
+    # đồng hồ: danh sách thư về sau chừng nửa giây, đặt cứng 2 giây là phí.
+    # Không tăng bộ đếm khi chưa xong, nên nhịp sau vào lại đúng chỗ này.
+    + "LnReady:\n"
+    + op("getlocal2") + op("pushbyte", "1") + op("ifne", "LnRun") + "\n"
+    + get_class("email.MailManager") + get_prop("Instance") + get_prop("Model")
+    + get_prop("isLoaded") + op("iftrue", "LnRun") + "\n"
+    # Chờ mãi mà không thấy thì bỏ, đừng để kẹt im lặng.
+    + CLS + get_prop("_toolMailWait") + op("convert_i") + op("increment_i")
+    + op("setlocal3")
+    + CLS + op("getlocal3") + op("setproperty", pub("_toolMailWait"))
+    + op("getlocal3") + op("pushbyte", "40") + op("iflt", "LnEnd") + "\n"
+    + report(op("pushstring", '"don thu: khong tai duoc danh sach"'))
+    + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolMailStep"))
+    + op("jump", "LnEnd") + "\n"
+    + "LnRun:\n"
+    + report(CLS + op("getlocal2")
+             + op("callproperty", "%s, 1" % pub("toolMail")))
+    + "LnNext:\n"
+    + op("getlocal3") + op("increment_i") + op("setlocal3")
+    + CLS + op("getlocal3") + op("setproperty", pub("_toolMailStep")) + "\n"
+    + "LnEnd:\n" + op("jump", "LnAfter") + "\n"
+    + "LnCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + op("setlocal2") + "\n"
+    + report(op("pushstring", '"don thu hong: "') + op("getlocal2") + op("add"))
+    + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolMailStep")) + "\n"
+    + "LnAfter:\n")
+
+
+# ------------------------------------------------------------------- toolMail
+
+# Dọn thư: nạp danh sách, nhận hết đính kèm, rồi để bộ xếp túi đẩy sang két.
+#
+# Không có cách nhận thẳng vào két: gói 113 chỉ mang loại thư và danh sách ID,
+# server luôn trả đính kèm vào túi. Món nào két không có sẵn thì nằm lại trong
+# túi, đúng như mong muốn — bộ xếp chỉ gộp vào ô đã có.
+#
+# Ba nhịp: nạp danh sách, nhận đính kèm, xoá. Xoá là cần thiết chứ không phải
+# dọn dẹp cho gọn — hòm thư chỉ giữ 10 trang, xoá xong thư cũ hơn mới tràn vào.
+R_MGR, R_LIST, R_IDX = 2, 3, 4
+
+MAIL_BODY = (
+    "LmTry:\n"
+    + get_class("email.MailManager") + get_prop("Instance") + store(R_MGR) + "\n"
+    + op("getlocal1") + op("pushbyte", "0") + op("ifne", "LmClaim") + "\n"
+    + local(R_MGR) + op("pushbyte", "0")
+    + op("callpropvoid", "%s, 1" % pub("loadMail"))
+    + ret("dang tai danh sach thu") + "\n"
+    + "LmClaim:\n"
+    + op("getlocal1") + op("pushbyte", "1") + op("ifne", "LmDelete") + "\n"
+    + local(R_MGR) + get_prop("Model") + get_prop("emails") + store(R_LIST)
+    + local(R_LIST) + op("iffalse", "LmNone")
+    + local(R_LIST) + get_prop("length") + op("iffalse", "LmNone") + "\n"
+    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
+    + local(R_LIST) + op("pushbyte", "0")
+    + op("callpropvoid", "%s, 2" % pub("sendGetMail")) + "\n"
+    + op("pushstring", '"nhan dinh kem cua "') + local(R_LIST) + get_prop("length")
+    + op("add") + op("pushstring", '" thu"') + op("add") + op("returnvalue") + "\n"
+
+    # Xoá để giải phóng chỗ cho thư cũ hơn tràn vào — hòm thư chỉ giữ 10 trang.
+    # Gửi cho cả danh sách: server tự từ chối thư nào còn đính kèm, nên thư nhận
+    # hụt vì túi đầy sẽ không bị mất.
+    + "LmDelete:\n"
+    + local(R_MGR) + get_prop("Model") + get_prop("emails") + store(R_LIST)
+    + local(R_LIST) + op("iffalse", "LmNone")
+    + op("pushbyte", "0") + store(R_IDX) + "\n"
+    + "LmDelLoop:\n"
+    + local(R_IDX) + local(R_LIST) + get_prop("length") + op("ifge", "LmDelEnd") + "\n"
+    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
+    + local(R_LIST) + local(R_IDX) + op("getproperty", KEY) + get_prop("ID")
+    + op("callpropvoid", "%s, 1" % pub("sendDeleteMail")) + "\n"
+    + local(R_IDX) + op("increment_i") + store(R_IDX)
+    + op("jump", "LmDelLoop") + "\n"
+    + "LmDelEnd:\n"
+    + op("pushstring", '"xoa "') + local(R_IDX) + op("add")
+    + op("pushstring", '" thu"') + op("add") + op("returnvalue") + "\n"
+    + "LmNone:\n"
+    + ret("khong co thu nao") + "\n"
+    + "LmEnd:\n"
+    + "LmCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_LIST) + "\n"
+    + op("pushstring", '"don thu loi: "') + local(R_LIST) + op("add")
+    + op("returnvalue"))
+
+
+TICK_BODY = (STATE_BODY + ENFORCE_BODY + BAG_STEP_BODY + MAIL_STEP_BODY
+             + CMD_BODY)
+TICK_TRY = (try_block("s") + try_block("e") + try_block("b") + try_block("n")
+            + try_block("c"))
+
 # ---------------------------------------------------------------------- lắp ráp
 
 
@@ -475,10 +585,13 @@ TRAITS = (
     + slot("_toolState", pub("String"))
     + slot("_toolScale", pub("String"))
     + slot("_toolBagStep", pub("int"))
+    + slot("_toolMailStep", pub("int"))
+    + slot("_toolMailWait", pub("int"))
     + (slot("_toolSeen", pub("Object")) if probe else "")
     + method("toolTick", pub("Object"), TICK_BODY, TICK_TRY)
     + method("toolOpenMagicHouse", pub("int"), OPEN_BODY, try_block("o"))
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
+    + method("toolMail", pub("int"), MAIL_BODY, try_block("m"))
     + "end ; class\n")
 
 assert s.rstrip().endswith("end ; class")

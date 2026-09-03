@@ -361,6 +361,14 @@ void MainWindow::onToolAction(const QString &actionId)
         return;
     }
 
+    if (actionId == QLatin1String("clean-mail")) {
+        // Nhận hết đính kèm rồi tự chuyển sang xếp túi. Không thể nhận thẳng
+        // vào két: gói 113 không có trường đích, server luôn trả về túi.
+        m_bridge->queueCommand(QStringLiteral("m:"));
+        showStatus(QStringLiteral("Đang dọn thư…"), 8000);
+        return;
+    }
+
     if (actionId == QLatin1String("clean-bag")) {
         // Một lệnh, bản vá tự chạy lần lượt cả 5 két: giao thức chỉ nhận một
         // két mỗi gói (sendOneStepBagToBank), và phải giãn ra cho server trả
