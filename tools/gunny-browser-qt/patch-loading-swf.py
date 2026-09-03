@@ -194,20 +194,126 @@ STATE_TRY = '''    try
     end ; try
 '''
 
-# Hỏi hàng đợi lệnh của trang 250ms một lần. Tab 1 = Kho báu.
+# Stage lấy qua lớp đầu tiên của LayerManager. LayerManager nằm ngay trong
+# Loading.swf nên getlex tới thẳng, không vướng chuyện khác ApplicationDomain
+# như các lớp của game.
+STAGE = '''     getlex              QName(PackageNamespace("com.pickgliss.ui"), "LayerManager")
+     getproperty         QName(PackageNamespace(""), "Instance")
+     pushbyte            0
+     callproperty        QName(PackageNamespace(""), "getLayerByType"), 1
+     getproperty         QName(PackageNamespace(""), "stage")
+'''
+
+
+def set_stage_prop(name):
+    """stage.<name> = phần lệnh sau dấu hai chấm."""
+    return (STAGE
+            + '     getlocal2\n'
+              '     pushbyte            2\n'
+              '     callproperty        %s, 1\n'
+              '     setproperty         %s\n'
+              '     jump                LcEnd\n\n'
+            % (PUB % '"substr"', PUB % ('"%s"' % name)))
+
+
+# Ep lai scaleMode moi nhip. So truoc roi moi dat: dat lai lien tuc se bat Flash
+# tinh lai bo cuc 4 lan moi giay.
+ENFORCE_BODY = '''LeTry:
+''' + CLS + '''     getproperty         QName(PackageNamespace(""), "_toolScale")
+     coerce_s
+     setlocal3
+     getlocal3
+     iffalse             LeEnd
+
+''' + STAGE + '''     getproperty         QName(PackageNamespace(""), "scaleMode")
+     getlocal3
+     ifeq                LeEnd
+
+''' + STAGE + '''     getlocal3
+     setproperty         QName(PackageNamespace(""), "scaleMode")
+
+LeEnd:
+     jump                LeAfter
+
+LeCatch:
+     getlocal0
+     pushscope
+     pop
+
+LeAfter:
+'''
+
+ENFORCE_TRY = '''    try
+     from LeTry
+     to LeEnd
+     target LeCatch
+     type QName(PackageNamespace(""), "Error")
+     name null
+    end ; try
+'''
+
+# Hỏi hàng đợi lệnh của trang 250ms một lần.
+#
+# "q:<mức>"  -> chất lượng vẽ (high/medium/low)
+# "s:<kiểu>" -> kiểu co giãn (showAll/noScale)
+# còn lại    -> mở kho ma pháp, tab 1 = Kho báu
+#
+# Đặt thẳng vào stage chứ không nạp lại trang: Flash đổi được cả hai thứ khi đang
+# chạy — đúng thứ menu chuột phải của nó vẫn làm.
 TICK_BODY = (
     STATE_BODY
-    + '     getlex              %s\n'
+    + ENFORCE_BODY
+    + 'LcTry:\n'
+      '     getlex              %s\n'
     '     pushstring          "toolPoll"\n'
     '     callproperty        %s, 1\n'
     '     coerce_s\n'
     '     setlocal2\n'
     '     getlocal2\n'
-    '     iffalse             LtickEnd\n\n' % (EI, PUB % '"call"')
+    '     iffalse             LcEnd\n\n'
+    '     getlocal2\n'
+    '     pushbyte            0\n'
+    '     pushbyte            2\n'
+    '     callproperty        %s, 2\n'
+    '     setlocal3\n\n'
+    '     getlocal3\n'
+    '     pushstring          "q:"\n'
+    '     ifne                LcNotQuality\n\n' % (EI, PUB % '"call"', PUB % '"substr"')
+    + set_stage_prop("quality")
+    + 'LcNotQuality:\n'
+      '     getlocal3\n'
+      '     pushstring          "s:"\n'
+      '     ifne                LcMagic\n\n'
+    # Nho lai roi de khoi ep ben duoi dat vao stage: game se ghi de scaleMode
+    # khi vao man game, dat mot lan o day khong giu duoc.
+    + CLS
+    + '     getlocal2\n'
+      '     pushbyte            2\n'
+      '     callproperty        %s, 1\n'
+      '     setproperty         %s\n'
+      '     jump                LcEnd\n\n' % (PUB % '"substr"', PUB % '"_toolScale"')
+    + 'LcMagic:\n'
     + CLS
     + '     pushbyte            1\n'
       '     callpropvoid        %s, 1\n\n' % (PUB % '"toolOpenMagicHouse"')
-    + 'LtickEnd:\n     returnvoid\n')
+    + 'LcEnd:\n'
+      '     jump                LtickEnd\n\n'
+      'LcCatch:\n'
+      '     getlocal0\n'
+      '     pushscope\n'
+      '     pop\n\n'
+      'LtickEnd:\n     returnvoid\n')
+
+# Một try riêng cho khối lệnh: nếu gộp chung với try đọc trạng thái thì lúc chưa
+# nạp xong game, lỗi ở đó sẽ nuốt luôn lệnh và người dùng không thấy báo gì.
+CMD_TRY = '''    try
+     from LcTry
+     to LcEnd
+     target LcCatch
+     type QName(PackageNamespace(""), "Error")
+     name null
+    end ; try
+'''
 
 OPEN_BODY = (
     'Ltry:\n'
@@ -288,7 +394,8 @@ TRAITS = (
       ' type QName(PackageNamespace(""), "String") end\n'
     + (' trait slot QName(PackageNamespace(""), "_toolSeen")'
        ' type QName(PackageNamespace(""), "Object") end\n' if probe else '')
-    + method("toolTick", 'QName(PackageNamespace(""), "Object")', TICK_BODY, STATE_TRY)
+    + method("toolTick", 'QName(PackageNamespace(""), "Object")', TICK_BODY,
+              STATE_TRY + ENFORCE_TRY + CMD_TRY)
     + method("toolOpenMagicHouse", 'QName(PackageNamespace(""), "int")', OPEN_BODY, TRY)
     + 'end ; class\n')
 

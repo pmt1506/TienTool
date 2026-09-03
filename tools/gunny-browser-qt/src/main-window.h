@@ -42,10 +42,11 @@ private:
     void onGameState(const QString &state);
     void buildGraphicsMenu();
     void buildFlashMenu(QMenu *parent);
-    // Đọc lựa chọn đã lưu và chuyển cho khung xem.
+    // Đọc lựa chọn đã lưu và chuyển cho khung xem, dùng cho lần nạp đầu tiên.
+    // Đổi lúc đang chạy thì gửi lệnh vào Flash, không nạp lại trang.
     void applyRenderOptions();
-    // Flash chỉ đọc quality/scale lúc dựng plugin, nên đổi xong phải nạp lại.
-    void reloadWithRenderOptions();
+    static QString qualityValue();
+    static QString scaleValue();
     // Bật/tắt ghi gói tin ra tệp hex để phân tích ngoại tuyến.
     void togglePacketCapture(bool on);
     // Flash nạp trễ sau khi trang render -> dò module rồi mới vá được IAT.
@@ -65,5 +66,6 @@ private:
     OverlayWindow *m_overlay = nullptr;
     QAction *m_rulerAction = nullptr;
     QAction *m_rulerAuto = nullptr;
+    bool m_scaleSent = false;
     QString m_capturePath;
 };

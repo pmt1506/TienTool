@@ -65,6 +65,12 @@ MainWindow::MainWindow(const QString &swfUrl,
     connect(m_bridge, &ToolBridge::flashMessage, this, [this](const QString &m) {
         if (m.startsWith(QLatin1String("state "))) {
             onGameState(m.mid(6));
+            // Game tự đặt lại stage.scaleMode khi vào màn game, nên bản vá giữ
+            // lựa chọn và ép lại mỗi nhịp. Báo cho nó biết giữ gì, một lần.
+            if (!m_scaleSent) {
+                m_scaleSent = true;
+                m_bridge->queueCommand(QStringLiteral("s:") + scaleValue());
+            }
         }
         showStatus(m, 5000);
         QFile f(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-flash.log")));
@@ -240,7 +246,9 @@ void MainWindow::buildGraphicsMenu()
         group->addAction(a);
         connect(a, &QAction::triggered, this, [this, value] {
             QSettings().setValue(QStringLiteral("render/quality"), value);
-            reloadWithRenderOptions();
+            m_view->setRenderOptions(value, scaleValue());
+            m_bridge->queueCommand(QStringLiteral("q:") + value);
+            showStatus(QStringLiteral("Đồ họa: %1").arg(value), 3000);
         });
     }
 
@@ -250,7 +258,10 @@ void MainWindow::buildGraphicsMenu()
     fit->setChecked(cfg.value(QStringLiteral("render/showAll"), false).toBool());
     connect(fit, &QAction::toggled, this, [this](bool on) {
         QSettings().setValue(QStringLiteral("render/showAll"), on);
-        reloadWithRenderOptions();
+        m_view->setRenderOptions(qualityValue(), scaleValue());
+        m_bridge->queueCommand(QStringLiteral("s:") + scaleValue());
+        showStatus(on ? QStringLiteral("Vừa khung hình: bật")
+                      : QStringLiteral("Vừa khung hình: tắt"), 3000);
     });
 
     buildFlashMenu(menu);
@@ -288,21 +299,24 @@ void MainWindow::buildFlashMenu(QMenu *parent)
     }
 }
 
-void MainWindow::applyRenderOptions()
+QString MainWindow::qualityValue()
 {
-    const QSettings cfg;
-    m_view->setRenderOptions(
-        cfg.value(QStringLiteral("render/quality"), QStringLiteral("high")).toString(),
-        cfg.value(QStringLiteral("render/showAll"), false).toBool()
-            ? QStringLiteral("showall")
-            : QStringLiteral("noscale"));
+    return QSettings().value(QStringLiteral("render/quality"),
+                             QStringLiteral("high")).toString();
 }
 
-void MainWindow::reloadWithRenderOptions()
+QString MainWindow::scaleValue()
 {
-    applyRenderOptions();
-    m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
-    showStatus(QStringLiteral("Đang nạp lại game…"), 5000);
+    // Tên đúng của StageScaleMode; dùng luôn cho tham số scale của thẻ embed, Flash
+    // nhận cả hai chỗ với cùng chuỗi này.
+    return QSettings().value(QStringLiteral("render/showAll"), false).toBool()
+               ? QStringLiteral("showAll")
+               : QStringLiteral("noScale");
+}
+
+void MainWindow::applyRenderOptions()
+{
+    m_view->setRenderOptions(qualityValue(), scaleValue());
 }
 
 void MainWindow::onGameState(const QString &state)

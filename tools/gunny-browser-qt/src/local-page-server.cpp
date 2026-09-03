@@ -8,8 +8,10 @@ LocalPageServer::LocalPageServer(QObject *parent) : QTcpServer(parent) {}
 QString LocalPageServer::start(const QByteArray &html)
 {
     m_html = html;
+    // Nạp lại game gọi start() lần nữa. listen() khi đang nghe sẽ thất bại, và
+    // trước đây điều đó biến trang thành thông báo lỗi — giữ nguyên cổng cũ.
     // Cổng 0 = để OS chọn cổng trống; chỉ nghe loopback.
-    if (!listen(QHostAddress::LocalHost, 0)) {
+    if (!isListening() && !listen(QHostAddress::LocalHost, 0)) {
         return {};
     }
     return QStringLiteral("http://127.0.0.1:%1/play.html").arg(serverPort());
