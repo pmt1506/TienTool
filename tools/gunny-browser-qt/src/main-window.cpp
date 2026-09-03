@@ -361,6 +361,15 @@ void MainWindow::onToolAction(const QString &actionId)
         return;
     }
 
+    if (actionId == QLatin1String("clean-bag")) {
+        // Một lệnh, bản vá tự chạy lần lượt cả 5 két: giao thức chỉ nhận một
+        // két mỗi gói (sendOneStepBagToBank), và phải giãn ra cho server trả
+        // lời xong thì mô hình túi mới đúng cho két kế tiếp.
+        m_bridge->queueCommand(QStringLiteral("b:"));
+        showStatus(QStringLiteral("Đang xếp túi vào các két…"), 6000);
+        return;
+    }
+
     if (actionId == QLatin1String("open-magic-store")) {
         // Tab 1 mở thẳng WarehouseView ("Kho báu") — xem __changeHandler của
         // magicHouse.MagicHouseMainView. Callback do bản Loading.swf đã patch
