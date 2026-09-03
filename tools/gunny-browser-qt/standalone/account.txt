@@ -1,0 +1,5 @@
+# Doi tai khoan o day roi chay lai Chay.bat, khong can build lai gi ca.
+# Ba dong: ten dang nhap / mat khau / so server.
+vh.amee0001
+12345678a
+2
