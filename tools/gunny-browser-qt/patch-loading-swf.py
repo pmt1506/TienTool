@@ -24,6 +24,10 @@ import io
 import sys
 
 path = sys.argv[1]
+# --probe: báo ra tên lớp của mọi thành phần giao diện, mỗi tên đúng một lần.
+# Dùng để tìm mốc nhận biết trạng thái game (vào trận, hết trận) từ dữ liệu thật
+# thay vì đoán. Không bật trong bản dùng hằng ngày — nó nói quá nhiều.
+probe = "--probe" in sys.argv[2:]
 s = io.open(path, encoding="utf-8").read()
 
 EI = 'QName(PackageNamespace("flash.external"), "ExternalInterface")'
@@ -85,6 +89,48 @@ LtoolSkip:
      setlocal            4
 '''
 
+# Báo tên lớp lần đầu gặp. Lọc trùng ngay trong AS3: CreatInstance được gọi liên
+# tục, gọi ExternalInterface mỗi lần thì game giật.
+PROBE = '''     getlocal0
+     getproperty         QName(PackageNamespace(""), "_toolSeen")
+     pushnull
+     ifne                LseenReady
+
+     getlocal0
+     newobject           0
+     setproperty         QName(PackageNamespace(""), "_toolSeen")
+
+LseenReady:
+     getlocal0
+     getproperty         QName(PackageNamespace(""), "_toolSeen")
+     getlocal1
+     getproperty         MultinameL([PackageNamespace("")])
+     iftrue              LseenSkip
+
+     getlocal0
+     getproperty         QName(PackageNamespace(""), "_toolSeen")
+     getlocal1
+     pushtrue
+     setproperty         MultinameL([PackageNamespace("")])
+
+     getlex              QName(PackageNamespace("flash.external"), "ExternalInterface")
+     pushstring          "toolLog"
+     pushstring          "cls "
+     getlocal1
+     add
+     callpropvoid        QName(PackageNamespace(""), "call"), 2
+
+LseenSkip:
+     pushnull
+     setlocal            4
+'''
+
+if probe:
+    PROLOGUE = PROLOGUE.replace('''LtoolSkip:
+     pushnull
+     setlocal            4
+''', "LtoolSkip:\n" + PROBE)
+
 ANCHOR = '''     pushnull
      setlocal            4
 '''
@@ -96,9 +142,62 @@ s = s.replace(ANCHOR, PROLOGUE)
 CLS = ('     findpropstrict      QName(PackageNamespace("com.pickgliss.utils"), "ClassUtils")\n'
        '     getproperty         QName(PackageNamespace("com.pickgliss.utils"), "ClassUtils")\n')
 
+# Theo dõi trạng thái game để bên ngoài biết lúc nào vào trận, lúc nào ra.
+#
+# Đọc thẳng StateManager.currentStateType (getter tĩnh) chứ không đoán theo tên
+# component đang được dựng: tên component chỉ xuất hiện lúc mở màn, không có mốc
+# nào cho lúc đóng, và mỗi tên chỉ dựng một lần cho cả phiên.
+#
+# Nuốt lỗi: trước khi game nạp xong module giao diện thì getDefinitionByName ném
+# Error #1065 — lớp của game nằm ở ApplicationDomain khác. Cứ thử lại mỗi nhịp.
+STATE_BODY = '''LsTry:
+     getlex              QName(PackageNamespace("flash.utils"), "getDefinitionByName")
+     getglobalscope
+     pushstring          "ddt.manager.StateManager"
+     call                1
+     getproperty         QName(PackageNamespace(""), "currentStateType")
+     coerce_s
+     setlocal3
+
+''' + CLS + '''     getproperty         QName(PackageNamespace(""), "_toolState")
+     getlocal3
+     ifeq                LsDone
+
+''' + CLS + '''     getlocal3
+     setproperty         QName(PackageNamespace(""), "_toolState")
+
+     getlex              QName(PackageNamespace("flash.external"), "ExternalInterface")
+     pushstring          "toolLog"
+     pushstring          "state "
+     getlocal3
+     add
+     callpropvoid        QName(PackageNamespace(""), "call"), 2
+
+LsDone:
+LsEnd:
+     jump                LsAfter
+
+LsCatch:
+     getlocal0
+     pushscope
+     pop
+
+LsAfter:
+'''
+
+STATE_TRY = '''    try
+     from LsTry
+     to LsEnd
+     target LsCatch
+     type QName(PackageNamespace(""), "Error")
+     name null
+    end ; try
+'''
+
 # Hỏi hàng đợi lệnh của trang 250ms một lần. Tab 1 = Kho báu.
 TICK_BODY = (
-    '     getlex              %s\n'
+    STATE_BODY
+    + '     getlex              %s\n'
     '     pushstring          "toolPoll"\n'
     '     callproperty        %s, 1\n'
     '     coerce_s\n'
@@ -185,7 +284,11 @@ TRAITS = (
     ' type QName(PackageNamespace(""), "Boolean") end\n'
     ' trait slot QName(PackageNamespace(""), "_toolTimer")'
     ' type QName(PackageNamespace("flash.utils"), "Timer") end\n'
-    + method("toolTick", 'QName(PackageNamespace(""), "Object")', TICK_BODY)
+    + ' trait slot QName(PackageNamespace(""), "_toolState")'
+      ' type QName(PackageNamespace(""), "String") end\n'
+    + (' trait slot QName(PackageNamespace(""), "_toolSeen")'
+       ' type QName(PackageNamespace(""), "Object") end\n' if probe else '')
+    + method("toolTick", 'QName(PackageNamespace(""), "Object")', TICK_BODY, STATE_TRY)
     + method("toolOpenMagicHouse", 'QName(PackageNamespace(""), "int")', OPEN_BODY, TRY)
     + 'end ; class\n')
 

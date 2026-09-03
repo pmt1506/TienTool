@@ -14,14 +14,18 @@
       allowScriptAccess="always"  -> bắt buộc để JS gọi được ExternalInterface
       wmode="direct"              -> Stage3D/Starling chạy GPU (đổi sang
                                      "window" nếu bị giật, xem report về lag)
-    __SWF_URL__ / __WIDTH__ / __HEIGHT__ do GameWebView::loadGame thay vào.
+    __SWF_URL__ / __WIDTH__ / __HEIGHT__ / __QUALITY__ / __SCALE__ do
+    GameWebView::loadGame thay vào. Chất lượng và kiểu co giãn phải đặt ở đây
+    chứ không đổi được lúc chạy: Flash chỉ đọc chúng khi dựng plugin, nên menu
+    đổi xong là nạp lại game.
   -->
   <embed id="game"
          name="game"
          src="__SWF_URL__"
          width="__WIDTH__"
          height="__HEIGHT__"
-         quality="high"
+         quality="__QUALITY__"
+         scale="__SCALE__"
          bgcolor="#000000"
          wmode="direct"
          allowscriptaccess="always"

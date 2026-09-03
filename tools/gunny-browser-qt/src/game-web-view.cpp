@@ -47,6 +47,8 @@ void GameWebView::loadGame(const QString &swfUrl, int stageWidth, int stageHeigh
     html.replace(QStringLiteral("__SWF_URL__"), swfUrl.toHtmlEscaped());
     html.replace(QStringLiteral("__WIDTH__"), QString::number(stageWidth));
     html.replace(QStringLiteral("__HEIGHT__"), QString::number(stageHeight));
+    html.replace(QStringLiteral("__QUALITY__"), m_quality);
+    html.replace(QStringLiteral("__SCALE__"), m_scale);
 
     // Phải phục vụ qua HTTP thật, không dùng setHtml(): document do setHtml
     // tạo ra không có URL nên Flash thấy origin rỗng và tự abort
@@ -57,6 +59,12 @@ void GameWebView::loadGame(const QString &swfUrl, int stageWidth, int stageHeigh
         return;
     }
     load(QUrl(url));
+}
+
+void GameWebView::setRenderOptions(const QString &quality, const QString &scale)
+{
+    m_quality = quality;
+    m_scale = scale;
 }
 
 void GameWebView::contextMenuEvent(QContextMenuEvent *event)

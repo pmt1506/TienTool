@@ -9,6 +9,7 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
+#include <QSettings>
 
 #include "main-window.h"
 #include "packet-proxy.h"
@@ -32,6 +33,8 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("gunny-browser-qt"));
+    // QSettings cần hai tên này để có đường dẫn cố định giữa các lần chạy.
+    app.setOrganizationName(QStringLiteral("TienTool"));
 
     // QtWebKit tìm plugin NPAPI theo QTWEBKIT_PLUGIN_PATH. Trỏ vào plugins/
     // cạnh exe để NPSWF32.dll đi kèm bản build, không phụ thuộc Flash hệ thống.
@@ -43,10 +46,16 @@ int main(int argc, char *argv[])
     // chạy mượt hơn hoặc bỏ qua một số kiểm tra của bản mới.
     QString pluginDir =
         QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins"));
+
+    // Lấy từ dòng lệnh trước, không có thì dùng lựa chọn đã lưu ở menu "Đồ họa >
+    // Phiên bản Flash". Đọc ở đây chứ không muộn hơn: QtWebKit dò plugin ngay
+    // lần đầu dựng trang, lúc đó đổi đường dẫn không còn tác dụng.
     const int flashArg = QCoreApplication::arguments().indexOf(QStringLiteral("--flash"));
-    if (flashArg > 0 && flashArg + 1 < QCoreApplication::arguments().size()) {
-        const QString sub =
-            QDir(pluginDir).filePath(QCoreApplication::arguments().at(flashArg + 1));
+    QString build = flashArg > 0 && flashArg + 1 < QCoreApplication::arguments().size()
+                        ? QCoreApplication::arguments().at(flashArg + 1)
+                        : QSettings().value(QStringLiteral("flash/build")).toString();
+    if (!build.isEmpty()) {
+        const QString sub = QDir(pluginDir).filePath(build);
         if (QDir(sub).exists()) {
             pluginDir = sub;
         }

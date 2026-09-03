@@ -38,6 +38,14 @@ private:
     void buildOverlayMenu();
     // Bật/tắt thước đo (một thanh ngang, một thanh dọc, có vạch chia).
     void toggleRuler(bool on);
+    // Bật/tắt thước theo trạng thái game do bản vá SWF báo ra.
+    void onGameState(const QString &state);
+    void buildGraphicsMenu();
+    void buildFlashMenu(QMenu *parent);
+    // Đọc lựa chọn đã lưu và chuyển cho khung xem.
+    void applyRenderOptions();
+    // Flash chỉ đọc quality/scale lúc dựng plugin, nên đổi xong phải nạp lại.
+    void reloadWithRenderOptions();
     // Bật/tắt ghi gói tin ra tệp hex để phân tích ngoại tuyến.
     void togglePacketCapture(bool on);
     // Flash nạp trễ sau khi trang render -> dò module rồi mới vá được IAT.
@@ -55,5 +63,7 @@ private:
     QAction *m_speedCustom = nullptr;
     QAction *m_captureAction = nullptr;
     OverlayWindow *m_overlay = nullptr;
+    QAction *m_rulerAction = nullptr;
+    QAction *m_rulerAuto = nullptr;
     QString m_capturePath;
 };

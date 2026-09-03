@@ -2,6 +2,7 @@
 
 #include <QEvent>
 #include <QFont>
+#include <QFontMetrics>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
@@ -16,15 +17,17 @@ const int kRows = 7;
 const int kRulerRow = 5;
 const int kRulerCol = 6;
 
-// Chiều dài vạch, tính từ trục thước ra mỗi bên.
+// Chiều dài vạch, tính từ trục thước ra mỗi bên. Chỉ còn vạch 1 và 0.5: mốc
+// 0.25 chia quá dày, nhìn rối hơn là giúp ngắm.
 const double kTickFull = 9.0;
 const double kTickHalf = 6.0;
-const double kTickQuarter = 3.0;
 
 const QColor kShadow(0, 0, 0, 160);
-// Vạch tròn chẵn (một khoảng đầy đủ) màu đỏ; trục và các vạch lẻ 0.25/0.5 màu tím.
-const QColor kWhole(255, 60, 60, 240);
-const QColor kInk(190, 110, 255, 235);
+// Vạch tròn chẵn đỏ đậm và dày hơn hẳn để đếm nhanh; trục và vạch 0.5 màu chàm
+// (tím ngả xanh nước biển) nên không tranh chỗ với vạch đỏ.
+const QColor kWhole(190, 25, 25, 245);
+const QColor kInk(72, 61, 205, 235);
+const double kWholeWidth = 2.6;
 
 }  // namespace
 
@@ -117,9 +120,10 @@ void OverlayWindow::paintRuler(QPainter &p)
     const double axisX = unitX * kRulerCol;
 
     QFont f = p.font();
-    f.setPixelSize(11);
-    f.setBold(true);
+    f.setPixelSize(10);
+    f.setWeight(QFont::Black);
     p.setFont(f);
+    const QFontMetrics fm(f);
 
     // Vẽ hai lượt: nét đen dày bên dưới rồi nét sáng mảnh bên trên, để thước đọc
     // được cả trên nền trời sáng lẫn nền đất tối.
@@ -130,43 +134,50 @@ void OverlayWindow::paintRuler(QPainter &p)
         p.drawLine(QPointF(0, axisY), QPointF(w, axisY));
         p.drawLine(QPointF(axisX, 0), QPointF(axisX, h));
 
-        // Vạch trên thước ngang: bước 0.25 khoảng, vạch dài dần ở 0.5 và 1.
-        for (int q = 0; q <= kCols * 4; ++q) {
-            const bool whole = q % 4 == 0;
-            const double x = unitX * q / 4.0;
-            const double len = whole ? kTickFull : (q % 2 == 0 ? kTickHalf : kTickQuarter);
-            if (!shadow) {
-                p.setPen(QPen(whole ? kWhole : kInk, whole ? 1.6 : 1.0));
-            }
+        // Vạch trên thước ngang: bước nửa khoảng, vạch nguyên dài và dày hơn.
+        for (int q = 0; q <= kCols * 2; ++q) {
+            const bool whole = q % 2 == 0;
+            const double x = unitX * q / 2.0;
+            const double len = whole ? kTickFull : kTickHalf;
+            // Vạch đỏ dày lên thì viền đen phải dày theo, không thì mất viền.
+            p.setPen(shadow ? QPen(kShadow, whole ? kWholeWidth + 1.8 : 2.4)
+                            : QPen(whole ? kWhole : kInk, whole ? kWholeWidth : 1.0));
             p.drawLine(QPointF(x, axisY - len), QPointF(x, axisY + len));
         }
         // Vạch trên thước dọc.
-        for (int q = 0; q <= kRows * 4; ++q) {
-            const bool whole = q % 4 == 0;
-            const double y = unitY * q / 4.0;
-            const double len = whole ? kTickFull : (q % 2 == 0 ? kTickHalf : kTickQuarter);
-            if (!shadow) {
-                p.setPen(QPen(whole ? kWhole : kInk, whole ? 1.6 : 1.0));
-            }
+        for (int q = 0; q <= kRows * 2; ++q) {
+            const bool whole = q % 2 == 0;
+            const double y = unitY * q / 2.0;
+            const double len = whole ? kTickFull : kTickHalf;
+            // Vạch đỏ dày lên thì viền đen phải dày theo, không thì mất viền.
+            p.setPen(shadow ? QPen(kShadow, whole ? kWholeWidth + 1.8 : 2.4)
+                            : QPen(whole ? kWhole : kInk, whole ? kWholeWidth : 1.0));
             p.drawLine(QPointF(axisX - len, y), QPointF(axisX + len, y));
         }
     }
 
     // Đánh số các vạch nguyên. Đếm từ mép trái và mép trên, cùng hệ quy chiếu với
     // cách mô tả vị trí thước (khoảng thứ 5 từ trên, thứ 6 từ trái).
-    for (int i = 1; i < kCols; ++i) {
-        const QPointF at(unitX * i + 3, axisY - kTickFull - 3);
+    auto label = [&](const QPointF &at, const QString &text) {
         p.setPen(kShadow);
-        p.drawText(at + QPointF(1, 1), QString::number(i));
+        p.drawText(at + QPointF(1, 1), text);
         p.setPen(kWhole);
-        p.drawText(at, QString::number(i));
+        p.drawText(at, text);
+    };
+
+    for (int i = 1; i < kCols; ++i) {
+        const QString text = QString::number(i);
+        // Trừ nửa bề rộng chữ số để số nằm giữa vạch. Lấy thẳng toạ độ vạch làm
+        // mép trái thì số lệch sang phải đúng nửa bề rộng đó.
+        label(QPointF(unitX * i - fm.width(text) / 2.0,
+                      axisY + kTickFull + fm.ascent() + 1),
+              text);
     }
     for (int j = 1; j < kRows; ++j) {
-        const QPointF at(axisX + kTickFull + 4, unitY * j - 3);
-        p.setPen(kShadow);
-        p.drawText(at + QPointF(1, 1), QString::number(j));
-        p.setPen(kWhole);
-        p.drawText(at, QString::number(j));
+        const QString text = QString::number(j);
+        label(QPointF(axisX + kTickFull + 4,
+                      unitY * j + (fm.ascent() - fm.descent()) / 2.0),
+              text);
     }
 }
 

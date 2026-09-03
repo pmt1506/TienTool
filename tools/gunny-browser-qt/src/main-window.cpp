@@ -3,6 +3,8 @@
 #include <QActionGroup>
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QSet>
+#include <QSettings>
 #include <QDir>
 #include <QFile>
 #include <QMenuBar>
@@ -52,6 +54,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     buildSpeedMenu();
     buildPacketMenu();
     buildOverlayMenu();
+    buildGraphicsMenu();
     showStatus(QStringLiteral("Đang tải game…"), 4000);
 
     tryHookSpeed();
@@ -60,6 +63,9 @@ MainWindow::MainWindow(const QString &swfUrl,
     // Ghi mọi báo cáo từ AS3 ra tệp. Tiêu đề cửa sổ chỉ hiện được vài giây và
     // phải có người ngồi nhìn; tệp thì đọc lại được sau.
     connect(m_bridge, &ToolBridge::flashMessage, this, [this](const QString &m) {
+        if (m.startsWith(QLatin1String("state "))) {
+            onGameState(m.mid(6));
+        }
         showStatus(m, 5000);
         QFile f(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-flash.log")));
         if (f.open(QIODevice::Append | QIODevice::Text)) {
@@ -83,6 +89,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     });
 
     adjustSize();
+    applyRenderOptions();
     m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
 }
 
@@ -198,9 +205,127 @@ void MainWindow::buildOverlayMenu()
     m_overlay = new OverlayWindow(m_view);
 
     QMenu *menu = menuBar()->addMenu(QStringLiteral("Thước"));
-    QAction *ruler = menu->addAction(QStringLiteral("Hiện thước"));
-    ruler->setCheckable(true);
-    connect(ruler, &QAction::toggled, this, &MainWindow::toggleRuler);
+    m_rulerAction = menu->addAction(QStringLiteral("Hiện thước"));
+    m_rulerAction->setCheckable(true);
+    connect(m_rulerAction, &QAction::toggled, this, &MainWindow::toggleRuler);
+
+    m_rulerAuto = menu->addAction(QStringLiteral("Tự hiện khi vào trận"));
+    m_rulerAuto->setCheckable(true);
+    m_rulerAuto->setChecked(true);
+}
+
+void MainWindow::buildGraphicsMenu()
+{
+    QSettings cfg;
+    QMenu *menu = menuBar()->addMenu(QStringLiteral("Đồ họa"));
+
+    // Ba mức chất lượng của chính Flash. Thấp bỏ khử răng cưa và lọc ảnh, đổi
+    // lại chạy mượt hơn hẳn trên máy yếu.
+    auto *group = new QActionGroup(this);
+    group->setExclusive(true);
+    const QString current = cfg.value(QStringLiteral("render/quality"),
+                                      QStringLiteral("high")).toString();
+
+    struct Level { const char *text; const char *value; };
+    static const Level levels[] = {
+        {"Cao", "high"},
+        {"Vừa", "medium"},
+        {"Thấp", "low"},
+    };
+    for (const Level &lv : levels) {
+        QAction *a = menu->addAction(QString::fromUtf8(lv.text));
+        a->setCheckable(true);
+        const QString value = QString::fromLatin1(lv.value);
+        a->setChecked(value == current);
+        group->addAction(a);
+        connect(a, &QAction::triggered, this, [this, value] {
+            QSettings().setValue(QStringLiteral("render/quality"), value);
+            reloadWithRenderOptions();
+        });
+    }
+
+    menu->addSeparator();
+    QAction *fit = menu->addAction(QStringLiteral("Vừa khung hình (Show All)"));
+    fit->setCheckable(true);
+    fit->setChecked(cfg.value(QStringLiteral("render/showAll"), false).toBool());
+    connect(fit, &QAction::toggled, this, [this](bool on) {
+        QSettings().setValue(QStringLiteral("render/showAll"), on);
+        reloadWithRenderOptions();
+    });
+
+    buildFlashMenu(menu);
+}
+
+void MainWindow::buildFlashMenu(QMenu *parent)
+{
+    // Mỗi bản Flash để trong một thư mục con của plugins/ (plugins/11,
+    // plugins/32...). Đường dẫn plugin phải đặt trước khi QtWebKit dò plugin, tức
+    // trước khi cửa sổ này tồn tại — nên đổi bản là phải mở lại chương trình.
+    QMenu *menu = parent->addMenu(QStringLiteral("Phiên bản Flash"));
+    const QDir dir(QDir(QCoreApplication::applicationDirPath())
+                       .filePath(QStringLiteral("plugins")));
+    const QString current = QSettings().value(QStringLiteral("flash/build")).toString();
+
+    auto *group = new QActionGroup(this);
+    group->setExclusive(true);
+
+    auto addChoice = [&](const QString &text, const QString &value) {
+        QAction *a = menu->addAction(text);
+        a->setCheckable(true);
+        a->setChecked(value == current);
+        group->addAction(a);
+        connect(a, &QAction::triggered, this, [this, value] {
+            QSettings().setValue(QStringLiteral("flash/build"), value);
+            showStatus(QStringLiteral("Đã chọn Flash: %1 — mở lại chương trình để dùng")
+                           .arg(value.isEmpty() ? QStringLiteral("mặc định") : value),
+                       8000);
+        });
+    };
+
+    addChoice(QStringLiteral("Mặc định (plugins/)"), QString());
+    for (const QString &sub : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
+        addChoice(sub, sub);
+    }
+}
+
+void MainWindow::applyRenderOptions()
+{
+    const QSettings cfg;
+    m_view->setRenderOptions(
+        cfg.value(QStringLiteral("render/quality"), QStringLiteral("high")).toString(),
+        cfg.value(QStringLiteral("render/showAll"), false).toBool()
+            ? QStringLiteral("showall")
+            : QStringLiteral("noscale"));
+}
+
+void MainWindow::reloadWithRenderOptions()
+{
+    applyRenderOptions();
+    m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
+    showStatus(QStringLiteral("Đang nạp lại game…"), 5000);
+}
+
+void MainWindow::onGameState(const QString &state)
+{
+    // Tên trạng thái lấy từ ddt.manager.StateManager; bản vá Loading.swf đọc
+    // currentStateType mỗi 250ms và chỉ báo ra khi đổi.
+    //
+    // Chỉ liệt kê các trận có ngắm bắn. Trận kiểu khác (đua, thời trang...) để
+    // ngoài, thêm sau nếu cần.
+    static const QSet<QString> battle{
+        QStringLiteral("fighting"),
+        QStringLiteral("fighting3d"),
+        QStringLiteral("campBattleScene"),
+        QStringLiteral("consortiaBattleScene"),
+        QStringLiteral("dungeon"),
+        QStringLiteral("plotdungeon"),
+    };
+
+    if (!m_rulerAuto || !m_rulerAuto->isChecked()) {
+        return;
+    }
+    // Đặt qua ô đánh dấu để menu và thước không nói hai chuyện khác nhau.
+    m_rulerAction->setChecked(battle.contains(state));
 }
 
 void MainWindow::toggleRuler(bool on)
