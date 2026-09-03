@@ -614,8 +614,7 @@ def id_in(ids, target):
 def read_item():
     """Đọc TemplateID/CategoryID/Count của R_ITEM ra thanh ghi."""
     return (local(R_ITEM) + get_prop("TemplateID") + store(R_TPL)
-            + local(R_ITEM) + get_prop("CategoryID") + store(R_CAT)
-            + local(R_ITEM) + get_prop("Count") + store(R_CNT) + "\n")
+            + local(R_ITEM) + get_prop("CategoryID") + store(R_CAT) + "\n")
 
 
 def describe():
@@ -633,7 +632,12 @@ def describe():
 
 def open_dispatch(done, skip):
     """Gửi đúng gói cho món ở R_ITEM, số lượng ở R_CNT."""
-    return (local(R_CAT) + op("pushbyte", "68") + op("ifeq", skip) + "\n"
+    # Rương chọn item: BagView mở RewardSelectBox cho nó thay vì gửi gói mở.
+    # Gửi thẳng lệnh mở thì game báo "Số lượng chọn không hợp lệ". isPackage
+    # nhận cả Property1 66 nên phải chặn riêng ở đây, không tự loại được.
+    return (local(R_ITEM) + get_prop("Property1") + op("pushbyte", "66")
+            + op("ifeq", skip) + "\n"
+            + local(R_CAT) + op("pushbyte", "68") + op("ifeq", skip) + "\n"
             + id_in(SKIP_IDS, skip)
             + id_in(CARD_IDS, "LxCard")
             + id_in(RANDOM_IDS, "LxRandom")
@@ -722,13 +726,23 @@ OPEN_BATCH_BODY = (
     + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
     + store(R_ITEM)
     + local(R_ITEM) + op("iffalse", "Lob1Next") + "\n"
+    # Lọc theo đúng vị từ CellMenu hỏi trước khi vẽ nút "Mở": isPackage nhận
+    # Property1 6/114/66, isChest nhận 6. Trước đây lọc bằng isOpenBatch — vị từ
+    # của nút "Nhiều", chỉ nhận 12/13/21 — nên rương mở từng cái bị bỏ sót hết.
+    # Hai vị từ này không đụng tới vật liệu (Property1 0) hay phụ kiện thú (82).
     + get_class("ddt.data.EquipType") + local(R_ITEM)
-    + op("callproperty", "%s, 1" % pub("isOpenBatch"))
-    + op("iffalse", "Lob1Next") + "\n"
+    + op("callproperty", "%s, 1" % pub("isPackage"))
+    + op("iftrue", "LobTake") + "\n"
     + get_class("ddt.data.EquipType") + local(R_ITEM)
-    + op("callproperty", "%s, 1" % pub("isCanBatchHandler"))
+    + op("callproperty", "%s, 1" % pub("isChest"))
     + op("iffalse", "Lob1Next") + "\n"
+    + "LobTake:\n"
     + read_item()
+    # Luôn gửi hết số lượng. isOpenBatch chỉ nhận Property1 12/13/21 nên giao
+    # diện không cho nhóm 6 bấm "Nhiều", nhưng gói tin vẫn có trường số lượng —
+    # server nhận thì xong một lần, không nhận thì mở một cái như cũ và vòng lặp
+    # gặp lại chồng đó ở nhịp sau. Không mất gì để thử.
+    + local(R_ITEM) + get_prop("Count") + store(R_CNT) + "\n"
     + describe()
     + open_dispatch("LobDone", "LobSkip") + "\n"
     + "LobDone:\n"
@@ -761,7 +775,7 @@ OPEN_STEP_BODY = (
              + op("callproperty", "%s, 1" % pub("toolOpenBatch")))
     + "LzNext:\n"
     + op("getlocal3") + op("increment_i") + op("setlocal3")
-    + op("getlocal3") + op("pushshort", "80") + op("ifle", "LzStore")
+    + op("getlocal3") + op("pushshort", "240") + op("ifle", "LzStore")
     + op("pushbyte", "0") + op("setlocal3") + "\n"
     + "LzStore:\n"
     + CLS + op("getlocal3") + op("setproperty", pub("_toolOpenStep")) + "\n"
