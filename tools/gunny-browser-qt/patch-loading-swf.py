@@ -985,7 +985,13 @@ R_MENU, R_ITEM2 = 2, 3
 
 MENU_BODY = (
     "LmuTry:\n"
-    + CLS + get_prop("_toolMenuSet") + op("iftrue", "LmuEnd") + "\n"
+    # Đặt lại mỗi khi Stage đổi số con, chứ không đặt một lần rồi khoá bằng cờ.
+    # Menu gắn vào từng con của Stage, nên con nào game thêm vào SAU lần đặt đầu
+    # tiên vẫn mang menu mặc định — và game thêm con trong lúc nạp, nên khoá sớm
+    # một nhịp là mất menu tuỳ chỉnh, khoá muộn thì còn. Đó là lý do nó lúc được
+    # lúc không. So theo numChildren thì lần nào game dựng thêm lớp cũng gắn lại.
+    + CLS + get_prop("_toolMenuKids") + op("convert_i")
+    + STAGE + get_prop("numChildren") + op("ifeq", "LmuEnd") + "\n"
     + STAGE + op("iffalse", "LmuEnd") + "\n"
     + op("findpropstrict", CM) + op("constructprop", "%s, 0" % CM)
     + store(R_MENU)
@@ -1006,14 +1012,19 @@ MENU_BODY = (
     + local(R_MENU) + op("setproperty", pub("contextMenu")) + "\n"
     + local(R_I) + op("increment_i") + store(R_I) + op("jump", "LmuChild") + "\n"
     + "LmuDone:\n"
-    + CLS + op("pushtrue") + op("setproperty", pub("_toolMenuSet")) + "\n"
+    + CLS + STAGE + get_prop("numChildren")
+    + op("setproperty", pub("_toolMenuKids")) + "\n"
     + "LmuEnd:\n" + op("jump", "LmuAfter") + "\n"
     # Báo lỗi chứ không nuốt: nuốt thì hỏng kiểu nào cũng chỉ thấy menu cũ.
     + "LmuCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
     + op("setlocal3") + "\n"
     + report(op("pushstring", '"menu chuot phai hong: "') + op("getlocal3")
              + op("add"))
-    + CLS + op("pushtrue") + op("setproperty", pub("_toolMenuSet")) + "\n"
+    # Số không bao giờ trùng numChildren -> thôi thử lại, khỏi kêu mỗi nhịp.
+    # Không đọc Stage ở đây: đọc nó chính là thứ vừa ném lỗi, mà khối catch thì
+    # nằm ngoài vùng try nên ném thêm lần nữa là chết cả vòng nhịp.
+    + CLS + op("pushshort", "9999")
+    + op("setproperty", pub("_toolMenuKids")) + "\n"
     + "LmuAfter:\n")
 
 
@@ -1116,7 +1127,7 @@ TRAITS = (
     + slot("_toolBagStep", pub("int"))
     + slot("_toolMailStep", pub("int"))
     + slot("_toolMailWait", pub("int"))
-    + slot("_toolMenuSet", pub("Boolean"))
+    + slot("_toolMenuKids", pub("int"))
     + slot("_toolDailyStep", pub("int"))
     + slot("_toolDailyDone", pub("Boolean"))
     + (slot("_toolSeen", pub("Object")) if probe else "")
