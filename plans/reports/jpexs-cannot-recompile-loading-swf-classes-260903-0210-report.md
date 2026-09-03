@@ -1,8 +1,22 @@
 # Không patch được `Loading.swf` bằng JPEXS — và vì sao
 
-Date: 2026-09-03 | Branch: `feat/gunny-flash-launcher` | Trạng thái: **hướng này bỏ**
+Date: 2026-09-03 | Branch: `feat/gunny-flash-launcher` | Trạng thái: **KẾT LUẬN SAI, đã bị bác bỏ 2026-09-03**
 
-## Kết luận
+## Đính chính
+
+Toàn bộ bảng đo dưới đây **không dùng được**. Mọi lần chạy đều truyền
+`--auto-magic`, mà tham số đó chưa được khai báo trong `QCommandLineParser`.
+Với app GUI trên Windows, `process()` gặp tham số lạ thì bật hộp thoại
+"Unknown option" rồi thoát — nên con số 35–52MB đo cái hộp thoại đó, không đo
+bản vá. Xem `fix: declare --auto-magic so the app does not die at startup`.
+
+Sau khi sửa, JPEXS chưa được đo lại. Tính năng "Mở kho ma pháp" đã làm xong
+bằng RABCDAsm (sửa ở mức assembly), nên không còn lý do quay lại đo.
+
+Phần "Những gì ĐÃ xác minh được" và "Về tính năng Mở kho ma pháp" bên dưới vẫn
+đúng — chúng dựa trên nhật ký chứ không dựa trên phép đo bộ nhớ.
+
+## Kết luận (đã bị bác bỏ)
 
 JPEXS recompile lại **bất kỳ sửa đổi nào** trong `Loading.swf` đều tạo ra class
 hỏng: Flash nạp được SWF nhưng không nạp được module nào nữa, game đứng ở ~35–52MB
@@ -80,9 +94,18 @@ Hai chi tiết đã đo được, không phải suy đoán:
 - Working set là thước đo nhanh và đáng tin để biết bản patch có làm hỏng SWF
   không: dưới 150MB là Flash không nạp được module.
 
+## Câu hỏi đã trả lời từ đó
+
+- `Loading.swf` có 171 tag DoABC, mỗi tag **một class**. `ClassUtils` nằm trọn
+  trong tag 15, nên giả thuyết "hỏng do class khác cùng tag" là sai.
+- Cách vào kho đúng là `MagicHouseManager.instance.show()` chứ không phải phát
+  thẳng `showMainView`: `show()` nạp trước các module UI rồi mới phát sự kiện.
+  Sảnh cũng gọi đúng hàm đó (`hall.HallStateView`).
+- Chiều JS -> Flash hỏng hẳn ở QtWebKit: gọi cả callback GỐC của game
+  (`SetFlashLoadExternal`) cũng ra "Error calling method on NPObject". Đây mới
+  là lý do phải cho SWF hỏi vòng.
+
 ## Câu hỏi chưa trả lời
 
-- JPEXS hỏng ở khâu nào cụ thể? Chưa dựng được cách đọc lỗi verify của Flash —
-  nếu bật được log của Flash Player debug thì sẽ biết chính xác.
-- `Loading.swf` có 171 tag DoABC; `-replace` có recompile cả tag chứa class đó
-  không? Nếu có thì hỏng là do các class khác cùng tag, không phải class ta sửa.
+- JPEXS có thật sự hỏng không? Chưa đo lại sau khi sửa `--auto-magic`. Không
+  còn cần thiết vì RABCDAsm đã chạy.
