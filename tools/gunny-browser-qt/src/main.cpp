@@ -84,7 +84,16 @@ int main(int argc, char *argv[])
         QStringLiteral("Thư mục con trong plugins/ chứa NPSWF32.dll muốn dùng."),
         QStringLiteral("tên"));
 
-    parser.addOptions({swfOpt, titleOpt, widthOpt, heightOpt, refererOpt, flashOpt});
+    // Đọc trong MainWindow. Phải khai báo ở đây, nếu không process() coi là
+    // tham số lạ và — vì đây là app GUI trên Windows — bật hộp thoại lỗi rồi
+    // thoát, khiến mọi lần chạy thử tự động đo nhầm hộp thoại chứ không đo game.
+    const QCommandLineOption autoMagicOpt(
+        QStringLiteral("auto-magic"),
+        QStringLiteral("Tự bấm \"Kho ma pháp\" sau chừng này giây."),
+        QStringLiteral("giây"));
+
+    parser.addOptions(
+        {swfOpt, titleOpt, widthOpt, heightOpt, refererOpt, flashOpt, autoMagicOpt});
     parser.process(app);
 
     const QString swfUrl = parser.value(swfOpt);
