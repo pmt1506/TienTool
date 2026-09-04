@@ -38,6 +38,8 @@ Lệnh nhận qua hàng đợi của trang:
     y:<lop>    do cau truc mot lop bat ky ra log; "y:out" = GameSocketOut
     k:         liet ke thoi trang 5 chi so se ban (chua ban)
     j:         ban that so mon do
+    w:<kho>    doc mot kho ra log: o|TemplateID|so luong|ten
+    v:<kho>|<o>  chuyen mot mon tu kho ve tui
     l:         liet ke tui dao cu ra log
     còn lại    mở kho ma pháp, tab Kho báu
 """
@@ -206,7 +208,8 @@ ENFORCE_BODY = (
     + "LeCatch:\n" + catch_prologue() + op("pop") + "\n"
     + "LeAfter:\n")
 
-# Xếp túi: _toolBagStep đếm 1..20, cứ 4 nhịp (1 giây) đẩy một két. Giãn ra vì
+# Xếp túi: _toolBagStep đếm 1..40, cứ 4 nhịp (1 giây) đẩy một két. Mười lượt:
+# năm két cho túi đạo cụ, rồi năm két cho túi trang bị. Giãn ra vì
 # server phải trả lời xong thì mô hình túi mới đúng cho két kế tiếp; bắn 5 gói
 # liên tiếp là bốn gói sau tính trên dữ liệu cũ.
 #
@@ -224,7 +227,7 @@ BAG_STEP_BODY = (
              + op("callproperty", "%s, 1" % pub("toolPushBank")))
     + "LbNext:\n"
     + op("getlocal3") + op("increment_i") + op("setlocal3")
-    + op("getlocal3") + op("pushbyte", "20") + op("ifle", "LbStore")
+    + op("getlocal3") + op("pushbyte", "40") + op("ifle", "LbStore")
     + op("pushbyte", "0") + op("setlocal3") + "\n"
     + "LbStore:\n"
     + CLS + op("getlocal3") + op("setproperty", pub("_toolBagStep")) + "\n"
@@ -322,9 +325,21 @@ CMD_BODY = (
              + op("callproperty", "%s, 1" % pub("toolDressScan")))
     + op("jump", "LcEnd") + "\n"
     + "LcNotSell:\n"
-    + op("getlocal3") + op("pushstring", '"j:"') + op("ifne", "LcMagic") + "\n"
+    + op("getlocal3") + op("pushstring", '"j:"') + op("ifne", "LcNotKho") + "\n"
     + report(CLS + op("pushbyte", "0")
              + op("callproperty", "%s, 1" % pub("toolDressSell")))
+    + op("jump", "LcEnd") + "\n"
+    + "LcNotKho:\n"
+    + op("getlocal3") + op("pushstring", '"w:"') + op("ifne", "LcNotMove") + "\n"
+    + report(CLS + op("getlocal2") + op("pushbyte", "2")
+             + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+             + op("callproperty", "%s, 1" % pub("toolBagContents")))
+    + op("jump", "LcEnd") + "\n"
+    + "LcNotMove:\n"
+    + op("getlocal3") + op("pushstring", '"v:"') + op("ifne", "LcMagic") + "\n"
+    + report(CLS + op("getlocal2") + op("pushbyte", "2")
+             + op("callproperty", "%s, 1" % pub("substr"))
+             + op("callproperty", "%s, 1" % pub("toolMoveToBag")))
     + op("jump", "LcEnd") + "\n"
     + "LcMagic:\n"
     + CLS + op("pushbyte", "1")
@@ -376,6 +391,8 @@ BANK_TYPES = [51, 60, 70, 11, 53]
 R_SELF, R_TYPE, R_BANK, R_BAG = 2, 3, 4, 5
 R_FIRST, R_COUNT, R_EX, R_I = 6, 7, 8, 9
 R_ITEM, R_KEY, R_TGT = 10, 11, 12
+# Tui nguon: 1 la dao cu, 0 la trang bi (ke ca thoi trang).
+R_SRC = 13
 
 
 def local(n):
@@ -402,12 +419,21 @@ PART_HEAD = (
     "LpTry:\n"
     + get_class("ddt.manager.PlayerManager") + get_prop("Instance") + get_prop("Self")
     + store(R_SELF) + "\n"
+    # Chi so 0..9: nam cai dau xep tui dao cu, nam cai sau xep tui trang bi.
+    # Truoc day chi quet tui dao cu, nen trang bi va thoi trang khong bao gio
+    # duoc cat vao ket.
+    + op("pushbyte", "1") + store(R_SRC)
+    + op("getlocal1") + op("pushbyte", str(len(BANK_TYPES))) + op("iflt", "LpSrc")
+    + op("pushbyte", "0") + store(R_SRC) + "\n"
+    + "LpSrc:\n"
     + "".join(op("pushshort", str(t)) for t in BANK_TYPES)
     + op("newarray", str(len(BANK_TYPES)))
-    + op("getlocal1") + op("getproperty", KEY) + op("convert_i") + store(R_TYPE) + "\n"
+    + op("getlocal1") + op("pushbyte", str(len(BANK_TYPES))) + op("modulo")
+    + op("convert_i") + op("getproperty", KEY) + op("convert_i")
+    + store(R_TYPE) + "\n"
     + local(R_SELF) + local(R_TYPE) + op("callproperty", "%s, 1" % pub("getBag"))
     + store(R_BANK)
-    + local(R_SELF) + op("pushbyte", "1") + op("callproperty", "%s, 1" % pub("getBag"))
+    + local(R_SELF) + local(R_SRC) + op("callproperty", "%s, 1" % pub("getBag"))
     + store(R_BAG)
     + op("newobject", "0") + store(R_FIRST)
     + op("newobject", "0") + store(R_COUNT)
@@ -484,7 +510,7 @@ PART_SCAN_BAG = (
 PART_SEND = (
     local(R_EX) + get_prop("length") + op("iffalse", "LpNone") + "\n"
     + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
-    + op("pushbyte", "1") + local(R_TYPE) + local(R_EX)
+    + local(R_SRC) + local(R_TYPE) + local(R_EX)
     + op("callpropvoid", "%s, 3" % pub("sendOneStepBagToBank")) + "\n"
     + op("pushstring", '"ket "') + local(R_TYPE) + op("add")
     + op("pushstring", '": xep "') + op("add")
@@ -757,8 +783,8 @@ R_BD_BAG, R_BD_I, R_BD_ACC, R_BD_ITEM = 2, 3, 4, 5
 # Bon chi so cua do thoi trang la Attack/Defence/Agility/Luck (describeType
 # tren InventoryItemInfo). *Compose la muc hop thanh, khong phai chi so — do
 # nham thi mon +50 cuong hoa se bi tinh la 200.
-BAG_DUMP_FIELDS = ["TemplateID", "Attack", "Defence", "Agility", "Luck",
-                   "wearStatus", "Place"]
+BAG_DUMP_FIELDS = ["TemplateID", "CategoryID", "Attack", "Defence", "Agility",
+                   "Luck", "wearStatus", "Place"]
 
 BAG_DUMP_BODY = (
     "LbdTry:\n"
@@ -829,6 +855,8 @@ BAG_DUMP_BODY = (
 # moi trang 49 o.
 R_DS_BAG, R_DS_OUT, R_DS_N, R_DS_I, R_DS_ACC, R_DS_ITEM = 2, 3, 4, 5, 6, 7
 R_DS_ARR, R_DS_A, R_DS_SET, R_DS_B, R_DS_VO = 8, 9, 10, 11, 12
+# Dem so mon dat du chi so nhung bi bo hinh tuong chan — de biet loc dung hay sai.
+R_DS_BLK = 13
 
 
 def dress_body(tag, sell):
@@ -841,17 +869,13 @@ def dress_body(tag, sell):
         + local(R_DS_BAG) + op("iffalse", "L%sNone" % tag) + "\n"
         + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
         + store(R_DS_OUT) + "\n"
-        # BagInfo._items la road7th.data.DictionaryData chu khong phai Array,
-        # nen .length ra undefined -> convert_i thanh 0 -> khong quet o nao.
-        # Ra so <= 0 thi quet theo tran rong: tui thoi trang bay trang, moi
-        # trang 49 o, 2000 la thoai mai.
-        + local(R_DS_BAG) + get_prop("items") + get_prop("length") + op("convert_i")
-        + store(R_DS_N)
-        + local(R_DS_N) + op("pushbyte", "0") + op("ifgt", "L%sHasN" % tag)
-        + op("pushshort", "2000") + store(R_DS_N) + "\n"
-        + "L%sHasN:\n" % tag
+        # Quet theo SO O chu khong theo items.length: length la so mon dang co,
+        # con do nam rai rac o o 82, 87... nen lay length lam tran la bo sot het
+        # phan duoi. Tui trang bi khong qua vai chuc o, 500 la du rong.
+        + op("pushshort", "500") + store(R_DS_N) + "\n"
         + op("pushstring", '""') + store(R_DS_ACC)
-        + op("pushbyte", "0") + store(R_DS_I) + "\n"
+        + op("pushbyte", "0") + store(R_DS_I)
+        + op("pushbyte", "0") + store(R_DS_BLK) + "\n"
         + "L%sLoop:\n" % tag
         + local(R_DS_I) + local(R_DS_N) + op("ifge", "L%sDone" % tag) + "\n"
         + local(R_DS_BAG) + local(R_DS_I)
@@ -861,10 +885,6 @@ def dress_body(tag, sell):
         + get_class("playerDress.components.DressUtils") + local(R_DS_ITEM)
         + op("callproperty", "%s, 1" % pub("isDress"))
         + op("iffalse", "L%sNext" % tag) + "\n"
-        # CategoryID 73 khong ban duoc: BagView.__cellSell thoat ngay khi gap,
-        # truoc ca hop xac nhan.
-        + local(R_DS_ITEM) + get_prop("CategoryID") + op("convert_i")
-        + op("pushbyte", "73") + op("ifeq", "L%sNext" % tag) + "\n"
         # Bo qua mon khong ban duoc. Hai truong hop, dung nhu game chan:
         #   wearStatus  - dang mac tren nguoi
         #   checkDress  - nam trong mot bo hinh tuong da luu; BagView.checkDress
@@ -889,7 +909,9 @@ def dress_body(tag, sell):
         + local(R_DS_VO) + op("iffalse", "L%sVoNext" % tag)
         + local(R_DS_VO) + get_prop("itemId")
         + local(R_DS_ITEM) + get_prop("ItemID")
-        + op("ifeq", "L%sNext" % tag) + "\n"
+        + op("ifne", "L%sVoNext" % tag) + "\n"
+        + local(R_DS_BLK) + op("pushbyte", "1") + op("add") + op("convert_i")
+        + store(R_DS_BLK) + op("jump", "L%sNext" % tag) + "\n"
         + "L%sVoNext:\n" % tag
         + local(R_DS_B) + op("pushbyte", "1") + op("add") + op("convert_i")
         + store(R_DS_B) + op("jump", "L%sVo" % tag) + "\n"
@@ -908,10 +930,14 @@ def dress_body(tag, sell):
             + local(R_DS_ITEM) + get_prop("Place")
             + local(R_DS_ITEM) + get_prop("Count")
             + op("callpropvoid", "%s, 3" % pub("reclaimGoods")) + "\n") if sell else "")
-        + local(R_DS_ACC) + op("pushstring", '" "') + op("add")
+        # Moi mon mot cum ";;<o>|<TemplateID>|<ten>": ten co dau cach nen khong
+        # tach cac mon bang dau cach duoc.
+        + local(R_DS_ACC) + op("pushstring", '";;"') + op("add")
         + local(R_DS_ITEM) + get_prop("Place") + op("add")
-        + op("pushstring", '":"') + op("add")
+        + op("pushstring", '"|"') + op("add")
         + local(R_DS_ITEM) + get_prop("TemplateID") + op("add")
+        + op("pushstring", '"|"') + op("add")
+        + local(R_DS_ITEM) + get_prop("Name") + op("add")
         + store(R_DS_ACC) + "\n"
         + "L%sNext:\n" % tag
         + local(R_DS_I) + op("pushbyte", "1") + op("add") + op("convert_i")
@@ -919,6 +945,8 @@ def dress_body(tag, sell):
         + "L%sDone:\n" % tag
         + op("pushstring", '"%s n="' % ("ttban" if sell else "ttdo"))
         + local(R_DS_N) + op("add")
+        + op("pushstring", '" chan="') + op("add")
+        + local(R_DS_BLK) + op("add")
         + local(R_DS_ACC) + op("add") + op("coerce_s") + op("returnvalue") + "\n"
         + "L%sNone:\n" % tag
         + ret("khong lay duoc tui trang bi") + "\n"
@@ -931,6 +959,128 @@ def dress_body(tag, sell):
 
 DRESS_SCAN_BODY = dress_body("ds", False)
 DRESS_SELL_BODY = dress_body("db", True)
+
+
+# ------------------------------------------- toolBagContents / toolMoveToBag
+
+# Doc mot kho ra log, va chuyen mot mon tu kho ve tui.
+#
+# Nam kho la BANK_TYPES [51, 60, 70, 11, 53] — cung bo ma "xep tui vao ket"
+# dung. Tui nguoi choi (0 trang bi, 1 dao cu) khong quet: muc dich la lay do tu
+# kho ve, do dang o tui roi thi khong can tim.
+#
+# Moi mon tra ve: o | TemplateID | so luong | ten | duong dan anh | khoa | han.
+#
+# Duong dan anh lay bang PathManager.solveGoodsPath(CategoryID, Pic) — dung ham
+# cua game chu khong tu ghep: truong Pic chi la ten ("boliBall"), con thu muc
+# thi tuy loai mon ("image/unfrightprop/boliball/icon.png").
+#
+# Tham so thu tu la TEN TEP, mac dinh "show" (anh nhan vat mac len nguoi). Anh
+# o goc tui la "icon", nen phai truyen ro.
+# ValidDate = 0 la vinh vien, khac 0 la so ngay con lai.
+#
+# Chuyen do: sendMoveGoods(bagtype, place, tobagType, toplace, count), goi 49.
+# toplace = -1 nghia la de server tim o trong dau tien — chinh game lam vay,
+# xem BagCell: sendMoveGoods(11, info.Place, 0, -1, 1) cho do thoi trang.
+#
+# Tui dich chon theo mon: do thoi trang/trang bi ve tui 0, con lai ve tui 1.
+# Goi 5 tham so nhu game chu khong 6: tham so allMove co gia tri mac dinh.
+R_BC_BAG, R_BC_N, R_BC_I, R_BC_ACC, R_BC_ITEM = 2, 3, 4, 5, 6
+
+BAG_CONTENTS_BODY = (
+    "LbcTry:\n"
+    + get_class("ddt.manager.PlayerManager") + get_prop("Instance") + get_prop("Self")
+    + op("getlocal1") + op("callproperty", "%s, 1" % pub("getBag"))
+    + store(R_BC_BAG) + "\n"
+    + local(R_BC_BAG) + op("iffalse", "LbcNone") + "\n"
+    # Quet theo SO O chu khong theo items.length: length la so mon dang co, con
+    # do nam rai rac nen lay length lam tran la bo sot phan duoi. Kho co bay
+    # trang, moi trang 49 o.
+    + op("pushshort", "500") + store(R_BC_N) + "\n"
+    + op("pushstring", '"kho "') + op("getlocal1") + op("add") + store(R_BC_ACC)
+    + op("pushbyte", "0") + store(R_BC_I) + "\n"
+    + "LbcLoop:\n"
+    + local(R_BC_I) + local(R_BC_N) + op("ifge", "LbcDone") + "\n"
+    + local(R_BC_BAG) + local(R_BC_I)
+    + op("callproperty", "%s, 1" % pub("getItemAt")) + store(R_BC_ITEM)
+    + local(R_BC_ITEM) + op("iffalse", "LbcNext") + "\n"
+    + local(R_BC_ACC) + op("pushstring", '";;"') + op("add")
+    + local(R_BC_ITEM) + get_prop("Place") + op("add")
+    + op("pushstring", '"|"') + op("add")
+    + local(R_BC_ITEM) + get_prop("TemplateID") + op("add")
+    + op("pushstring", '"|"') + op("add")
+    + local(R_BC_ITEM) + get_prop("Count") + op("add")
+    + op("pushstring", '"|"') + op("add")
+    + local(R_BC_ITEM) + get_prop("Name") + op("add")
+    + op("pushstring", '"|"') + op("add")
+    + get_class("ddt.manager.PathManager")
+    + local(R_BC_ITEM) + get_prop("CategoryID")
+    + local(R_BC_ITEM) + get_prop("Pic")
+    + op("pushtrue") + op("pushstring", '"icon"')
+    + op("callproperty", "%s, 4" % pub("solveGoodsPath")) + op("add")
+    + op("pushstring", '"|"') + op("add")
+    + local(R_BC_ITEM) + get_prop("IsBinds") + op("add")
+    + op("pushstring", '"|"') + op("add")
+    + local(R_BC_ITEM) + get_prop("ValidDate") + op("add")
+    + store(R_BC_ACC) + "\n"
+    + "LbcNext:\n"
+    + local(R_BC_I) + op("pushbyte", "1") + op("add") + op("convert_i")
+    + store(R_BC_I) + op("jump", "LbcLoop") + "\n"
+    + "LbcDone:\n"
+    + local(R_BC_ACC) + op("coerce_s") + op("returnvalue") + "\n"
+    + "LbcNone:\n"
+    + ret("kho khong ton tai") + "\n"
+    + "LbcEnd:\n"
+    + "LbcCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_BC_ACC) + "\n"
+    + op("pushstring", '"doc kho loi: "') + local(R_BC_ACC) + op("add")
+    + op("returnvalue"))
+
+
+# Tham so vao dang "<loai kho>|<o>".
+R_MV_P, R_MV_BAG, R_MV_ITEM, R_MV_TO = 2, 3, 4, 5
+
+MOVE_TO_BAG_BODY = (
+    "LmvTry:\n"
+    + op("getlocal1") + op("pushstring", '"|"')
+    + op("callproperty", "%s, 1" % pub("split")) + store(R_MV_P) + "\n"
+    + get_class("ddt.manager.PlayerManager") + get_prop("Instance") + get_prop("Self")
+    + local(R_MV_P) + op("pushbyte", "0") + op("getproperty", KEY) + op("convert_i")
+    + op("callproperty", "%s, 1" % pub("getBag")) + store(R_MV_BAG) + "\n"
+    + local(R_MV_BAG) + op("iffalse", "LmvNone") + "\n"
+    + local(R_MV_BAG)
+    + local(R_MV_P) + op("pushbyte", "1") + op("getproperty", KEY) + op("convert_i")
+    + op("callproperty", "%s, 1" % pub("getItemAt")) + store(R_MV_ITEM) + "\n"
+    + local(R_MV_ITEM) + op("iffalse", "LmvEmpty") + "\n"
+    # Trang bi (ke ca thoi trang) ve tui 0, con lai ve tui dao cu 1.
+    #
+    # Phan loai bang EquipType.isEquipBoolean — vi tu cua game, xet theo
+    # CategoryID. Truoc do dung DressUtils.isDress la sai: no chi nhan ra do
+    # thoi trang, nen vu khi/nhan/day chuyen bi day nham sang tui dao cu.
+    + op("pushbyte", "1") + store(R_MV_TO)
+    + get_class("ddt.data.EquipType") + local(R_MV_ITEM)
+    + op("callproperty", "%s, 1" % pub("isEquipBoolean")) + op("iffalse", "LmvGo")
+    + op("pushbyte", "0") + store(R_MV_TO) + "\n"
+    + "LmvGo:\n"
+    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
+    + local(R_MV_P) + op("pushbyte", "0") + op("getproperty", KEY) + op("convert_i")
+    + local(R_MV_ITEM) + get_prop("Place")
+    + local(R_MV_TO)
+    + op("pushbyte", "-1")
+    + local(R_MV_ITEM) + get_prop("Count")
+    + op("callpropvoid", "%s, 5" % pub("sendMoveGoods")) + "\n"
+    + op("pushstring", '"da chuyen "') + op("getlocal1") + op("add")
+    + op("pushstring", '" -> tui "') + op("add") + local(R_MV_TO) + op("add")
+    + op("returnvalue") + "\n"
+    + "LmvEmpty:\n"
+    + ret("o do trong") + "\n"
+    + "LmvNone:\n"
+    + ret("kho khong ton tai") + "\n"
+    + "LmvEnd:\n"
+    + "LmvCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_MV_P) + "\n"
+    + op("pushstring", '"chuyen do loi: "') + local(R_MV_P) + op("add")
+    + op("returnvalue"))
 
 
 # ------------------------------------------------------------------- toolMail
@@ -1123,10 +1273,12 @@ OPEN_SLOT_BODY = (
     + op("returnvalue"))
 
 # Property1 bi loai khoi "Mo nhanh":
-#   21 = the bai (6 nuoc kinh nghiem...). "Mo" no la dung the, mat ca chong.
-#   6  = do doi qua. Server tra loi khi gui goi mo.
+#   21 = binh nuoc kinh nghiem. "Mo" no la uong, mat ca chong.
+#
+# Truoc day loai ca 6 (do doi qua) vi tuong server tu choi; thu lai thi mo duoc,
+# nen bo khoi danh sach.
 # Property1 khai bao kieu String nen so bang ifeq (long), khong ifstricteq.
-BATCH_SKIP_P1 = [21, 6]
+BATCH_SKIP_P1 = [21]
 
 # -------------------------------------------------------------- toolOpenBatch
 
@@ -1267,6 +1419,12 @@ CM = 'QName(PackageNamespace("flash.ui"), "ContextMenu")'
 CMI = 'QName(PackageNamespace("flash.ui"), "ContextMenuItem")'
 
 R_MENU, R_ITEM2 = 2, 3
+# Stage lay mot lan moi nhip roi giu lai. Truoc day moi cho dung STAGE la
+# mot lan LayerManager.Instance.getLayerByType(0).stage — trong do co ca
+# dieu kien vong lap, tuc lap lai voi TUNG con cua stage. Luc danh nhau
+# stage co hang tram con va so con doi lien tuc, nen nhip nao cung quet lai
+# tu dau: do la phan viec nang nhat chay dinh ky.
+R_STG = 4
 
 # Gán menu lên từng con của Stage. Không gán lên chính Stage được: nó ném
 # Error #2071 "The Stage class does not implement this property or method", và
@@ -1282,9 +1440,10 @@ MENU_BODY = (
     # tiên vẫn mang menu mặc định — và game thêm con trong lúc nạp, nên khoá sớm
     # một nhịp là mất menu tuỳ chỉnh, khoá muộn thì còn. Đó là lý do nó lúc được
     # lúc không. So theo numChildren thì lần nào game dựng thêm lớp cũng gắn lại.
+    + STAGE + store(R_STG)
+    + local(R_STG) + op("iffalse", "LmuEnd") + "\n"
     + CLS + get_prop("_toolMenuKids") + op("convert_i")
-    + STAGE + get_prop("numChildren") + op("ifeq", "LmuEnd") + "\n"
-    + STAGE + op("iffalse", "LmuEnd") + "\n"
+    + local(R_STG) + get_prop("numChildren") + op("ifeq", "LmuEnd") + "\n"
     + op("findpropstrict", CM) + op("constructprop", "%s, 0" % CM)
     + store(R_MENU)
     + local(R_MENU) + op("callpropvoid", "%s, 0" % pub("hideBuiltInItems")) + "\n"
@@ -1299,12 +1458,13 @@ MENU_BODY = (
         for cap, _ in MENU_ITEMS)
     + op("pushbyte", "0") + store(R_I) + "\n"
     + "LmuChild:\n"
-    + local(R_I) + STAGE + get_prop("numChildren") + op("ifge", "LmuDone") + "\n"
-    + STAGE + local(R_I) + op("callproperty", "%s, 1" % pub("getChildAt"))
+    + local(R_I) + local(R_STG) + get_prop("numChildren")
+    + op("ifge", "LmuDone") + "\n"
+    + local(R_STG) + local(R_I) + op("callproperty", "%s, 1" % pub("getChildAt"))
     + local(R_MENU) + op("setproperty", pub("contextMenu")) + "\n"
     + local(R_I) + op("increment_i") + store(R_I) + op("jump", "LmuChild") + "\n"
     + "LmuDone:\n"
-    + CLS + STAGE + get_prop("numChildren")
+    + CLS + local(R_STG) + get_prop("numChildren")
     + op("setproperty", pub("_toolMenuKids")) + "\n"
     + "LmuEnd:\n" + op("jump", "LmuAfter") + "\n"
     # Báo lỗi chứ không nuốt: nuốt thì hỏng kiểu nào cũng chỉ thấy menu cũ.
@@ -1437,6 +1597,8 @@ TRAITS = (
     + method("toolClassInfo", pub("String"), CLASS_INFO_BODY, try_block("ci"))
     + method("toolDressScan", pub("int"), DRESS_SCAN_BODY, try_block("ds"))
     + method("toolDressSell", pub("int"), DRESS_SELL_BODY, try_block("db"))
+    + method("toolBagContents", pub("int"), BAG_CONTENTS_BODY, try_block("bc"))
+    + method("toolMoveToBag", pub("String"), MOVE_TO_BAG_BODY, try_block("mv"))
     + method("toolOpenSlot", pub("int"), OPEN_SLOT_BODY, try_block("oq"))
     + method("toolOpenBatch", pub("int"), OPEN_BATCH_BODY, try_block("ob"))
     + method("toolPet", pub("int"), PET_BODY, try_block("pt"))

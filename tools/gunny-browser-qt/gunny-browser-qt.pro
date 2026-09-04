@@ -29,6 +29,7 @@ SOURCES += \
     src/speed-hack.cpp \
     src/tool-bridge.cpp \
     src/sign-activity-gifts.cpp \
+    src/warehouse-search-dialog.cpp \
     third_party/minhook/src/buffer.c \
     third_party/minhook/src/hook.c \
     third_party/minhook/src/trampoline.c \
@@ -46,7 +47,8 @@ HEADERS += \
     src/speed-dialog.h \
     src/speed-hack.h \
     src/tool-bridge.h \
-    src/sign-activity-gifts.h
+    src/sign-activity-gifts.h \
+    src/warehouse-search-dialog.h
 
 RESOURCES += resources/resources.qrc
 

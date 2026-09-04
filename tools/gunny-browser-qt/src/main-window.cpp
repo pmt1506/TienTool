@@ -26,6 +26,7 @@
 #include "sign-activity-gifts.h"
 #include "speed-hack.h"
 #include "tool-bridge.h"
+#include "warehouse-search-dialog.h"
 
 // Bố cục menu theo LazyGunny; hành động thật nối vào onToolAction.
 //
@@ -45,6 +46,7 @@ static const Entry kMenuEntries[] = {
     {"Tiện ích", "open-batch", "Mở nhanh items"},
     {"Tiện ích", "use-pet", "Dùng nhanh phụ kiện thú & pet"},
     {"Tiện ích", "sell-dress", "Bán thời trang 5 chỉ số"},
+    {"Tiện ích", "find-item", "Tìm vật phẩm trong kho"},
 };
 
 // Tên hiển thị của một hành động. Vài hành động nằm ngoài bảng menu (nút riêng
@@ -123,6 +125,9 @@ MainWindow::MainWindow(const QString &swfUrl,
         if (m.startsWith(QLatin1String("ttdo"))) {
             onDressScan(m.mid(4).trimmed());
         }
+        if (m.startsWith(QLatin1String("kho ")) && m_warehouse) {
+            m_warehouse->addWarehouse(m);
+        }
         showStatus(m, 5000);
         logEvent(m);
     });
@@ -198,24 +203,39 @@ void MainWindow::onSignGiftsLoaded(const QString &error)
 // sendSellGoods là một chiều, không có đường lấy lại món đã bán.
 void MainWindow::onDressScan(const QString &line)
 {
-    // "ttdo n=<số ô đã quét> <ô>:<mã> …" — bỏ phần n= ra khỏi danh sách món.
-    QStringList items = line.split(QLatin1Char(' '), QString::SkipEmptyParts);
-    QString scanned;
-    if (!items.isEmpty() && items.first().startsWith(QLatin1String("n="))) {
-        scanned = items.takeFirst().mid(2);
-    }
-    logEvent(QStringLiteral("Quét thời trang: %1 ô, %2 món khớp")
-                 .arg(scanned, QString::number(items.size())));
-    if (items.isEmpty()) {
+    // "ttdo n=<số ô> chan=<số món hình tượng chặn>;;<ô>|<mã>|<tên>;;…"
+    const QStringList parts = line.split(QStringLiteral(";;"));
+    logEvent(QStringLiteral("Quét thời trang: %1, %2 món khớp")
+                 .arg(parts.value(0).trimmed())
+                 .arg(parts.size() - 1));
+    if (parts.size() < 2) {
         showStatus(QStringLiteral("Không có thời trang 5 chỉ số nào"), 5000);
         return;
+    }
+
+    // Liệt kê tên món ngay trong hộp hỏi. Bán là một chiều nên người bấm phải
+    // đọc được mình sắp bán cái gì, không chỉ là một con số.
+    QStringList names;
+    for (int i = 1; i < parts.size(); ++i) {
+        const QStringList f = parts.at(i).split(QLatin1Char('|'));
+        if (f.size() < 3) {
+            continue;
+        }
+        names << (f.at(2).isEmpty() ? f.at(1) : f.at(2));
+    }
+    // Dài quá thì cắt: hộp thoại cao hơn màn hình sẽ mất luôn hai nút bấm.
+    const int kShow = 20;
+    QString list = QStringList(names.mid(0, kShow)).join(QLatin1Char('\n'));
+    if (names.size() > kShow) {
+        list += QStringLiteral("\n… và %1 món nữa").arg(names.size() - kShow);
     }
 
     QMessageBox box(this);
     box.setIcon(QMessageBox::Warning);
     box.setWindowTitle(QStringLiteral("Bán thời trang 5 chỉ số"));
     box.setText(QStringLiteral("Sẽ bán %1 món. Bán rồi không lấy lại được.")
-                    .arg(items.size()));
+                    .arg(names.size()));
+    box.setInformativeText(list);
     box.setStandardButtons(QMessageBox::Yes | QMessageBox::Cancel);
     box.setDefaultButton(QMessageBox::Cancel);
     box.button(QMessageBox::Yes)->setText(QStringLiteral("Bán"));
@@ -225,9 +245,9 @@ void MainWindow::onDressScan(const QString &line)
         return;
     }
 
-    logEvent(QStringLiteral("Bán thời trang: %1 món").arg(items.size()));
+    logEvent(QStringLiteral("Bán thời trang: %1 món").arg(names.size()));
     m_bridge->queueCommand(QStringLiteral("j:"));
-    showStatus(QStringLiteral("Đang bán %1 món…").arg(items.size()), 6000);
+    showStatus(QStringLiteral("Đang bán %1 món…").arg(names.size()), 6000);
 }
 
 // Khoá theo tài khoản và theo ngày. Trạng thái từ game không phải lúc nào cũng
@@ -592,6 +612,19 @@ void MainWindow::onToolAction(const QString &actionId)
         // động mở hộp: phân loại phải dựa trên dữ liệu thật, mở nhầm là mất đồ.
         m_bridge->queueCommand(QStringLiteral("l:"));
         showStatus(QStringLiteral("Đang liệt kê túi…"), 4000);
+        return;
+    }
+
+    if (actionId == QLatin1String("find-item")) {
+        // Mở cửa sổ rỗng rồi hỏi từng kho: trả lời về qua flashMessage, cửa sổ
+        // tự đổ thêm hàng vào bảng khi có.
+        delete m_warehouse;
+        m_warehouse = new WarehouseSearchDialog(m_bridge, this);
+        m_warehouse->setAttribute(Qt::WA_DeleteOnClose, false);
+        m_warehouse->show();
+        for (int type : WarehouseSearchDialog::warehouseTypes()) {
+            m_bridge->queueCommand(QStringLiteral("w:") + QString::number(type));
+        }
         return;
     }
 

@@ -8,6 +8,7 @@
 
 class GameWebView;
 class OverlayWindow;
+class WarehouseSearchDialog;
 class RefererNetworkManager;
 class ToolBridge;
 
@@ -86,4 +87,5 @@ private:
     signactivity::Loader *m_signLoader = nullptr;
     // giftbagOrder -> statusValue; rỗng là game chưa có dữ liệu hoạt động.
     QHash<int, int> m_signStatus;
+    WarehouseSearchDialog *m_warehouse = nullptr;
 };
