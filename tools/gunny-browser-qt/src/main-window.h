@@ -43,6 +43,8 @@ private:
     // Bật/tắt thước theo trạng thái game do bản vá SWF báo ra.
     void onGameState(const QString &state);
     void buildMagicAction();
+    void buildSignMenu();
+    void claimSignGifts();
     void buildGraphicsMenu();
     void buildFlashMenu(QMenu *parent);
     // Đọc lựa chọn đã lưu và chuyển cho khung xem, dùng cho lần nạp đầu tiên.
@@ -68,4 +70,7 @@ private:
     QAction *m_rulerAction = nullptr;
     QAction *m_rulerAuto = nullptr;
     bool m_scaleSent = false;
+    // Chỉ tự nhận quà một lần mỗi phiên: vào lại sảnh sau mỗi trận đấu thì
+    // trạng thái "main" lặp lại liên tục.
+    bool m_signClaimed = false;
 };

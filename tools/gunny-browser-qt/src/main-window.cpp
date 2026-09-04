@@ -9,6 +9,7 @@
 #include <QSettings>
 #include <QDir>
 #include <QFile>
+#include <QMenu>
 #include <QMenuBar>
 #include <QTimer>
 #include <QWebPage>
@@ -17,36 +18,11 @@
 #include "overlay-window.h"
 #include "referer-network-manager.h"
 #include "speed-dialog.h"
+#include "sign-activity-gifts.h"
 #include "speed-hack.h"
 #include "tool-bridge.h"
 
 // Bố cục menu theo LazyGunny; hành động thật nối vào onToolAction.
-// Nhóm điểm danh, mỗi hàm một mục bấm thẳng.
-//
-// Chưa biết hàm nào là hàm hai nút điểm danh trong game gọi: bản trước đoán
-// sendDailyAward với 5/0/3, không giá trị nào ăn. Danh mục hàm đọc được từ
-// describeType của GameSocketOut, nên bày sẵn ra đây để bấm thử từng cái rồi
-// xem log — đo còn hơn đoán. Bỏ hộp thoại hỏi số: giá trị cần thử đã biết
-// trước, gõ lại mỗi lần chỉ tổ chậm.
-struct SendItem { const char *text; const char *cmd; };
-static const SendItem kSendItems[] = {
-    {"Hỏi trạng thái điểm danh", "f:"},
-    {"Mở bảng điểm danh", "g:"},
-    {"Ghi nhận hoạt động ngày", "i:"},
-    {"Điểm danh (sendSignIn 0)", "e:0"},
-    {"Điểm danh (sendSignIn 1)", "e:1"},
-    {"Quà ngày (sendDailyAward 0)", "d:0"},
-    {"Điểm danh (sendDailyAward 5)", "d:5"},
-    {"Quà VIP (sendDailyAward 3)", "d:3"},
-    {"Quà tích luỹ (0)", "h:0"},
-    {"Quà tích luỹ (1)", "h:1"},
-    {"Quà mốc 3 ngày", "k:3"},
-    {"Quà mốc 7 ngày", "k:7"},
-    {"Quà mốc 15 ngày", "k:15"},
-    {"Quà mốc 23 ngày", "k:23"},
-    {"Quà mốc 28 ngày", "k:28"},
-};
-
 //
 // Để ở phạm vi tệp vì dùng ở hai chỗ: dựng menu, và đổi mã hành động thành tên
 // tiếng Việt khi ghi log — log mà chỉ có "clean-bag" thì đọc lại chẳng hiểu.
@@ -57,8 +33,6 @@ static const Entry kMenuEntries[] = {
     {"Tiện ích", "clean-bag", "Dọn túi"},
     {"Tiện ích", "clean-mail", "Dọn thư"},
     {"Tiện ích", "clear-cache", "Xóa cache"},
-    {"Tiện ích", "list-bag", "Liệt kê túi (ra log)"},
-    {"Tiện ích", "list-calendar", "Trạng thái điểm danh (ra log)"},
     {"Tiện ích", "open-batch", "Mở nhanh (hết số lượng)"},
     {"Tiện ích", "use-pet", "Dùng nhanh phụ kiện thú & pet"},
 };
@@ -174,17 +148,53 @@ void MainWindow::buildMenuBar()
         connect(act, &QAction::triggered, this, [this, id] { onToolAction(id); });
     }
 
-    // Menu riêng: mấy mục này chỉ để dò, không phải chức năng dùng hàng ngày.
-    QMenu *sign = menuBar()->addMenu(QStringLiteral("Điểm danh (thử)"));
-    for (const SendItem &s : kSendItems) {
-        QAction *act = sign->addAction(QString::fromUtf8(s.text));
-        const QString cmd = QString::fromUtf8(s.cmd);
-        const QString text = QString::fromUtf8(s.text);
-        connect(act, &QAction::triggered, this, [this, cmd, text] {
-            logEvent(QStringLiteral("Bấm: ") + text);
+    buildSignMenu();
+}
+
+// Menu điểm danh: nhận quà của hoạt động "Đăng nhập 14 ngày".
+void MainWindow::buildSignMenu()
+{
+    QMenu *sign = menuBar()->addMenu(QStringLiteral("Điểm danh"));
+
+    QMenu *daily = sign->addMenu(QStringLiteral("Quà từng ngày"));
+    for (const signactivity::GiftBag &g : signactivity::kDailyGifts) {
+        QAction *act = daily->addAction(QStringLiteral("Ngày %1").arg(g.label));
+        const QString cmd = signactivity::claimCommand(g);
+        const int day = g.label;
+        connect(act, &QAction::triggered, this, [this, cmd, day] {
+            logEvent(QStringLiteral("Nhận quà ngày %1").arg(day));
             m_bridge->queueCommand(cmd);
         });
     }
+
+    QMenu *gift = sign->addMenu(QStringLiteral("Quà mốc"));
+    for (const signactivity::GiftBag &g : signactivity::kMilestones) {
+        QAction *act = gift->addAction(QStringLiteral("Mốc %1 ngày").arg(g.label));
+        const QString cmd = signactivity::claimCommand(g);
+        const int days = g.label;
+        connect(act, &QAction::triggered, this, [this, cmd, days] {
+            logEvent(QStringLiteral("Nhận quà mốc %1 ngày").arg(days));
+            m_bridge->queueCommand(cmd);
+        });
+    }
+
+    sign->addSeparator();
+    QAction *all = sign->addAction(QStringLiteral("Nhận hết (ngày + mốc)"));
+    connect(all, &QAction::triggered, this, [this] { claimSignGifts(); });
+}
+
+// Gửi cả 20 gói quà. Không cần biết hôm nay là ngày thứ mấy hay đã nhận tới
+// đâu: gói nào chưa tới lượt hoặc đã nhận rồi thì server tự từ chối.
+void MainWindow::claimSignGifts()
+{
+    logEvent(QStringLiteral("Nhận quà điểm danh"));
+    for (const signactivity::GiftBag &g : signactivity::kDailyGifts) {
+        m_bridge->queueCommand(signactivity::claimCommand(g));
+    }
+    for (const signactivity::GiftBag &g : signactivity::kMilestones) {
+        m_bridge->queueCommand(signactivity::claimCommand(g));
+    }
+    showStatus(QStringLiteral("Đang nhận quà điểm danh…"), 8000);
 }
 
 void MainWindow::buildMagicAction()
@@ -354,6 +364,14 @@ void MainWindow::onGameState(const QString &state)
         QStringLiteral("plotdungeon"),
     };
 
+    // Vào tới sảnh thì nhận quà điểm danh. Chờ 5 giây: gửi ngay lúc trạng thái
+    // đổi thì gói đi trước khi server dựng xong dữ liệu người chơi và bị bỏ qua
+    // lặng lẽ.
+    if (!m_signClaimed && state == QLatin1String("main")) {
+        m_signClaimed = true;
+        QTimer::singleShot(5000, this, [this] { claimSignGifts(); });
+    }
+
     if (!m_rulerAuto || !m_rulerAuto->isChecked()) {
         return;
     }
@@ -453,22 +471,6 @@ void MainWindow::onToolAction(const QString &actionId)
         // vị từ CellMenu dùng để quyết định có hiện nút "Nhiều" hay không.
         m_bridge->queueCommand(QStringLiteral("x:"));
         showStatus(QStringLiteral("Đang mở nhanh…"), 8000);
-        return;
-    }
-
-    if (actionId == QLatin1String("list-bag")) {
-        // Ghi từng ô túi ra %TEMP%\gunny-flash.log. Cần trước khi tự động mở
-        // hộp: phân loại phải dựa trên dữ liệu thật, mở nhầm là mất đồ.
-        m_bridge->queueCommand(QStringLiteral("l:"));
-        showStatus(QStringLiteral("Đang liệt kê túi…"), 4000);
-        return;
-    }
-
-    if (actionId == QLatin1String("list-calendar")) {
-        // calendar.CalendarManager nằm ở module giao diện: phải mở bảng lịch
-        // một lần thì lớp mới có, trước đó lệnh này chỉ báo được lỗi #1065.
-        m_bridge->queueCommand(QStringLiteral("c:"));
-        showStatus(QStringLiteral("Đang đọc bảng lịch…"), 4000);
         return;
     }
 

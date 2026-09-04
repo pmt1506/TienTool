@@ -43,11 +43,13 @@
     // Không gọi thẳng JS -> Flash: qua NPObject thì chập chờn với wmode=direct,
     // lúc thấy callback lúc không, kể cả callback của game gốc. Chiều ngược lại
     // luôn chạy, nên SWF hỏi hàm này 250ms một lần và tự lấy lệnh về.
-    window.__toolCmd = '';
+    // Hàng đợi chứ không phải một ô: một cú bấm có thể xếp cả trăm lệnh (quét
+    // tham số 0→100), và hai cú bấm liền nhau trong 250ms cũng không được nuốt
+    // mất cái trước.
+    window.__toolQueue = [];
     function toolPoll() {
-      var c = window.__toolCmd || '';
-      window.__toolCmd = '';
-      return c;
+      var q = window.__toolQueue || [];
+      return q.length ? String(q.shift()) : '';
     }
 
     // SWF báo kết quả ngược ra; chuyển tiếp về C++ để hiện trên tiêu đề.

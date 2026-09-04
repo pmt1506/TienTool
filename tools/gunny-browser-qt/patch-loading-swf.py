@@ -2,11 +2,15 @@
 
 Cách dùng (cần RABCDAsm — https://github.com/CyberShadow/RABCDAsm/releases):
 
-    abcexport Loading.swf                 # tách 171 khối ABC; ClassUtils nằm ở 15
-    rabcdasm Loading-15.abc
-    python patch-loading-swf.py Loading-15/com/pickgliss/utils/ClassUtils.class.asasm
-    rabcasm Loading-15/Loading-15.main.asasm
-    abcreplace Loading.swf 15 Loading-15/Loading-15.main.abc
+    abcexport Loading.swf                 # tách ~171 khối ABC
+    rabcdasm Loading-<n>.abc
+    python patch-loading-swf.py Loading-<n>/com/pickgliss/utils/ClassUtils.class.asasm
+    rabcasm Loading-<n>/Loading-<n>.main.asasm
+    abcreplace Loading.swf <n> Loading-<n>/Loading-<n>.main.abc
+
+<n> là khối chứa ClassUtils. KHÔNG cố định: server đổi Loading.swf thì số khối
+trượt (bản 2026-09-02 là 15, bản 2026-09-04 là 14). Tìm bằng cách rabcdasm rồi
+xem khối nào đẻ ra com/pickgliss/utils/ClassUtils.class.asasm.
 
 Vì sao không dùng JPEXS: trình biên dịch AS3 của nó dựng lại cả class từ mã nguồn
 và tự nhận là EXPERIMENTAL. Ở đây chỉ thêm trait vào bản disassembly rồi lắp ráp
@@ -23,15 +27,12 @@ cinit chạy trước khi ExternalInterface sẵn sàng.
 Lệnh nhận qua hàng đợi của trang:
     q:<mức>    chất lượng vẽ (high/medium/low)
     s:<kiểu>   kiểu co giãn (showAll/noScale), giữ lại và ép mỗi nhịp
+    p:         dùng nhanh phụ kiện thú & pet
+    x:         mở nhanh hộp trong túi
+    o:<ô>      mở một ô túi
     m:         dọn thư: nhận hết đính kèm rồi xếp túi
     b:         xếp túi vào cả 5 két, mỗi két một gói, giãn ra cho server kịp
-    c:         đọc trạng thái bảng lịch ra log (số ngày điểm danh, mốc quà)
-    t:<o>      do moi thuoc tinh cua mot o tui ra log (debug)
-    d:<n>      gui mot goi diem danh voi getWay = n (5 diem danh, 0 qua ngay,
-               3 goi VIP)
-    k:<n>      gui goi qua moc voi so ngay = n (moc 3/7/15/23/28)
-    z:         do cau truc SocketManager ra log (debug)
-    y:<lop>    do cau truc mot lop bat ky ra log; "x:out" = GameSocketOut (debug)
+    a:<actId>|<giftbagId>|<số món>   nhận một gói quà của hoạt động GM
     còn lại    mở kho ma pháp, tab Kho báu
 """
 import io
@@ -236,59 +237,6 @@ BAG_STEP_BODY = (
 R_OUT2 = 2
 
 
-def send_body(tag, method, with_arg=True):
-    """Thân method: gọi out.<method>(arg) rồi báo ra đã gọi gì.
-
-    Bảy lệnh dưới đây chung một khuôn — lấy `out`, gọi đúng một hàm, in lại tên
-    hàm và tham số — nên sinh chung thay vì chép tay bảy lần.
-
-    `with_arg=False` cho những hàm không nhận tham số; trait vẫn khai kiểu int
-    để mọi lệnh đi chung một đường ở CMD_BODY, chỉ là thân hàm không đụng tới.
-    """
-    call = (local(R_OUT2) + (op("getlocal1") if with_arg else "")
-            + op("callpropvoid", "%s, %d" % (pub(method), 1 if with_arg else 0)))
-    return ("L%sTry:\n" % tag
-            + get_class("ddt.manager.SocketManager") + get_prop("Instance")
-            + get_prop("out") + store(R_OUT2) + "\n"
-            + call
-            + op("pushstring", '"da goi %s%s"' % (method, " " if with_arg else ""))
-            + (op("getlocal1") + op("add") if with_arg else "")
-            + op("returnvalue") + "\n"
-            + "L%sEnd:\n" % tag
-            + "L%sCatch:\n" % tag + catch_prologue() + get_prop("message")
-            + op("coerce_s") + op("setlocal2") + "\n"
-            + op("pushstring", '"loi %s: "' % method) + op("getlocal2") + op("add")
-            + op("returnvalue"))
-
-
-# Nhóm điểm danh: (ký tự lệnh, nhãn try, tên hàm trong game, tên trait, có tham số)
-#
-# Chưa rõ hàm nào là hàm hai nút điểm danh trong game gọi. Bản trước đoán
-# sendDailyAward với ba giá trị 5/0/3, không giá trị nào ăn. Danh mục thật đọc
-# được bằng describeType trên GameSocketOut, nên làm sẵn mỗi hàm một lệnh rồi
-# bấm thử từng cái — đo còn hơn đoán.
-SEND_CMDS = [
-    ("d", "da", "sendDailyAward", "toolDaily", True),
-    ("k", "sg", "sendSignAward", "toolSignAward", True),
-    ("e", "si", "sendSignIn", "toolSignIn", True),
-    ("f", "sd", "sendSignInData", "toolSignInData", False),
-    ("g", "od", "sendOpenDailyView", "toolOpenDailyView", False),
-    ("h", "al", "sendAccumulativeLoginAward", "toolAccLogin", True),
-    ("i", "dr", "sendDailyRecord", "toolDailyRecord", False),
-]
-
-# Chuỗi nhánh rẽ cho CMD_BODY: nhánh cuối rơi về nhánh mặc định LcMagic.
-SEND_BRANCHES = "".join(
-    "LcSend%d:\n" % i
-    + op("getlocal3") + op("pushstring", '"%s:"' % cmd)
-    + op("ifne", "LcMagic" if i == len(SEND_CMDS) - 1 else "LcSend%d" % (i + 1)) + "\n"
-    + report(CLS + op("getlocal2") + op("pushbyte", "2")
-             + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
-             + op("callproperty", "%s, 1" % pub(trait)))
-    + op("jump", "LcEnd") + "\n"
-    for i, (cmd, _tag, _method, trait, _arg) in enumerate(SEND_CMDS))
-
-
 # Điểm danh: đợi 5 giây kể từ lúc vào sảnh rồi mới gửi. Gửi ngay lúc state đổi
 # thì gói đi trước khi server dựng xong dữ liệu người chơi và bị bỏ qua lặng lẽ.
 # Hỏi hàng đợi lệnh của trang 250ms một lần.
@@ -320,46 +268,24 @@ CMD_BODY = (
              + op("callproperty", "%s, 1" % pub("toolOpenBatch")))
     + op("jump", "LcEnd") + "\n"
     + "LcNotOpen:\n"
-    + op("getlocal3") + op("pushstring", '"o:"') + op("ifne", "LcNotList") + "\n"
+    + op("getlocal3") + op("pushstring", '"o:"') + op("ifne", "LcNotMail") + "\n"
     + report(CLS + op("getlocal2") + op("pushbyte", "2")
              + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
              + op("callproperty", "%s, 1" % pub("toolOpenSlot")))
-    + op("jump", "LcEnd") + "\n"
-    + "LcNotList:\n"
-    + op("getlocal3") + op("pushstring", '"l:"') + op("ifne", "LcNotMail") + "\n"
-    + report(CLS + op("pushbyte", "0")
-             + op("callproperty", "%s, 1" % pub("toolBagList")))
     + op("jump", "LcEnd") + "\n"
     + "LcNotMail:\n"
       + op("getlocal3") + op("pushstring", '"m:"') + op("ifne", "LcNotBag") + "\n"
     + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolMailStep"))
     + op("jump", "LcEnd") + "\n"
     + "LcNotBag:\n"
-    + op("getlocal3") + op("pushstring", '"b:"') + op("ifne", "LcNotCal") + "\n"
+    + op("getlocal3") + op("pushstring", '"b:"') + op("ifne", "LcNotClaim") + "\n"
     + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolBagStep"))
     + op("jump", "LcEnd") + "\n"
-    + "LcNotCal:\n"
-    + op("getlocal3") + op("pushstring", '"c:"') + op("ifne", "LcNotInfo") + "\n"
-    + report(CLS + op("pushbyte", "0")
-             + op("callproperty", "%s, 1" % pub("toolCalendar")))
-    + op("jump", "LcEnd") + "\n"
-    + "LcNotInfo:\n"
-    + op("getlocal3") + op("pushstring", '"t:"') + op("ifne", "LcSend0") + "\n"
-    + report(CLS + op("getlocal2") + op("pushbyte", "2")
-             + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
-             + op("callproperty", "%s, 1" % pub("toolSlotInfo")))
-    + op("jump", "LcEnd") + "\n"
-    + SEND_BRANCHES
-    + "LcNotSock:\n"
-    + op("getlocal3") + op("pushstring", '"z:"') + op("ifne", "LcNotClass") + "\n"
-    + report(CLS + op("pushbyte", "0")
-             + op("callproperty", "%s, 1" % pub("toolSocketInfo")))
-    + op("jump", "LcEnd") + "\n"
-    + "LcNotClass:\n"
-    + op("getlocal3") + op("pushstring", '"y:"') + op("ifne", "LcMagic") + "\n"
+    + "LcNotClaim:\n"
+    + op("getlocal3") + op("pushstring", '"a:"') + op("ifne", "LcMagic") + "\n"
     + report(CLS + op("getlocal2") + op("pushbyte", "2")
              + op("callproperty", "%s, 1" % pub("substr"))
-             + op("callproperty", "%s, 1" % pub("toolClassInfo")))
+             + op("callproperty", "%s, 1" % pub("toolClaimGift")))
     + op("jump", "LcEnd") + "\n"
     + "LcMagic:\n"
     + CLS + op("pushbyte", "1")
@@ -591,95 +517,71 @@ MAIL_STEP_BODY = (
 
 
 
-# ------------------------------------------------------------- toolClassInfo
+# ------------------------------------------------------------ toolClaimGift
 
-# Do cau truc CUA MOT LOP BAT KY, ten truyen vao luc chay.
+# Nhan qua cua hoat dong GM, dung y het cach nut trong game lam.
 #
-# Thay cho viec doan gia tri goi tin. describeType tren GameSocketOut liet ke
-# du moi ham gui kem so tham so — doc danh sach do roi goi thang ham can dung,
-# khong phai mo tung con so mot.
+# Doc duoc tu ma goc: ma loi cua game giau duoi dang .png (CodeLoader.loadPNG,
+# DDT_CLASS_PATH = "DDT_Core"), tep that la http://res1.gnddt.com/flash/2.png —
+# SWF nen CWS, chi doi duoi. Trong do,
+# signActivity.view.SignActivityItem lam dung the nay khi bam nut nhan:
 #
-# Ten dac biet "out" tro toi SocketManager.Instance.out: khong lay duoc doi
-# tuong do bang getDefinitionByName vi no la thuoc tinh, khong phai lop.
-CLASS_INFO_BODY = (
-    "LciTry:" + "\n"
-    + op("getlocal1") + op("pushstring", '"out"') + op("ifne", "LciByName") + "\n"
+#   var info:SendGiftInfo = new SendGiftInfo();
+#   info.activityId = SignActivityMgr.instance.model.actId;
+#   var ids:Array = [];
+#   for (var i:int = 0; i < giftInfo.giftRewardArr.length; i++)
+#       ids[i] = giftInfo.giftbagId;
+#   info.giftIdArr = ids;
+#   var vec:Vector.<SendGiftInfo> = new Vector.<SendGiftInfo>();
+#   vec.push(info);
+#   SocketManager.Instance.out.sendWonderfulActivityGetReward(vec);
+#
+# Hai cho de bi lua: describeType bao sendWonderfulActivityGetReward khong co
+# tham so (that ra la ...rest, nen khong hien), va giftIdArr khong phai danh
+# sach nhieu goi — no lap CUNG MOT giftbagId, so lan bang so mon trong goi.
+#
+# Tham so vao dang "activityId|giftbagId|soMon".
+#
+# Cac lop deu phai lay bang getDefinitionByName: chung nam o module giao dien,
+# getlex thang se ra Error #1065.
+R_CG_P, R_CG_INFO, R_CG_ARR, R_CG_I, R_CG_VEC = 2, 3, 4, 5, 6
+
+CLAIM_GIFT_BODY = (
+    "LcgTry:\n"
+    + op("getlocal1") + op("pushstring", '"|"')
+    + op("callproperty", "%s, 1" % pub("split")) + store(R_CG_P) + "\n"
+    + get_class("wonderfulActivity.data.SendGiftInfo") + op("construct", "0")
+    + store(R_CG_INFO) + "\n"
+    + local(R_CG_INFO)
+    + local(R_CG_P) + op("pushbyte", "0") + op("getproperty", KEY)
+    + op("setproperty", pub("activityId")) + "\n"
+    + op("newarray", "0") + store(R_CG_ARR)
+    + op("pushbyte", "0") + store(R_CG_I) + "\n"
+    + "LcgLoop:\n"
+    + local(R_CG_I)
+    + local(R_CG_P) + op("pushbyte", "2") + op("getproperty", KEY) + op("convert_i")
+    + op("ifge", "LcgDone") + "\n"
+    + local(R_CG_ARR) + local(R_CG_I)
+    + local(R_CG_P) + op("pushbyte", "1") + op("getproperty", KEY)
+    + op("setproperty", KEY) + "\n"
+    + local(R_CG_I) + op("pushbyte", "1") + op("add") + op("convert_i")
+    + store(R_CG_I) + op("jump", "LcgLoop") + "\n"
+    + "LcgDone:\n"
+    + local(R_CG_INFO) + local(R_CG_ARR) + op("setproperty", pub("giftIdArr")) + "\n"
+    + get_class("__AS3__.vec.Vector")
+    + get_class("wonderfulActivity.data.SendGiftInfo")
+    + op("applytype", "1") + op("construct", "0") + store(R_CG_VEC) + "\n"
+    + local(R_CG_VEC) + local(R_CG_INFO)
+    + op("callpropvoid", "%s, 1" % pub("push")) + "\n"
     + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
-    + store(R_ITEM) + op("jump", "LciDo") + "\n"
-    + "LciByName:" + "\n"
-    + op("getlex", 'QName(PackageNamespace("flash.utils"), "getDefinitionByName")') + op("getglobalscope") + op("getlocal1") + op("call", "1")
-    + store(R_ITEM) + "\n"
-    + "LciDo:" + "\n"
-    + op("getlex", 'QName(PackageNamespace("flash.utils"), "describeType")') + op("getglobalscope") + local(R_ITEM) + op("call", "1")
-    + op("callproperty", "%s, 0" % pub("toXMLString")) + op("coerce_s")
+    + local(R_CG_VEC)
+    + op("callpropvoid", "%s, 1" % pub("sendWonderfulActivityGetReward")) + "\n"
+    + op("pushstring", '"da gui nhan qua "') + op("getlocal1") + op("add")
     + op("returnvalue") + "\n"
-    + "LciEnd:" + "\n"
-    + "LciCatch:" + catch_prologue() + get_prop("message") + op("coerce_s")
-    + store(R_KEY) + "\n"
-    + op("pushstring", '"do lop loi: "') + local(R_KEY) + op("add")
-    + op("returnvalue"))
-
-
-# ------------------------------------------------------------ toolSocketInfo
-
-# Do cau truc SocketManager.Instance va cua doi tuong `out` no giu.
-#
-# Muc dich: xem co thay duoc `out` bang mot lop ghi log hay khong. AS3 khong
-# sua duoc phuong thuc cua lop sealed luc chay, nen chi con cach thay ca doi
-# tuong — va chi lam duoc neu `out` ghi duoc. describeType noi ro:
-# <variable name="out"> hoac accessor access="readwrite" thi duoc, "readonly"
-# thi chiu.
-SOCKET_INFO_BODY = (
-    "LsoTry:" + "\n"
-    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + store(R_ITEM)
-    + local(R_ITEM) + op("iffalse", "LsoEmpty") + "\n"
-    + op("getlex", 'QName(PackageNamespace("flash.utils"), "describeType")')
-    + op("getglobalscope") + local(R_ITEM) + op("call", "1")
-    + op("callproperty", "%s, 0" % pub("toXMLString")) + op("coerce_s")
-    + op("returnvalue") + "\n"
-    + "LsoEmpty:" + "\n"
-    + ret("khong lay duoc SocketManager.Instance") + "\n"
-    + "LsoEnd:" + "\n"
-    + "LsoCatch:" + catch_prologue() + get_prop("message") + op("coerce_s")
-    + store(R_KEY) + "\n"
-    + op("pushstring", '"do socket loi: "') + local(R_KEY) + op("add")
-    + op("returnvalue"))
-
-
-
-# --------------------------------------------------------------- toolCalendar
-
-# Đọc trạng thái bảng lịch.
-#
-# calendar.CalendarManager chỉ hiện ra sau khi người chơi mở bảng lịch một lần —
-# nó nằm ở module giao diện, không phải lõi. Gọi sớm thì #1065, khối try bắt lại
-# và báo ra, không làm chết vòng nhịp.
-#
-# Không đọc `model`: nó chỉ tồn tại trong lúc khung lịch đang mở, đóng khung là
-# thành null (CalendarControl.__frameDispose). Ba thứ dưới đây sống lâu hơn:
-# hasTodaySigned() đọc dayLog do lần tải HTTP gần nhất để lại, còn dailyAwardState
-# và Self.Sign là cờ của phiên.
-R_CAL, R_SELF3 = 2, 3
-
-CALENDAR_BODY = (
-    "LclTry:\n"
-    + get_class("calendar.CalendarManager")
-    + op("callproperty", "%s, 0" % pub("getInstance")) + store(R_CAL) + "\n"
-    + get_class("ddt.manager.PlayerManager") + get_prop("Instance") + get_prop("Self")
-    + store(R_SELF3) + "\n"
-    + op("pushstring", '"lich: homNayDaDiemDanh="')
-    + local(R_CAL) + op("callproperty", "%s, 0" % pub("hasTodaySigned")) + op("add")
-    + op("pushstring", '" conQuaNgay="') + op("add")
-    + local(R_CAL) + get_prop("dailyAwardState") + op("add")
-    + op("pushstring", '" coSign="') + op("add")
-    + local(R_SELF3) + get_prop("Sign") + op("add")
-    + op("pushstring", '" conGoiVIP="') + op("add")
-    + local(R_SELF3) + get_prop("canTakeVipReward") + op("add")
-    + op("returnvalue") + "\n"
-    + "LclEnd:\n"
-    + "LclCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
-    + op("setlocal2") + "\n"
-    + op("pushstring", '"lich loi: "') + op("getlocal2") + op("add")
+    + "LcgEnd:\n"
+    + "LcgCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_CG_P) + "\n"
+    + op("pushstring", '"loi nhan qua: "') + local(R_CG_P) + op("add")
     + op("returnvalue"))
 
 
@@ -739,44 +641,6 @@ MAIL_BODY = (
     + op("returnvalue"))
 
 
-# ---------------------------------------------------------------- toolBagList
-
-# Ghi ra từng ô túi: số ô, TemplateID, CategoryID, Property1, Property3, số
-# lượng. Dùng để phân loại hộp bằng dữ liệu thật trước khi gửi lệnh mở nào.
-#
-# Rương chọn item nhận ra bằng CategoryID 11 kèm Property1 66 — đó là nhánh mở
-# RewardSelectBox trong BagView.__cellOpen.
-LIST_BODY = (
-    "LlTry:\n"
-    + get_class("ddt.manager.PlayerManager") + get_prop("Instance") + get_prop("Self")
-    + op("pushbyte", "1") + op("callproperty", "%s, 1" % pub("getBag"))
-    + store(R_BANK) + "\n"
-    + op("pushbyte", "0") + store(R_I) + "\n"
-    + "Ll1:\n"
-    + local(R_I) + op("pushbyte", "60") + op("ifge", "Ll1End") + "\n"
-    + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
-    + store(R_ITEM)
-    + local(R_ITEM) + op("iffalse", "Ll1Next") + "\n"
-    + report(op("pushstring", '"o "') + local(R_I) + op("add")
-             + op("pushstring", '" tpl="') + op("add")
-             + local(R_ITEM) + get_prop("TemplateID") + op("add")
-             + op("pushstring", '" cat="') + op("add")
-             + local(R_ITEM) + get_prop("CategoryID") + op("add")
-             + op("pushstring", '" p1="') + op("add")
-             + local(R_ITEM) + get_prop("Property1") + op("add")
-             + op("pushstring", '" p3="') + op("add")
-             + local(R_ITEM) + get_prop("Property3") + op("add")
-             + op("pushstring", '" x"') + op("add")
-             + local(R_ITEM) + get_prop("Count") + op("add"))
-    + "Ll1Next:\n"
-    + local(R_I) + op("increment_i") + store(R_I) + op("jump", "Ll1") + "\n"
-    + "Ll1End:\n"
-    + ret("liet ke tui xong") + "\n"
-    + "LlEnd:\n"
-    + "LlCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
-    + store(R_KEY) + "\n"
-    + op("pushstring", '"liet ke tui loi: "') + local(R_KEY) + op("add")
-    + op("returnvalue"))
 # --------------------------------------------------- mở hộp: phần dùng chung
 
 # Không có một lệnh mở chung. Cả BagView.__cellOpen lẫn hàm bấm "Đồng ý" của
@@ -909,46 +773,6 @@ OPEN_SLOT_BODY = (
     + store(R_KEY) + "\n"
     + op("pushstring", '"mo o loi: "') + local(R_KEY) + op("add")
     + op("returnvalue"))
-
-# -------------------------------------------------------------- toolSlotInfo
-
-# Do toan bo thuoc tinh cua mot o tui bang describeType.
-#
-# Bang liet ke tui chi in vai truong da biet ten (TemplateID, CategoryID,
-# Property1..4, Count). Muon biet mon do co dang khoa hay khong thi phai biet
-# ten truong giu trang thai do, ma ten do khong doan duoc — moi ban game dat
-# mot kieu. describeType tra ve XML liet ke MOI truong cua doi tuong, nen mot
-# lan chay la co du danh sach ten, khoi doan tung cai mot roi build lai.
-# Cac truong nghi la giu trang thai khoa, lay tu ban describeType cua
-# InventoryItemInfo. In het mot luot roi so mon khoa voi mon khong khoa, truong
-# nao doi gia tri thi do la truong that.
-LOCK_FIELDS = ["TemplateID", "lockType", "goodsLock", "cellLocked", "lock",
-               "IsBinds", "BindType", "IsJudge", "isInvalid", "CanUse"]
-
-SLOT_INFO_BODY = (
-    "LsiTry:" + "\n"
-    + bag_and_out()
-    + op("getlocal1") + store(R_I)
-    + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
-    + store(R_ITEM)
-    + local(R_ITEM) + op("iffalse", "LsiEmpty") + "\n"
-    # describeType chi liet ke TEN truong, hai mon khac trang thai van ra chuoi
-    # y het nhau. Nen doc thang GIA TRI cua cac truong nghi la giu trang thai
-    # khoa — ten lay tu chinh ban describeType nen chac chan ton tai, khong so
-    # Error #1069.
-    + op("pushstring", '"o "') + local(R_I) + op("add")
-    + "".join(op("pushstring", '" %s="' % f) + op("add")
-              + local(R_ITEM) + get_prop(f) + op("add")
-              for f in LOCK_FIELDS)
-    + op("coerce_s") + op("returnvalue") + "\n"
-    + "LsiEmpty:" + "\n"
-    + ret("o trong") + "\n"
-    + "LsiEnd:" + "\n"
-    + "LsiCatch:" + catch_prologue() + get_prop("message") + op("coerce_s")
-    + store(R_KEY) + "\n"
-    + op("pushstring", '"do o loi: "') + local(R_KEY) + op("add")
-    + op("returnvalue"))
-
 
 # Property1 bi loai khoi "Mo nhanh":
 #   21 = the bai (6 nuoc kinh nghiem...). "Mo" no la dung the, mat ca chong.
@@ -1258,14 +1082,8 @@ TRAITS = (
     + method("toolOpenMagicHouse", pub("int"), OPEN_BODY, try_block("o"))
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
     + method("toolMail", pub("int"), MAIL_BODY, try_block("m"))
-    + method("toolCalendar", pub("int"), CALENDAR_BODY, try_block("cl"))
-    + "".join(method(trait, pub("int"), send_body(tag, m, arg), try_block(tag))
-              for _cmd, tag, m, trait, arg in SEND_CMDS)
-    + method("toolBagList", pub("int"), LIST_BODY, try_block("l"))
+    + method("toolClaimGift", pub("String"), CLAIM_GIFT_BODY, try_block("cg"))
     + method("toolOpenSlot", pub("int"), OPEN_SLOT_BODY, try_block("oq"))
-    + method("toolSlotInfo", pub("int"), SLOT_INFO_BODY, try_block("si"))
-    + method("toolSocketInfo", pub("int"), SOCKET_INFO_BODY, try_block("so"))
-    + method("toolClassInfo", pub("String"), CLASS_INFO_BODY, try_block("ci"))
     + method("toolOpenBatch", pub("int"), OPEN_BATCH_BODY, try_block("ob"))
     + method("toolPet", pub("int"), PET_BODY, try_block("pt"))
     + method("toolMenuPick", pub("Object"), PICK_BODY, try_block("mp"))

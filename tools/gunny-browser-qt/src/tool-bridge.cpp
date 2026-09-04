@@ -35,7 +35,11 @@ void ToolBridge::queueCommand(const QString &command)
     QString escaped = command;
     escaped.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
     escaped.replace(QLatin1Char('\''), QLatin1String("\\'"));
-    m_frame->evaluateJavaScript(QStringLiteral("window.__toolCmd='%1';").arg(escaped));
+    // Đẩy vào hàng đợi: một lần quét tham số xếp cả trăm lệnh, ghi đè một ô
+    // như trước thì chỉ lệnh cuối sống sót.
+    m_frame->evaluateJavaScript(
+        QStringLiteral("(window.__toolQueue=window.__toolQueue||[]).push('%1');")
+            .arg(escaped));
 }
 
 QString ToolBridge::probeCallbacks()
