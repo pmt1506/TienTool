@@ -68,6 +68,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onShowDialog: (callback) => ipcRenderer.on('auto:show-dialog', (_event, data) => callback(data)),
   sendDialogResponse: (channel) => ipcRenderer.send(channel),
   onAppLog: (callback) => ipcRenderer.on('app:log', (_event, msg) => callback(msg)),
+  // Ghi lại thao tác người dùng vào cùng bảng log với log tiến trình chính.
+  logAction: (msg) => ipcRenderer.send('app:user-log', msg),
 
   // Webshop
   openWebshop: (token) => ipcRenderer.invoke('open-webshop', token),

@@ -47,6 +47,13 @@ autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 log.info('App starting...');
 
+// Bộ ghi riêng cho bảng log: chỉ ghi ra tệp, KHÔNG ghi ra console. console.log
+// đã bị vá để đẩy log sang cửa sổ log, nên nếu bộ ghi này còn transport console
+// thì mỗi dòng log sẽ tự gọi lại chính nó và lặp vô hạn.
+const uiLog = log.create({ logId: 'ui' });
+uiLog.transports.console.level = false;
+uiLog.transports.file.fileName = 'tientool-ui.log';
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
@@ -78,13 +85,17 @@ const originalLog = console.log;
 const originalError = console.error;
 
 function sendLogToWindow(level, args) {
+  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  // Giờ đứng trước để đọc bảng log theo thứ tự thời gian; nhãn mức độ vẫn nằm
+  // trong chuỗi để cửa sổ log tô màu theo nó.
+  const line = `[${new Date().toLocaleTimeString('vi-VN', { hour12: false })}] [${level}] ${msg}`;
+  uiLog.info(line);
+
   if (mainWindow && !mainWindow.isDestroyed()) {
-    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    mainWindow.webContents.send('app:log', `[${level}] ${msg}`);
+    mainWindow.webContents.send('app:log', line);
   }
   if (logWindow && !logWindow.isDestroyed()) {
-    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    logWindow.webContents.send('app:log', `[${level}] ${msg}`);
+    logWindow.webContents.send('app:log', line);
   }
 }
 
@@ -97,6 +108,12 @@ console.error = (...args) => {
   originalError(...args);
   sendLogToWindow('ERROR', args);
 };
+
+// Thao tác người dùng bấm ở giao diện đi qua kênh riêng để cửa sổ log ghi lại
+// cùng một dòng thời gian với log của tiến trình chính.
+ipcMain.on('app:user-log', (_event, msg) => {
+  sendLogToWindow('ACTION', [String(msg)]);
+});
 
 async function ensureDbConnected() {
   try {
@@ -190,7 +207,21 @@ const createWindow = () => {
     }
   });
 
-  autoUpdater.checkForUpdatesAndNotify();
+  // Bản chạy từ mã nguồn (npm start / npm run dev) không có kênh phát hành nên
+  // gọi updater chỉ tổ báo lỗi. Đặt TIENTOOL_DISABLE_UPDATE=1 để tắt cả ở bản
+  // đã đóng gói khi muốn chạy thử bản dev.
+  const isDevBuild = !app.isPackaged || process.env.TIENTOOL_DISABLE_UPDATE === '1';
+  if (isDevBuild) {
+    console.log('[App] Bỏ qua kiểm tra cập nhật (bản dev)');
+  } else {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+
+  // Bản dev mở sẵn bảng log để theo dõi thao tác ngay từ lúc khởi động.
+  if (isDevBuild) {
+    openLogWindow();
+    mainWindow.focus();
+  }
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -218,7 +249,7 @@ ipcMain.handle('update:install', () => {
   autoUpdater.quitAndInstall();
 });
 
-ipcMain.handle('window:open-log', () => {
+function openLogWindow() {
   if (logWindow) {
     if (logWindow.isMinimized()) logWindow.restore();
     logWindow.focus();
@@ -250,6 +281,10 @@ ipcMain.handle('window:open-log', () => {
   logWindow.on('closed', () => {
     logWindow = null;
   });
+}
+
+ipcMain.handle('window:open-log', () => {
+  openLogWindow();
 });
 
 // Auth

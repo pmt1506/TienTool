@@ -2,8 +2,12 @@
 // QLTK — TienTool  |  Renderer Process
 // ═══════════════════════════════════════════════════════════════
 import { createIcons, icons } from 'lucide';
+import { initActionLogger } from './ui-action-logger.js';
 
 const api = window.electronAPI;
+
+// Mọi nút bấm / lựa chọn được ghi vào cửa sổ Application Logs.
+initActionLogger(api);
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 // ── State ──────────────────────────────────────────────────────

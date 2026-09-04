@@ -41,10 +41,13 @@ document.getElementById('btn-close-log').addEventListener('click', () => {
 api.onAppLog((msg) => {
   const line = document.createElement('div');
   line.textContent = msg;
-  if (msg.startsWith('[ERROR]')) {
+  // Dòng log có dạng "[HH:MM:SS] [LEVEL] nội dung" nên dò nhãn ở giữa chuỗi.
+  if (msg.includes('[ERROR]')) {
     line.className = 'text-red-400';
-  } else if (msg.startsWith('[WARN]')) {
+  } else if (msg.includes('[WARN]')) {
     line.className = 'text-yellow-400';
+  } else if (msg.includes('[ACTION]')) {
+    line.className = 'text-brand-400';
   } else {
     line.className = 'text-gray-300';
   }
