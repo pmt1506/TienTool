@@ -100,3 +100,10 @@ download.png
 
 # Qt shell build output
 tools/gunny-browser-qt/build/
+# RABCDAsm (giai nen tu ban tai ve, khong commit binary)
+tools/rabcdasm/
+
+# Thu muc tam cua chuoi va SWF (abcexport/rabcdasm)
+tools/gunny-browser-qt/work*/
+__pycache__/
+.tokensave/
