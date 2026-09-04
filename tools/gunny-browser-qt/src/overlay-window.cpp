@@ -1,8 +1,6 @@
 #include "overlay-window.h"
 
 #include <QEvent>
-#include <QFont>
-#include <QFontMetrics>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
@@ -17,17 +15,34 @@ const int kRows = 7;
 const int kRulerRow = 5;
 const int kRulerCol = 6;
 
-// Chiều dài vạch, tính từ trục thước ra mỗi bên. Chỉ còn vạch 1 và 0.5: mốc
-// 0.25 chia quá dày, nhìn rối hơn là giúp ngắm.
-const double kTickFull = 9.0;
-const double kTickHalf = 6.0;
+// Thước là hai đường chấm pixel vuông góc, không phải lưới: chỉ hai đường và
+// các mốc chia, không nối mốc thành ô, không đánh số.
+//
+// Vẽ thủ công từng chấm chứ không dùng Qt::DotLine: kiểu nét của Qt co giãn
+// theo bề dày và bị làm mượt, ra chấm xám nhoè. Ở đây cần cạnh sắc, đúng pixel.
 
-const QColor kShadow(0, 0, 0, 160);
-// Vạch tròn chẵn đỏ đậm và dày hơn hẳn để đếm nhanh; trục và vạch 0.5 màu chàm
-// (tím ngả xanh nước biển) nên không tranh chỗ với vạch đỏ.
-const QColor kWhole(190, 25, 25, 245);
-const QColor kInk(72, 61, 205, 235);
-const double kWholeWidth = 2.6;
+// Mỗi khoảng nguyên chia thành 10 mốc 0.1.
+const int kSub = 10;
+
+// Nới khoảng toạ độ thật, không phóng to ảnh: mỗi khoảng ngang dài thêm 1px,
+// mỗi khoảng dọc thêm 2px. Thước do đó dài hơn khung game một chút.
+const double kExtraX = 1.0;
+const double kExtraY = 2.0;
+
+// Mọi mốc dài bằng nhau, chỉ khác bề ngang và màu — đọc thước bằng màu và độ
+// dày chứ không bằng chiều dài, nên nhìn gọn hơn hẳn kiểu vạch so le.
+//
+// Mốc vẽ vuông góc với đường thước: thước ngang thì vạch dựng đứng, thước dọc
+// thì vạch nằm ngang. Cùng chiều với đường thước thì chúng nối vào nhau thành
+// một vệt liền, không còn đếm được mốc.
+const int kMarkLen = 5;      // chiều dài mốc thường
+const int kMarkCenter = 7;   // mốc giữa dài thêm, bề ngang giữ nguyên
+const int kThinSub = 1;    // bề ngang mốc 0.1
+const int kThinWhole = 3;  // bề ngang mốc nguyên
+
+const QColor kWhole(255, 0, 0, 255);       // mốc nguyên
+const QColor kCenter(0, 230, 0, 255);      // mốc giữa thước ngang
+const QColor kSubColor(0, 0, 255, 230);    // mốc 0.1
 
 }  // namespace
 
@@ -112,72 +127,57 @@ bool OverlayWindow::eventFilter(QObject *watched, QEvent *event)
 
 void OverlayWindow::paintRuler(QPainter &p)
 {
-    const double w = width();
-    const double h = height();
-    const double unitX = w / kCols;   // một khoảng cách theo chiều ngang
-    const double unitY = h / kRows;   // một khoảng cách theo chiều dọc
-    const double axisY = unitY * kRulerRow;
-    const double axisX = unitX * kRulerCol;
-
-    QFont f = p.font();
-    f.setPixelSize(10);
-    f.setWeight(QFont::Black);
-    p.setFont(f);
-    const QFontMetrics fm(f);
-
-    // Vẽ hai lượt: nét đen dày bên dưới rồi nét sáng mảnh bên trên, để thước đọc
-    // được cả trên nền trời sáng lẫn nền đất tối.
-    for (int pass = 0; pass < 2; ++pass) {
-        const bool shadow = pass == 0;
-        p.setPen(QPen(shadow ? kShadow : kInk, shadow ? 3.0 : 1.0));
-
-        p.drawLine(QPointF(0, axisY), QPointF(w, axisY));
-        p.drawLine(QPointF(axisX, 0), QPointF(axisX, h));
-
-        // Vạch trên thước ngang: bước nửa khoảng, vạch nguyên dài và dày hơn.
-        for (int q = 0; q <= kCols * 2; ++q) {
-            const bool whole = q % 2 == 0;
-            const double x = unitX * q / 2.0;
-            const double len = whole ? kTickFull : kTickHalf;
-            // Vạch đỏ dày lên thì viền đen phải dày theo, không thì mất viền.
-            p.setPen(shadow ? QPen(kShadow, whole ? kWholeWidth + 1.8 : 2.4)
-                            : QPen(whole ? kWhole : kInk, whole ? kWholeWidth : 1.0));
-            p.drawLine(QPointF(x, axisY - len), QPointF(x, axisY + len));
-        }
-        // Vạch trên thước dọc.
-        for (int q = 0; q <= kRows * 2; ++q) {
-            const bool whole = q % 2 == 0;
-            const double y = unitY * q / 2.0;
-            const double len = whole ? kTickFull : kTickHalf;
-            // Vạch đỏ dày lên thì viền đen phải dày theo, không thì mất viền.
-            p.setPen(shadow ? QPen(kShadow, whole ? kWholeWidth + 1.8 : 2.4)
-                            : QPen(whole ? kWhole : kInk, whole ? kWholeWidth : 1.0));
-            p.drawLine(QPointF(axisX - len, y), QPointF(axisX + len, y));
-        }
+    // Hình thước không đổi theo thời gian, chỉ theo kích thước cửa sổ. Vẽ một
+    // lần vào ảnh nhớ rồi dán lại: mỗi lần cửa sổ cần vẽ lại mà dựng 172 ô
+    // vuông là phí, nhất là khi lớp phủ nằm trên game đang chạy.
+    if (m_rulerCache.size() != size()) {
+        m_rulerCache = QPixmap(size());
+        m_rulerCache.fill(Qt::transparent);
+        QPainter rp(&m_rulerCache);
+        drawRuler(rp);
     }
+    p.drawPixmap(0, 0, m_rulerCache);
+}
 
-    // Đánh số các vạch nguyên. Đếm từ mép trái và mép trên, cùng hệ quy chiếu với
-    // cách mô tả vị trí thước (khoảng thứ 5 từ trên, thứ 6 từ trái).
-    auto label = [&](const QPointF &at, const QString &text) {
-        p.setPen(kShadow);
-        p.drawText(at + QPointF(1, 1), text);
-        p.setPen(kWhole);
-        p.drawText(at, text);
+void OverlayWindow::drawRuler(QPainter &p)
+{
+    // Không làm mượt: thước cần cạnh sắc từng pixel, bật lên là chấm nhỏ thành
+    // vệt xám mờ.
+    p.setRenderHint(QPainter::Antialiasing, false);
+
+    // Khoảng toạ độ = khung chia đều, cộng thêm phần nới. Cộng vào ĐƠN VỊ chứ
+    // không nhân cả thước, nên mốc thứ n dịch đi n lần phần nới.
+    const double unitX = double(width()) / kCols + kExtraX;
+    const double unitY = double(height()) / kRows + kExtraY;
+    const int axisY = qRound(unitY * kRulerRow);
+    const int axisX = qRound(unitX * kRulerCol);
+
+    p.setPen(Qt::NoPen);
+
+    // Vẽ một mốc: hình chữ nhật w×h, tâm đặt đúng vào (x, y).
+    auto mark = [&p](int x, int y, int w, int h, const QColor &c) {
+        p.setBrush(c);
+        p.drawRect(QRect(x - w / 2, y - h / 2, w, h));
     };
 
-    for (int i = 1; i < kCols; ++i) {
-        const QString text = QString::number(i);
-        // Trừ nửa bề rộng chữ số để số nằm giữa vạch. Lấy thẳng toạ độ vạch làm
-        // mép trái thì số lệch sang phải đúng nửa bề rộng đó.
-        label(QPointF(unitX * i - fm.width(text) / 2.0,
-                      axisY + kTickFull + fm.ascent() + 1),
-              text);
+    // Thước ngang: 10 khoảng, mỗi khoảng 10 mốc con, vạch dựng đứng. Mốc giữa
+    // (đúng 50% chiều dài) tô xanh lá để nhận ra tâm ngay.
+    const int mid = kCols * kSub / 2;
+    for (int i = 0; i <= kCols * kSub; ++i) {
+        const bool whole = i % kSub == 0;
+        // Mốc giữa chỉ dài thêm theo chiều dọc; nới cả bề ngang thì nó thành
+        // cục vuông, không còn là vạch.
+        mark(qRound(unitX * i / kSub), axisY,
+             whole ? kThinWhole : kThinSub,
+             i == mid ? kMarkCenter : kMarkLen,
+             i == mid ? kCenter : (whole ? kWhole : kSubColor));
     }
-    for (int j = 1; j < kRows; ++j) {
-        const QString text = QString::number(j);
-        label(QPointF(axisX + kTickFull + 4,
-                      unitY * j + (fm.ascent() - fm.descent()) / 2.0),
-              text);
+    // Thước dọc: 7 khoảng, vạch nằm ngang.
+    for (int i = 0; i <= kRows * kSub; ++i) {
+        const bool whole = i % kSub == 0;
+        mark(axisX, qRound(unitY * i / kSub),
+             kMarkLen, whole ? kThinWhole : kThinSub,
+             whole ? kWhole : kSubColor);
     }
 }
 

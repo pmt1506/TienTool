@@ -2,6 +2,7 @@
 
 #include <QPointF>
 #include <QVector>
+#include <QPixmap>
 #include <QWidget>
 
 // Lớp vẽ trong suốt nằm đè lên khung game.
@@ -48,8 +49,12 @@ private:
     // Hiện nếu có thứ để vẽ, ẩn nếu không.
     void refreshVisibility();
     void paintRuler(QPainter &p);
+    void drawRuler(QPainter &p);
 
     QWidget *m_target;
     QVector<QPointF> m_points;
+    // Thước vẽ sẵn một lần rồi dán lại: hình nó cố định, chỉ đổi khi cửa sổ
+    // đổi kích thước. Vẽ lại 172 ô vuông mỗi lần cửa sổ cần repaint là phí.
+    QPixmap m_rulerCache;
     bool m_ruler = false;
 };
