@@ -1,5 +1,7 @@
 #pragma once
 
+#include "sign-activity-gifts.h"
+
 #include <QAction>
 #include <QMainWindow>
 #include <QString>
@@ -43,8 +45,10 @@ private:
     // Bật/tắt thước theo trạng thái game do bản vá SWF báo ra.
     void onGameState(const QString &state);
     void buildMagicAction();
-    void buildSignMenu();
+    void setupSignClaim();
     void claimSignGifts();
+    void onSignGiftsLoaded(const QString &error);
+    void onSignStatus(const QString &line);
     void buildGraphicsMenu();
     void buildFlashMenu(QMenu *parent);
     // Đọc lựa chọn đã lưu và chuyển cho khung xem, dùng cho lần nạp đầu tiên.
@@ -73,4 +77,9 @@ private:
     // Chỉ tự nhận quà một lần mỗi phiên: vào lại sảnh sau mỗi trận đấu thì
     // trạng thái "main" lặp lại liên tục.
     bool m_signClaimed = false;
+    // Đã tới sảnh nhưng bảng quà chưa tải xong.
+    bool m_signPending = false;
+    signactivity::Loader *m_signLoader = nullptr;
+    // giftbagOrder -> statusValue; rỗng là game chưa có dữ liệu hoạt động.
+    QHash<int, int> m_signStatus;
 };

@@ -89,6 +89,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     buildSpeedMenu();
     buildOverlayMenu();
     buildMagicAction();
+    setupSignClaim();
     showStatus(QStringLiteral("Đang tải game…"), 4000);
 
     tryHookSpeed();
@@ -105,6 +106,9 @@ MainWindow::MainWindow(const QString &swfUrl,
                 m_scaleSent = true;
                 m_bridge->queueCommand(QStringLiteral("s:") + scaleValue());
             }
+        }
+        if (m.startsWith(QLatin1String("trangthai"))) {
+            onSignStatus(m);
         }
         showStatus(m, 5000);
         logEvent(m);
@@ -148,52 +152,72 @@ void MainWindow::buildMenuBar()
         connect(act, &QAction::triggered, this, [this, id] { onToolAction(id); });
     }
 
-    buildSignMenu();
 }
 
-// Menu điểm danh: nhận quà của hoạt động "Đăng nhập 14 ngày".
-void MainWindow::buildSignMenu()
+// Điểm danh chạy hoàn toàn tự động, không có mục menu nào: mỗi ngày chỉ có
+// một hai gói mở ra, bấm tay không thêm được gì mà lại phải nhớ.
+void MainWindow::setupSignClaim()
 {
-    QMenu *sign = menuBar()->addMenu(QStringLiteral("Điểm danh"));
-
-    QMenu *daily = sign->addMenu(QStringLiteral("Quà từng ngày"));
-    for (const signactivity::GiftBag &g : signactivity::kDailyGifts) {
-        QAction *act = daily->addAction(QStringLiteral("Ngày %1").arg(g.label));
-        const QString cmd = signactivity::claimCommand(g);
-        const int day = g.label;
-        connect(act, &QAction::triggered, this, [this, cmd, day] {
-            logEvent(QStringLiteral("Nhận quà ngày %1").arg(day));
-            m_bridge->queueCommand(cmd);
-        });
-    }
-
-    QMenu *gift = sign->addMenu(QStringLiteral("Quà mốc"));
-    for (const signactivity::GiftBag &g : signactivity::kMilestones) {
-        QAction *act = gift->addAction(QStringLiteral("Mốc %1 ngày").arg(g.label));
-        const QString cmd = signactivity::claimCommand(g);
-        const int days = g.label;
-        connect(act, &QAction::triggered, this, [this, cmd, days] {
-            logEvent(QStringLiteral("Nhận quà mốc %1 ngày").arg(days));
-            m_bridge->queueCommand(cmd);
-        });
-    }
-
-    sign->addSeparator();
-    QAction *all = sign->addAction(QStringLiteral("Nhận hết (ngày + mốc)"));
-    connect(all, &QAction::triggered, this, [this] { claimSignGifts(); });
+    m_signLoader = new signactivity::Loader(this);
+    connect(m_signLoader, &signactivity::Loader::finished, this,
+            &MainWindow::onSignGiftsLoaded);
+    // Chưa tải vội: bảng quà chỉ cần khi đã vào sảnh, mà lúc này game đang
+    // kéo về vài chục MB tài nguyên. Xem onGameState.
 }
 
-// Gửi cả 20 gói quà. Không cần biết hôm nay là ngày thứ mấy hay đã nhận tới
+void MainWindow::onSignGiftsLoaded(const QString &error)
+{
+    if (!error.isEmpty()) {
+        logEvent(QStringLiteral("Bảng quà điểm danh: ") + error);
+        return;
+    }
+    logEvent(QStringLiteral("Bảng quà điểm danh: %1 gói")
+                 .arg(m_signLoader->gifts().size()));
+
+    // Hỏi trạng thái trước rồi mới nhận: game biết gói nào đang sáng, gói nào
+    // đã nhận hay chưa tới lượt. Trả lời về qua flashMessage.
+    if (m_signPending) {
+        m_bridge->queueCommand(signactivity::statusCommand(m_signLoader->activityId()));
+    }
+}
+
+// Trả lời của lệnh hỏi trạng thái.
+void MainWindow::onSignStatus(const QString &line)
+{
+    m_signStatus = signactivity::parseStatus(line);
+    if (m_signPending) {
+        m_signPending = false;
+        claimSignGifts();
+    }
+}
+
+// Gửi hết các gói quà. Không cần biết hôm nay là ngày thứ mấy hay đã nhận tới
 // đâu: gói nào chưa tới lượt hoặc đã nhận rồi thì server tự từ chối.
 void MainWindow::claimSignGifts()
 {
-    logEvent(QStringLiteral("Nhận quà điểm danh"));
-    for (const signactivity::GiftBag &g : signactivity::kDailyGifts) {
-        m_bridge->queueCommand(signactivity::claimCommand(g));
+    const QVector<signactivity::GiftBag> gifts = m_signLoader->gifts();
+    if (gifts.isEmpty()) {
+        return;
     }
-    for (const signactivity::GiftBag &g : signactivity::kMilestones) {
-        m_bridge->queueCommand(signactivity::claimCommand(g));
+    // Trạng thái rỗng nghĩa là game chưa nhận gói khởi tạo của hoạt động —
+    // lúc đó gửi hết còn hơn không gửi gì, server tự từ chối gói không hợp lệ.
+    const bool filter = !m_signStatus.isEmpty();
+    int sent = 0;
+    for (const signactivity::GiftBag &g : gifts) {
+        if (filter
+            && m_signStatus.value(g.order, 0) != signactivity::kStatusClaimable) {
+            continue;
+        }
+        m_bridge->queueCommand(signactivity::claimCommand(m_signLoader->activityId(), g));
+        ++sent;
     }
+    if (sent == 0) {
+        logEvent(QStringLiteral("Điểm danh: không có gói nào đang nhận được"));
+        return;
+    }
+    logEvent(filter ? QStringLiteral("Nhận quà điểm danh (%1 gói đang sáng)").arg(sent)
+                    : QStringLiteral("Nhận quà điểm danh (%1 gói, chưa rõ trạng thái)")
+                          .arg(sent));
     showStatus(QStringLiteral("Đang nhận quà điểm danh…"), 8000);
 }
 
@@ -367,9 +391,13 @@ void MainWindow::onGameState(const QString &state)
     // Vào tới sảnh thì nhận quà điểm danh. Chờ 5 giây: gửi ngay lúc trạng thái
     // đổi thì gói đi trước khi server dựng xong dữ liệu người chơi và bị bỏ qua
     // lặng lẽ.
+    // Vào tới sảnh mới tải bảng quà rồi nhận. Chờ 5 giây: gửi ngay lúc trạng
+    // thái đổi thì gói đi trước khi server dựng xong dữ liệu người chơi và bị
+    // bỏ qua lặng lẽ; chỗ nghỉ đó cũng để game tải nốt tài nguyên sảnh.
     if (!m_signClaimed && state == QLatin1String("main")) {
         m_signClaimed = true;
-        QTimer::singleShot(5000, this, [this] { claimSignGifts(); });
+        m_signPending = true;
+        QTimer::singleShot(5000, this, [this] { m_signLoader->load(m_swfUrl); });
     }
 
     if (!m_rulerAuto || !m_rulerAuto->isChecked()) {
@@ -434,10 +462,16 @@ void MainWindow::logEvent(const QString &line)
     const QString stamped =
         QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss ")) + line;
 
-    QFile f(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-flash.log")));
-    if (f.open(QIODevice::Append | QIODevice::Text)) {
-        f.write(stamped.toUtf8());
-        f.write("\n");
+    // Mở một lần rồi giữ: game có thể gọi ra hàng chục lần một giây, mở và
+    // đóng tệp mỗi dòng thì phần I/O chặn ngay trên luồng giao diện.
+    static QFile log(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-flash.log")));
+    if (!log.isOpen()) {
+        log.open(QIODevice::Append | QIODevice::Text);
+    }
+    if (log.isOpen()) {
+        log.write(stamped.toUtf8());
+        log.write("\n");
+        log.flush();
     }
 
     // Tiến trình cha đọc stdout để gộp vào bảng log chung. Phải flush: stdout

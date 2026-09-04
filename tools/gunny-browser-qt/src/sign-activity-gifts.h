@@ -1,31 +1,77 @@
 #pragma once
 
+#include <QHash>
+#include <QObject>
 #include <QString>
+#include <QVector>
 
-// Bảng quà của hoạt động điểm danh "Đăng nhập 14 ngày".
-//
-// Số liệu đọc từ http://quest1.gnddt.com/gmactivityinfo.xml — hoạt động
-// activityType 31. Mỗi gói quà có một GUID riêng; điều kiện conditionIndex 1
-// là quà của ngày thứ N, conditionIndex 2 là quà mốc ngày liên tiếp.
-//
-// `rewards` là số món trong gói. Cần con số này vì gói tin nhận quà lặp lại
-// giftbagId đúng chừng ấy lần — xem toolClaimGift trong patch-loading-swf.py.
-//
-// Hoạt động có thời hạn (31/08–13/09/2026). Hết đợt thì server đổi ID, phải
-// tải lại gmactivityinfo.xml và cập nhật bảng này.
+class QNetworkAccessManager;
+class QNetworkReply;
+
 namespace signactivity {
 
+// Một gói quà của hoạt động điểm danh.
 struct GiftBag {
-    int label;              // ngày thứ mấy, hoặc mốc mấy ngày
-    int rewards;            // số món trong gói
-    const char *giftbagId;  // GUID của gói quà
+    QString giftbagId;  // GUID, đổi mỗi đợt hoạt động
+    int rewards = 0;    // số món trong gói
+    int index = 0;      // conditionIndex: 1 = quà ngày, 2 = quà mốc
+    int value = 0;      // conditionValue: ngày thứ mấy, hoặc mốc mấy ngày
+    int order = -1;     // giftbagOrder, khớp với statusID game trả về
 };
 
-extern const char kActivityId[];
-extern const GiftBag kDailyGifts[14];
-extern const GiftBag kMilestones[6];
-
 // Lệnh cho hàng đợi: "a:<activityId>|<giftbagId>|<số món>".
-QString claimCommand(const GiftBag &bag);
+QString claimCommand(const QString &activityId, const GiftBag &bag);
+
+// Lệnh hỏi trạng thái từng gói: "g:<activityId>".
+QString statusCommand(const QString &activityId);
+
+// Đọc chuỗi "trangthai <id>:<giá trị> …" game trả về thành bảng
+// giftbagOrder -> statusValue. Rỗng nghĩa là game chưa có dữ liệu.
+QHash<int, int> parseStatus(const QString &line);
+
+// statusValue của một gói đang nhận được. SignActivityItem chỉ gắn listener
+// "click" khi giá trị bằng 1; 2 là đã nhận.
+const int kStatusClaimable = 1;
+
+// Tải bảng quà điểm danh từ server, không chép cứng vào mã.
+//
+// GUID của từng gói quà đổi theo mỗi đợt hoạt động (đợt hiện tại chỉ chạy hai
+// tuần), nên chép vào nguồn là hỏng ngay đợt sau. Server phát sẵn bảng đầy đủ
+// trong gmactivityinfo.xml — đọc thẳng chỗ đó thì đổi quà xong vẫn nhận được,
+// không phải sửa gì.
+//
+// Ba chặng, vì địa chỉ không cố định: URL của SWF mang tham số `config` trỏ
+// tới tệp cấu hình (config.xml hay config2.xml tuỳ server), trong đó
+// REQUEST_PATH mới là host phát dữ liệu game.
+class Loader : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit Loader(QObject *parent = nullptr);
+
+    // `swfUrl` là URL Loading.swf đầy đủ, kèm tham số config.
+    void load(const QString &swfUrl);
+
+    QString activityId() const { return m_activityId; }
+    QVector<GiftBag> gifts() const { return m_gifts; }
+
+signals:
+    // Phát khi đã có bảng quà. `error` rỗng nghĩa là thành công.
+    void finished(const QString &error);
+
+private:
+    void fetchConfig(const QString &configUrl);
+    void fetchActivities(const QString &requestPath);
+    void parseActivities(const QByteArray &body);
+    void fail(const QString &why);
+
+    // Thân trả về có thể là XML thô hoặc luồng zlib; trả về XML.
+    static QByteArray inflate(const QByteArray &body);
+
+    QNetworkAccessManager *m_net = nullptr;
+    QString m_activityId;
+    QVector<GiftBag> m_gifts;
+};
 
 } // namespace signactivity

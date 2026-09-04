@@ -66,9 +66,12 @@
       };
     }
 
+    // setDailyTask/setDailyActivity cố tình không có ở đây: game gọi chúng mỗi
+    // khung hình trong lúc thanh tiến trình chạy, có lúc bốn chục lần một giây.
+    // Chuyển tiếp hết sang host thì mỗi lần là một cú gọi qua NPObject cộng một
+    // lượt ghi tệp — đủ để game giật. Hai giá trị đó cũng không ai dùng.
     var hostCalls = ['ExternalLoadStart', 'ExternalLoadStop', 'WindowReturn',
-                     'toLocation', 'tellVersion', 'loadConfig',
-                     'setDailyTask', 'setDailyActivity', 'setFatigue'];
+                     'toLocation', 'tellVersion', 'loadConfig', 'setFatigue'];
     for (var i = 0; i < hostCalls.length; i++) {
       window[hostCalls[i]] = forward(hostCalls[i]);
     }

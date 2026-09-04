@@ -1,43 +1,219 @@
 #include "sign-activity-gifts.h"
 
+#include <QHash>
+#include <QStringList>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QUrl>
+#include <QUrlQuery>
+#include <QXmlStreamReader>
+
 namespace signactivity {
 
-const char kActivityId[] = "1d3d171f-9517-a3d4-c5da-8d2b169ba44c";
+namespace {
 
-// Quà ngày thứ 1..14, mỗi gói một món.
-const GiftBag kDailyGifts[14] = {
-    { 1, 1, "e4402570-4d28-9c11-c6d5-5b3246cb22db"},
-    { 2, 1, "97421597-95be-ecc5-8c5e-1ec7300c5d1b"},
-    { 3, 1, "ff57150e-93ca-b1dc-072c-73131342697f"},
-    { 4, 1, "889a2558-665a-2a0e-a0da-5b8c36e6c8a0"},
-    { 5, 1, "0c923bc9-bece-05e4-f942-2f0f0f0a4ca9"},
-    { 6, 1, "aa5ab8ed-8f15-1dcb-9542-2b0a5139fc4f"},
-    { 7, 1, "1c6ef40a-588c-dd47-2adf-d0fa7f779e28"},
-    { 8, 1, "5b2701b8-cd8d-d4c5-8a26-09fab50fe52e"},
-    { 9, 1, "94c73489-8a99-8c9d-5b7c-455c2fc63e35"},
-    {10, 1, "b88fa3d2-3635-e1a4-1a77-706cac0b95e3"},
-    {11, 1, "e03285db-25c6-ca41-189a-3fe25fc02689"},
-    {12, 1, "3f5be7de-3b32-199a-83a0-02b99a075ad5"},
-    {13, 1, "c8a27afe-35d5-efe6-0cf9-1009127121f2"},
-    {14, 1, "e6ef5f0d-3fa8-dfa2-f361-dddc485f2f38"},
-};
+// Hoạt động điểm danh trong gmactivityinfo.xml mang activityType 31.
+const int kSignActivityType = 31;
 
-// Quà mốc 3/5/7/9/11/14 ngày liên tiếp, mỗi gói ba món.
-const GiftBag kMilestones[6] = {
-    { 3, 3, "bd0b94fe-0929-26a1-7494-5431b187b006"},
-    { 5, 3, "40de997f-8e32-6faa-0bb4-4813401d6d66"},
-    { 7, 3, "8cdbd33b-575e-2871-04eb-f098bdb68ae6"},
-    { 9, 3, "45acd0bf-8af8-4beb-a97f-342058edbcc3"},
-    {11, 3, "fbf97d70-4176-40fb-a680-ecca10e73276"},
-    {14, 3, "b8039368-dcb7-478e-8154-0e63d272ed35"},
-};
+} // namespace
 
-QString claimCommand(const GiftBag &bag)
+QString claimCommand(const QString &activityId, const GiftBag &bag)
 {
     return QStringLiteral("a:%1|%2|%3")
-        .arg(QLatin1String(kActivityId))
-        .arg(QLatin1String(bag.giftbagId))
+        .arg(activityId, bag.giftbagId)
         .arg(bag.rewards);
+}
+
+QString statusCommand(const QString &activityId)
+{
+    return QStringLiteral("g:") + activityId;
+}
+
+QHash<int, int> parseStatus(const QString &line)
+{
+    QHash<int, int> out;
+    // "trangthai 0:2 1:1 2:0 …" — bỏ từ đầu, còn lại là các cặp id:giá trị.
+    const QStringList parts = line.split(QLatin1Char(' '), QString::SkipEmptyParts);
+    for (int i = 1; i < parts.size(); ++i) {
+        const int colon = parts.at(i).indexOf(QLatin1Char(':'));
+        if (colon <= 0) {
+            continue;
+        }
+        bool okId = false, okValue = false;
+        const int id = parts.at(i).left(colon).toInt(&okId);
+        const int value = parts.at(i).mid(colon + 1).toInt(&okValue);
+        if (okId && okValue) {
+            out.insert(id, value);
+        }
+    }
+    return out;
+}
+
+Loader::Loader(QObject *parent)
+    : QObject(parent), m_net(new QNetworkAccessManager(this))
+{
+}
+
+void Loader::load(const QString &swfUrl)
+{
+    const QString configUrl =
+        QUrlQuery(QUrl(swfUrl)).queryItemValue(QStringLiteral("config"),
+                                               QUrl::FullyDecoded);
+    if (configUrl.isEmpty()) {
+        fail(QStringLiteral("URL game không có tham số config"));
+        return;
+    }
+    fetchConfig(configUrl);
+}
+
+void Loader::fetchConfig(const QString &configUrl)
+{
+    QNetworkReply *reply = m_net->get(QNetworkRequest(QUrl(configUrl)));
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            fail(QStringLiteral("không tải được config: ") + reply->errorString());
+            return;
+        }
+        const QByteArray xml = inflate(reply->readAll());
+
+        // REQUEST_PATH là host phát dữ liệu game (quest1/quest2 tuỳ server);
+        // FLASHSITE chỉ phát tài nguyên hình ảnh nên không dùng được.
+        QXmlStreamReader r(xml);
+        QString path;
+        while (!r.atEnd()) {
+            if (r.readNext() == QXmlStreamReader::StartElement
+                && r.name() == QLatin1String("REQUEST_PATH")) {
+                path = r.attributes().value(QLatin1String("value")).toString();
+                break;
+            }
+        }
+        if (path.isEmpty()) {
+            fail(QStringLiteral("config không có REQUEST_PATH"));
+            return;
+        }
+        fetchActivities(path);
+    });
+}
+
+void Loader::fetchActivities(const QString &requestPath)
+{
+    QString url = requestPath;
+    if (!url.endsWith(QLatin1Char('/'))) {
+        url += QLatin1Char('/');
+    }
+    url += QStringLiteral("gmactivityinfo.xml");
+    QNetworkReply *reply = m_net->get(QNetworkRequest(QUrl(url)));
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            fail(QStringLiteral("không tải được gmactivityinfo.xml: ")
+                 + reply->errorString());
+            return;
+        }
+        parseActivities(inflate(reply->readAll()));
+    });
+}
+
+void Loader::parseActivities(const QByteArray &body)
+{
+    // Quét một lượt, gom cả ba loại thẻ vào bảng tra rồi ghép sau. Ghép theo
+    // khoá chứ không theo thứ tự lồng nhau: mỗi <Gift> đã mang sẵn activityId,
+    // và <Condition>/<Reward> trỏ ngược về giftbagId, nên không cần bám vào
+    // cấu trúc cây — cấu trúc đó server đổi lúc nào không báo.
+    QHash<QString, GiftBag> bags;   // giftbagId -> gói
+    QHash<QString, QString> owner;  // giftbagId -> activityId
+    QHash<QString, int> rewards;    // giftId -> số món
+
+    QXmlStreamReader r(body);
+    while (!r.atEnd()) {
+        if (r.readNext() != QXmlStreamReader::StartElement) {
+            continue;
+        }
+        const QXmlStreamAttributes a = r.attributes();
+        const QStringRef tag = r.name();
+
+        if (tag == QLatin1String("Activity")) {
+            if (a.value(QLatin1String("activityType")).toInt() == kSignActivityType) {
+                m_activityId = a.value(QLatin1String("activityId")).toString();
+            }
+        } else if (tag == QLatin1String("Gift")) {
+            const QString id = a.value(QLatin1String("giftbagId")).toString();
+            owner.insert(id, a.value(QLatin1String("activityId")).toString());
+            GiftBag &b = bags[id];
+            b.giftbagId = id;
+            b.order = a.value(QLatin1String("giftbagOrder")).toInt();
+        } else if (tag == QLatin1String("Reward")) {
+            rewards[a.value(QLatin1String("giftId")).toString()] += 1;
+        } else if (tag == QLatin1String("Condition")) {
+            const QString id = a.value(QLatin1String("giftbagId")).toString();
+            if (id.isEmpty()) {
+                continue;
+            }
+            GiftBag &b = bags[id];
+            b.giftbagId = id;
+            b.index = a.value(QLatin1String("conditionIndex")).toInt();
+            b.value = a.value(QLatin1String("conditionValue")).toInt();
+        }
+    }
+    if (r.hasError()) {
+        fail(QStringLiteral("gmactivityinfo.xml hỏng: ") + r.errorString());
+        return;
+    }
+    if (m_activityId.isEmpty()) {
+        fail(QStringLiteral("không thấy hoạt động điểm danh (activityType %1)")
+                 .arg(kSignActivityType));
+        return;
+    }
+
+    m_gifts.clear();
+    for (auto it = bags.begin(); it != bags.end(); ++it) {
+        if (owner.value(it.key()) != m_activityId) {
+            continue;
+        }
+        GiftBag b = it.value();
+        b.rewards = rewards.value(b.giftbagId, 1);
+        m_gifts.append(b);
+    }
+    // Xếp quà ngày trước quà mốc, trong mỗi nhóm theo số ngày tăng dần — menu
+    // và thứ tự gửi đi đều theo đây.
+    std::sort(m_gifts.begin(), m_gifts.end(), [](const GiftBag &x, const GiftBag &y) {
+        return x.index != y.index ? x.index < y.index : x.value < y.value;
+    });
+
+    emit finished(m_gifts.isEmpty() ? QStringLiteral("hoạt động không có gói quà nào")
+                                    : QString());
+}
+
+QByteArray Loader::inflate(const QByteArray &body)
+{
+    // config.xml mở đầu bằng BOM UTF-8 (EF BB BF) rồi mới tới '<', còn
+    // gmactivityinfo.xml là luồng zlib trần. Cắt BOM trước khi đoán kiểu, nếu
+    // không thì XML thô bị đem đi giải nén và ra rỗng.
+    QByteArray data = body;
+    if (data.startsWith("\xEF\xBB\xBF")) {
+        data.remove(0, 3);
+    }
+    if (data.startsWith('<')) {
+        return data;
+    }
+    // qUncompress đòi 4 byte độ dài ở đầu, còn server trả luồng zlib trần. Con
+    // số chỉ là gợi ý cấp phát: Qt tự nhân đôi bộ đệm khi thiếu.
+    QByteArray framed(4, Qt::Uninitialized);
+    const quint32 hint = quint32(data.size()) * 8;
+    framed[0] = char((hint >> 24) & 0xff);
+    framed[1] = char((hint >> 16) & 0xff);
+    framed[2] = char((hint >> 8) & 0xff);
+    framed[3] = char(hint & 0xff);
+    framed.append(data);
+    return qUncompress(framed);
+}
+
+void Loader::fail(const QString &why)
+{
+    m_gifts.clear();
+    emit finished(why);
 }
 
 } // namespace signactivity

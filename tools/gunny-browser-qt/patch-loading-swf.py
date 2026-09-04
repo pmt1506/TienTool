@@ -33,6 +33,7 @@ Lệnh nhận qua hàng đợi của trang:
     m:         dọn thư: nhận hết đính kèm rồi xếp túi
     b:         xếp túi vào cả 5 két, mỗi két một gói, giãn ra cho server kịp
     a:<actId>|<giftbagId>|<số món>   nhận một gói quà của hoạt động GM
+    g:<actId>  doc trang thai tung goi qua ra log
     còn lại    mở kho ma pháp, tab Kho báu
 """
 import io
@@ -282,10 +283,16 @@ CMD_BODY = (
     + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolBagStep"))
     + op("jump", "LcEnd") + "\n"
     + "LcNotClaim:\n"
-    + op("getlocal3") + op("pushstring", '"a:"') + op("ifne", "LcMagic") + "\n"
+    + op("getlocal3") + op("pushstring", '"a:"') + op("ifne", "LcNotStatus") + "\n"
     + report(CLS + op("getlocal2") + op("pushbyte", "2")
              + op("callproperty", "%s, 1" % pub("substr"))
              + op("callproperty", "%s, 1" % pub("toolClaimGift")))
+    + op("jump", "LcEnd") + "\n"
+    + "LcNotStatus:\n"
+    + op("getlocal3") + op("pushstring", '"g:"') + op("ifne", "LcMagic") + "\n"
+    + report(CLS + op("getlocal2") + op("pushbyte", "2")
+             + op("callproperty", "%s, 1" % pub("substr"))
+             + op("callproperty", "%s, 1" % pub("toolSignStatus")))
     + op("jump", "LcEnd") + "\n"
     + "LcMagic:\n"
     + CLS + op("pushbyte", "1")
@@ -582,6 +589,54 @@ CLAIM_GIFT_BODY = (
     + "LcgCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
     + store(R_CG_P) + "\n"
     + op("pushstring", '"loi nhan qua: "') + local(R_CG_P) + op("add")
+    + op("returnvalue"))
+
+
+# ------------------------------------------------------------ toolSignStatus
+
+# Doc trang thai tung goi qua cua mot hoat dong GM.
+#
+# Duong day lay tu chinh SignActivityFrame:
+#   WonderfulActivityManager.Instance.getActivityInitDataById(actId).statusArr
+# Moi phan tu la mot CanGetData mang statusID + statusValue. SignActivityItem
+# quyet dinh nut theo statusValue: 1 thi gan listener "click" (nhan duoc),
+# 2 thi dan nhan da nhan. statusID trung voi giftbagOrder trong
+# gmactivityinfo.xml.
+#
+# Tra ve "trangthai <id>:<gia tri> ..." de ben ngoai loc, khoi ban ca 20 goi.
+# Chua co du lieu (server chua gui goi khoi tao) thi bao ra, ben ngoai tu quyet.
+R_SS_OBJ, R_SS_ARR, R_SS_I, R_SS_N, R_SS_ACC, R_SS_EL = 2, 3, 4, 5, 6, 7
+
+SIGN_STATUS_BODY = (
+    "LssTry:\n"
+    + get_class("wonderfulActivity.WonderfulActivityManager") + get_prop("Instance")
+    + op("getlocal1")
+    + op("callproperty", "%s, 1" % pub("getActivityInitDataById"))
+    + store(R_SS_OBJ) + "\n"
+    + local(R_SS_OBJ) + op("iffalse", "LssNone") + "\n"
+    + local(R_SS_OBJ) + get_prop("statusArr") + store(R_SS_ARR)
+    + local(R_SS_ARR) + op("iffalse", "LssNone") + "\n"
+    + op("pushstring", '"trangthai"') + store(R_SS_ACC)
+    + op("pushbyte", "0") + store(R_SS_I)
+    + local(R_SS_ARR) + get_prop("length") + store(R_SS_N) + "\n"
+    + "LssLoop:\n"
+    + local(R_SS_I) + local(R_SS_N) + op("ifge", "LssDone") + "\n"
+    + local(R_SS_ARR) + local(R_SS_I) + op("getproperty", KEY) + store(R_SS_EL) + "\n"
+    + local(R_SS_ACC) + op("pushstring", '" "') + op("add")
+    + local(R_SS_EL) + get_prop("statusID") + op("add")
+    + op("pushstring", '":"') + op("add")
+    + local(R_SS_EL) + get_prop("statusValue") + op("add")
+    + store(R_SS_ACC) + "\n"
+    + local(R_SS_I) + op("pushbyte", "1") + op("add") + op("convert_i")
+    + store(R_SS_I) + op("jump", "LssLoop") + "\n"
+    + "LssDone:\n"
+    + local(R_SS_ACC) + op("coerce_s") + op("returnvalue") + "\n"
+    + "LssNone:\n"
+    + ret("trangthai chua co") + "\n"
+    + "LssEnd:\n"
+    + "LssCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_SS_ACC) + "\n"
+    + op("pushstring", '"trangthai loi: "') + local(R_SS_ACC) + op("add")
     + op("returnvalue"))
 
 
@@ -1083,6 +1138,7 @@ TRAITS = (
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
     + method("toolMail", pub("int"), MAIL_BODY, try_block("m"))
     + method("toolClaimGift", pub("String"), CLAIM_GIFT_BODY, try_block("cg"))
+    + method("toolSignStatus", pub("String"), SIGN_STATUS_BODY, try_block("ss"))
     + method("toolOpenSlot", pub("int"), OPEN_SLOT_BODY, try_block("oq"))
     + method("toolOpenBatch", pub("int"), OPEN_BATCH_BODY, try_block("ob"))
     + method("toolPet", pub("int"), PET_BODY, try_block("pt"))
