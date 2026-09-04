@@ -27,9 +27,15 @@ Lệnh nhận qua hàng đợi của trang:
     b:         xếp túi vào cả 5 két, mỗi két một gói, giãn ra cho server kịp
     c:         đọc trạng thái bảng lịch ra log (số ngày điểm danh, mốc quà)
     t:<o>      do moi thuoc tinh cua mot o tui ra log (debug)
+    d:<n>      gui mot goi diem danh voi getWay = n (5 diem danh, 0 qua ngay,
+               3 goi VIP)
+    k:<n>      gui goi qua moc voi so ngay = n (moc 3/7/15/23/28)
+    z:         do cau truc SocketManager ra log (debug)
+    y:<lop>    do cau truc mot lop bat ky ra log; "x:out" = GameSocketOut (debug)
     còn lại    mở kho ma pháp, tab Kho báu
 """
 import io
+import re
 import sys
 
 path = sys.argv[1]
@@ -225,6 +231,64 @@ BAG_STEP_BODY = (
     + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolBagStep")) + "\n"
     + "LbAfter:\n")
 
+# ------------------------------------------------------- nhom lenh diem danh
+
+R_OUT2 = 2
+
+
+def send_body(tag, method, with_arg=True):
+    """Thân method: gọi out.<method>(arg) rồi báo ra đã gọi gì.
+
+    Bảy lệnh dưới đây chung một khuôn — lấy `out`, gọi đúng một hàm, in lại tên
+    hàm và tham số — nên sinh chung thay vì chép tay bảy lần.
+
+    `with_arg=False` cho những hàm không nhận tham số; trait vẫn khai kiểu int
+    để mọi lệnh đi chung một đường ở CMD_BODY, chỉ là thân hàm không đụng tới.
+    """
+    call = (local(R_OUT2) + (op("getlocal1") if with_arg else "")
+            + op("callpropvoid", "%s, %d" % (pub(method), 1 if with_arg else 0)))
+    return ("L%sTry:\n" % tag
+            + get_class("ddt.manager.SocketManager") + get_prop("Instance")
+            + get_prop("out") + store(R_OUT2) + "\n"
+            + call
+            + op("pushstring", '"da goi %s%s"' % (method, " " if with_arg else ""))
+            + (op("getlocal1") + op("add") if with_arg else "")
+            + op("returnvalue") + "\n"
+            + "L%sEnd:\n" % tag
+            + "L%sCatch:\n" % tag + catch_prologue() + get_prop("message")
+            + op("coerce_s") + op("setlocal2") + "\n"
+            + op("pushstring", '"loi %s: "' % method) + op("getlocal2") + op("add")
+            + op("returnvalue"))
+
+
+# Nhóm điểm danh: (ký tự lệnh, nhãn try, tên hàm trong game, tên trait, có tham số)
+#
+# Chưa rõ hàm nào là hàm hai nút điểm danh trong game gọi. Bản trước đoán
+# sendDailyAward với ba giá trị 5/0/3, không giá trị nào ăn. Danh mục thật đọc
+# được bằng describeType trên GameSocketOut, nên làm sẵn mỗi hàm một lệnh rồi
+# bấm thử từng cái — đo còn hơn đoán.
+SEND_CMDS = [
+    ("d", "da", "sendDailyAward", "toolDaily", True),
+    ("k", "sg", "sendSignAward", "toolSignAward", True),
+    ("e", "si", "sendSignIn", "toolSignIn", True),
+    ("f", "sd", "sendSignInData", "toolSignInData", False),
+    ("g", "od", "sendOpenDailyView", "toolOpenDailyView", False),
+    ("h", "al", "sendAccumulativeLoginAward", "toolAccLogin", True),
+    ("i", "dr", "sendDailyRecord", "toolDailyRecord", False),
+]
+
+# Chuỗi nhánh rẽ cho CMD_BODY: nhánh cuối rơi về nhánh mặc định LcMagic.
+SEND_BRANCHES = "".join(
+    "LcSend%d:\n" % i
+    + op("getlocal3") + op("pushstring", '"%s:"' % cmd)
+    + op("ifne", "LcMagic" if i == len(SEND_CMDS) - 1 else "LcSend%d" % (i + 1)) + "\n"
+    + report(CLS + op("getlocal2") + op("pushbyte", "2")
+             + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+             + op("callproperty", "%s, 1" % pub(trait)))
+    + op("jump", "LcEnd") + "\n"
+    for i, (cmd, _tag, _method, trait, _arg) in enumerate(SEND_CMDS))
+
+
 # Điểm danh: đợi 5 giây kể từ lúc vào sảnh rồi mới gửi. Gửi ngay lúc state đổi
 # thì gói đi trước khi server dựng xong dữ liệu người chơi và bị bỏ qua lặng lẽ.
 # Hỏi hàng đợi lệnh của trang 250ms một lần.
@@ -280,16 +344,34 @@ CMD_BODY = (
              + op("callproperty", "%s, 1" % pub("toolCalendar")))
     + op("jump", "LcEnd") + "\n"
     + "LcNotInfo:\n"
-    + op("getlocal3") + op("pushstring", '"t:"') + op("ifne", "LcMagic") + "\n"
+    + op("getlocal3") + op("pushstring", '"t:"') + op("ifne", "LcSend0") + "\n"
     + report(CLS + op("getlocal2") + op("pushbyte", "2")
              + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
              + op("callproperty", "%s, 1" % pub("toolSlotInfo")))
+    + op("jump", "LcEnd") + "\n"
+    + SEND_BRANCHES
+    + "LcNotSock:\n"
+    + op("getlocal3") + op("pushstring", '"z:"') + op("ifne", "LcNotClass") + "\n"
+    + report(CLS + op("pushbyte", "0")
+             + op("callproperty", "%s, 1" % pub("toolSocketInfo")))
+    + op("jump", "LcEnd") + "\n"
+    + "LcNotClass:\n"
+    + op("getlocal3") + op("pushstring", '"y:"') + op("ifne", "LcMagic") + "\n"
+    + report(CLS + op("getlocal2") + op("pushbyte", "2")
+             + op("callproperty", "%s, 1" % pub("substr"))
+             + op("callproperty", "%s, 1" % pub("toolClassInfo")))
     + op("jump", "LcEnd") + "\n"
     + "LcMagic:\n"
     + CLS + op("pushbyte", "1")
     + op("callpropvoid", "%s, 1" % pub("toolOpenMagicHouse")) + "\n"
     + "LcEnd:\n" + op("jump", "LcAfter") + "\n"
-    + "LcCatch:\n" + catch_prologue() + op("pop") + "\n"
+    # Bao loi ra thay vi nuot. AVM verify tung method LUC GOI DAU TIEN, nen mot
+    # method sinh sai se nem VerifyError ngay o cua vao — truoc khi khoi try cua
+    # chinh no co hieu luc — va roi thang vao day. Nuot im o day nghia la bam
+    # lenh xong khong thay gi, dung nhu trieu chung dang gap.
+    + "LcCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + op("setlocal2") + "\n"
+    + report(op("pushstring", '"lenh loi: "') + op("getlocal2") + op("add"))
     + "LcAfter:\n" + op("returnvoid"))
 
 
@@ -506,6 +588,62 @@ MAIL_STEP_BODY = (
     + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolMailStep")) + "\n"
     + "LnAfter:\n")
 
+
+
+
+# ------------------------------------------------------------- toolClassInfo
+
+# Do cau truc CUA MOT LOP BAT KY, ten truyen vao luc chay.
+#
+# Thay cho viec doan gia tri goi tin. describeType tren GameSocketOut liet ke
+# du moi ham gui kem so tham so — doc danh sach do roi goi thang ham can dung,
+# khong phai mo tung con so mot.
+#
+# Ten dac biet "out" tro toi SocketManager.Instance.out: khong lay duoc doi
+# tuong do bang getDefinitionByName vi no la thuoc tinh, khong phai lop.
+CLASS_INFO_BODY = (
+    "LciTry:" + "\n"
+    + op("getlocal1") + op("pushstring", '"out"') + op("ifne", "LciByName") + "\n"
+    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
+    + store(R_ITEM) + op("jump", "LciDo") + "\n"
+    + "LciByName:" + "\n"
+    + op("getlex", 'QName(PackageNamespace("flash.utils"), "getDefinitionByName")') + op("getglobalscope") + op("getlocal1") + op("call", "1")
+    + store(R_ITEM) + "\n"
+    + "LciDo:" + "\n"
+    + op("getlex", 'QName(PackageNamespace("flash.utils"), "describeType")') + op("getglobalscope") + local(R_ITEM) + op("call", "1")
+    + op("callproperty", "%s, 0" % pub("toXMLString")) + op("coerce_s")
+    + op("returnvalue") + "\n"
+    + "LciEnd:" + "\n"
+    + "LciCatch:" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_KEY) + "\n"
+    + op("pushstring", '"do lop loi: "') + local(R_KEY) + op("add")
+    + op("returnvalue"))
+
+
+# ------------------------------------------------------------ toolSocketInfo
+
+# Do cau truc SocketManager.Instance va cua doi tuong `out` no giu.
+#
+# Muc dich: xem co thay duoc `out` bang mot lop ghi log hay khong. AS3 khong
+# sua duoc phuong thuc cua lop sealed luc chay, nen chi con cach thay ca doi
+# tuong — va chi lam duoc neu `out` ghi duoc. describeType noi ro:
+# <variable name="out"> hoac accessor access="readwrite" thi duoc, "readonly"
+# thi chiu.
+SOCKET_INFO_BODY = (
+    "LsoTry:" + "\n"
+    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + store(R_ITEM)
+    + local(R_ITEM) + op("iffalse", "LsoEmpty") + "\n"
+    + op("getlex", 'QName(PackageNamespace("flash.utils"), "describeType")')
+    + op("getglobalscope") + local(R_ITEM) + op("call", "1")
+    + op("callproperty", "%s, 0" % pub("toXMLString")) + op("coerce_s")
+    + op("returnvalue") + "\n"
+    + "LsoEmpty:" + "\n"
+    + ret("khong lay duoc SocketManager.Instance") + "\n"
+    + "LsoEnd:" + "\n"
+    + "LsoCatch:" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_KEY) + "\n"
+    + op("pushstring", '"do socket loi: "') + local(R_KEY) + op("add")
+    + op("returnvalue"))
 
 
 
@@ -1044,6 +1182,14 @@ PICK_BODY = (
     + op("returnvoid"))
 
 
+
+# Hai lenh trung ky tu thi lenh dung sau khong bao gio chay: nhanh dau khop
+# truoc se nuot no. Da dinh hai lan — "s:" trung lenh doi ty le, "x:" trung lenh
+# mo nhanh (lan nay mo that, mat 5 chong do). Nen kiem ngay luc sinh ma.
+_prefixes = re.findall(r'pushstring\s+.{1,3}([a-z]:)', CMD_BODY)
+_dupes = sorted({c for c in _prefixes if _prefixes.count(c) > 1})
+assert not _dupes, "lenh trung ky tu: %s" % _dupes
+
 TICK_BODY = (STATE_BODY + ENFORCE_BODY + MENU_BODY + BAG_STEP_BODY
              + MAIL_STEP_BODY + CMD_BODY)
 TICK_TRY = (try_block("s") + try_block("e") + try_block("mu")
@@ -1113,9 +1259,13 @@ TRAITS = (
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
     + method("toolMail", pub("int"), MAIL_BODY, try_block("m"))
     + method("toolCalendar", pub("int"), CALENDAR_BODY, try_block("cl"))
+    + "".join(method(trait, pub("int"), send_body(tag, m, arg), try_block(tag))
+              for _cmd, tag, m, trait, arg in SEND_CMDS)
     + method("toolBagList", pub("int"), LIST_BODY, try_block("l"))
     + method("toolOpenSlot", pub("int"), OPEN_SLOT_BODY, try_block("oq"))
     + method("toolSlotInfo", pub("int"), SLOT_INFO_BODY, try_block("si"))
+    + method("toolSocketInfo", pub("int"), SOCKET_INFO_BODY, try_block("so"))
+    + method("toolClassInfo", pub("String"), CLASS_INFO_BODY, try_block("ci"))
     + method("toolOpenBatch", pub("int"), OPEN_BATCH_BODY, try_block("ob"))
     + method("toolPet", pub("int"), PET_BODY, try_block("pt"))
     + method("toolMenuPick", pub("Object"), PICK_BODY, try_block("mp"))

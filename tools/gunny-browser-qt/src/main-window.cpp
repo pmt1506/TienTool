@@ -9,7 +9,6 @@
 #include <QSettings>
 #include <QDir>
 #include <QFile>
-#include <QInputDialog>
 #include <QMenuBar>
 #include <QTimer>
 #include <QWebPage>
@@ -22,6 +21,32 @@
 #include "tool-bridge.h"
 
 // Bố cục menu theo LazyGunny; hành động thật nối vào onToolAction.
+// Nhóm điểm danh, mỗi hàm một mục bấm thẳng.
+//
+// Chưa biết hàm nào là hàm hai nút điểm danh trong game gọi: bản trước đoán
+// sendDailyAward với 5/0/3, không giá trị nào ăn. Danh mục hàm đọc được từ
+// describeType của GameSocketOut, nên bày sẵn ra đây để bấm thử từng cái rồi
+// xem log — đo còn hơn đoán. Bỏ hộp thoại hỏi số: giá trị cần thử đã biết
+// trước, gõ lại mỗi lần chỉ tổ chậm.
+struct SendItem { const char *text; const char *cmd; };
+static const SendItem kSendItems[] = {
+    {"Hỏi trạng thái điểm danh", "f:"},
+    {"Mở bảng điểm danh", "g:"},
+    {"Ghi nhận hoạt động ngày", "i:"},
+    {"Điểm danh (sendSignIn 0)", "e:0"},
+    {"Điểm danh (sendSignIn 1)", "e:1"},
+    {"Quà ngày (sendDailyAward 0)", "d:0"},
+    {"Điểm danh (sendDailyAward 5)", "d:5"},
+    {"Quà VIP (sendDailyAward 3)", "d:3"},
+    {"Quà tích luỹ (0)", "h:0"},
+    {"Quà tích luỹ (1)", "h:1"},
+    {"Quà mốc 3 ngày", "k:3"},
+    {"Quà mốc 7 ngày", "k:7"},
+    {"Quà mốc 15 ngày", "k:15"},
+    {"Quà mốc 23 ngày", "k:23"},
+    {"Quà mốc 28 ngày", "k:28"},
+};
+
 //
 // Để ở phạm vi tệp vì dùng ở hai chỗ: dựng menu, và đổi mã hành động thành tên
 // tiếng Việt khi ghi log — log mà chỉ có "clean-bag" thì đọc lại chẳng hiểu.
@@ -34,8 +59,6 @@ static const Entry kMenuEntries[] = {
     {"Tiện ích", "clear-cache", "Xóa cache"},
     {"Tiện ích", "list-bag", "Liệt kê túi (ra log)"},
     {"Tiện ích", "list-calendar", "Trạng thái điểm danh (ra log)"},
-    {"Tiện ích", "open-slot", "Mở ô túi…"},
-    {"Tiện ích", "slot-info", "Xem thuộc tính ô… (debug)"},
     {"Tiện ích", "open-batch", "Mở nhanh (hết số lượng)"},
     {"Tiện ích", "use-pet", "Dùng nhanh phụ kiện thú & pet"},
 };
@@ -149,6 +172,18 @@ void MainWindow::buildMenuBar()
         QAction *act = m->addAction(QString::fromUtf8(e.text));
         const QString id = QString::fromUtf8(e.id);
         connect(act, &QAction::triggered, this, [this, id] { onToolAction(id); });
+    }
+
+    // Menu riêng: mấy mục này chỉ để dò, không phải chức năng dùng hàng ngày.
+    QMenu *sign = menuBar()->addMenu(QStringLiteral("Điểm danh (thử)"));
+    for (const SendItem &s : kSendItems) {
+        QAction *act = sign->addAction(QString::fromUtf8(s.text));
+        const QString cmd = QString::fromUtf8(s.cmd);
+        const QString text = QString::fromUtf8(s.text);
+        connect(act, &QAction::triggered, this, [this, cmd, text] {
+            logEvent(QStringLiteral("Bấm: ") + text);
+            m_bridge->queueCommand(cmd);
+        });
     }
 }
 
@@ -418,38 +453,6 @@ void MainWindow::onToolAction(const QString &actionId)
         // vị từ CellMenu dùng để quyết định có hiện nút "Nhiều" hay không.
         m_bridge->queueCommand(QStringLiteral("x:"));
         showStatus(QStringLiteral("Đang mở nhanh…"), 8000);
-        return;
-    }
-
-    if (actionId == QLatin1String("slot-info")) {
-        // Đổ mọi thuộc tính của một ô ra log bằng describeType. Dùng khi cần
-        // biết tên trường game đặt cho một trạng thái (khoá, đã dùng…): tên đó
-        // khác nhau giữa các bản game nên đoán mò là hỏng, cứ đọc thẳng.
-        bool ok = false;
-        const int slot = QInputDialog::getInt(
-            this, QStringLiteral("Xem thuộc tính ô"),
-            QStringLiteral("Ô số (1–49):"), 1, 1, 49, 1, &ok);
-        if (ok) {
-            m_bridge->queueCommand(QStringLiteral("t:%1").arg(slot - 1));
-            showStatus(QStringLiteral("Đang đọc thuộc tính ô…"), 4000);
-        }
-        return;
-    }
-
-    if (actionId == QLatin1String("open-slot")) {
-        // Mở đúng một ô để thử từng loại. Cả túi đạo cụ đều là CategoryID 11 và
-        // BagView chỉ rẽ hai nhánh cho nhóm đó, nhưng nhóm ấy còn có cả vật
-        // liệu — chưa rõ cờ nào cho phép mở, nên chưa quét cả túi.
-        bool ok = false;
-        // Đánh số 1–49 cho khớp với 7x7 ô người chơi nhìn thấy; bên trong game
-        // đếm từ 0.
-        const int slot = QInputDialog::getInt(
-            this, QStringLiteral("Mở ô túi"),
-            QStringLiteral("Ô số (1–49), xem \"Liệt kê túi\" để biết ô nào là gì:"),
-            1, 1, 49, 1, &ok);
-        if (ok) {
-            m_bridge->queueCommand(QStringLiteral("o:%1").arg(slot - 1));
-        }
         return;
     }
 
