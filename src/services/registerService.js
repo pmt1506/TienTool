@@ -101,6 +101,21 @@ export function questHeaders() {
 }
 
 // GET/POST mang theo cookies và đi theo redirect thủ công
+/**
+ * Tên gọn của một URL để ghi log: host + path, bỏ query.
+ *
+ * Query mang token phiên và chuỗi `content` đã ký — ghi nguyên vào bảng log là
+ * lộ thứ đăng nhập được vào tài khoản, mà đọc log cũng chẳng cần tới.
+ */
+function shortUrl(url) {
+    try {
+        const u = new URL(url);
+        return u.host + u.pathname;
+    } catch {
+        return String(url).split('?')[0];
+    }
+}
+
 export async function hop(url, cookieRef, opt = {}) {
   const r = await fetch(url, {
     method: opt.method || 'GET',
@@ -108,6 +123,7 @@ export async function hop(url, cookieRef, opt = {}) {
     redirect: 'manual',
     headers: { 'User-Agent': UA, ...(cookieRef.v ? { Cookie: cookieRef.v } : {}), ...(opt.headers || {}) },
   });
+  console.log(`[HTTP] ${opt.method || 'GET'} ${shortUrl(url)} -> ${r.status}`);
   const sc = r.headers.get('set-cookie');
   if (sc) cookieRef.v = (cookieRef.v ? cookieRef.v + '; ' : '') + sc.split(';')[0];
   let loc = r.headers.get('location');
@@ -119,6 +135,7 @@ export async function hop(url, cookieRef, opt = {}) {
       headers: { 'User-Agent': UA, ...(cookieRef.v ? { Cookie: cookieRef.v } : {}) },
       redirect: 'manual',
     });
+    console.log(`[HTTP] GET ${shortUrl(u)} -> ${r2.status} (chuyen huong)`);
     const sc2 = r2.headers.get('set-cookie');
     if (sc2) cookieRef.v = (cookieRef.v ? cookieRef.v + '; ' : '') + sc2.split(';')[0];
     loc = r2.headers.get('location');

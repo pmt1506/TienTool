@@ -74,6 +74,35 @@ export async function loginApi(userName, password, serialNumber) {
     }
 }
 
+/**
+ * Đọc stdout/stderr của cửa sổ game rồi đẩy sang bảng log của TienTool.
+ *
+ * Cắt theo dòng chứ không in thẳng từng mẩu: pipe trả về theo khối byte, một
+ * dòng log có thể bị chẻ làm đôi giữa hai lần 'data'.
+ */
+function pipeGameOutput(child, userName) {
+    const pump = (stream, isError) => {
+        if (!stream) return;
+        let buffer = "";
+        stream.setEncoding("utf8");
+        stream.on("data", (chunk) => {
+            buffer += chunk;
+            const lines = buffer.split(/\r?\n/);
+            buffer = lines.pop();
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const msg = `[Game ${userName}] ${line.trim()}`;
+                if (isError) console.error(msg);
+                else console.log(msg);
+            }
+        });
+        stream.on("error", () => {});
+    };
+
+    pump(child.stdout, false);
+    pump(child.stderr, true);
+}
+
 export async function loginGame(userName, password, serverID, accountType, prefix, maxLength, checkReg = true) {
     const serialNumber = getSerialNumber();
     const apiResult = await loginApi(userName, password, serialNumber);
@@ -125,8 +154,13 @@ export async function loginGame(userName, password, serverID, accountType, prefi
             // Chạy trong thư mục của chính exe: Qt tìm plugin và DLL cạnh nó.
             cwd: path.dirname(filePath),
             detached: true,
-            stdio: "ignore"
+            // Hứng stdout/stderr của cửa sổ game để thao tác trong game (điểm
+            // danh, dọn túi, vào trận...) hiện chung một bảng log với thao tác
+            // trên giao diện tool.
+            stdio: ["ignore", "pipe", "pipe"]
         });
+
+        pipeGameOutput(appPlayer, userName);
 
         appPlayer.on('error', (err) => {
             console.error(`[Login] Spawn error:`, err);

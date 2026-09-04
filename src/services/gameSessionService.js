@@ -29,12 +29,14 @@ export async function createGameSession(userName, token, serverID) {
   const rdUrl =
     `${PLAY_HOST}/RedircetPlayGameV1.aspx?user=${encodeURIComponent(token)}` +
     `&s=${server}&UseLocalStorage=0&serial=${encodeURIComponent(serial)}&cert=0`;
+  console.log(`[Session] ${userName}: mo trang gate, server ${server}`);
   const rd = await hop(rdUrl, cookie);
 
   const content = (rd.match(/CreateLogin\.aspx\?content=([^'"]+)/i) || [])[1];
   const guid =
     (rd.match(/key=([0-9a-f-]{36})/i) || rd.match(/%7c([0-9a-f-]{36})%7c/i) || [])[1];
   if (!content || !guid) {
+    console.error(`[Session] ${userName}: trang gate khong tra content/GUID`);
     return { success: false, msg: 'Không lấy được content/session GUID từ trang gate' };
   }
 
@@ -49,6 +51,7 @@ export async function createGameSession(userName, token, serverID) {
     headers: questHeaders(),
   });
   const code = (await res.text()).trim();
+  console.log(`[Session] ${userName}: CreateLogin tra ma '${code}' (0 la thanh cong)`);
   if (code !== '0') {
     return { success: false, msg: `CreateLogin thất bại: mã '${code}'` };
   }
@@ -66,6 +69,7 @@ export async function createGameSession(userName, token, serverID) {
     config: `${CONFIG_HOST}/config${server}.xml`,
   });
 
+  console.log(`[Session] ${userName}: da dung xong link SWF`);
   return {
     success: true,
     guid,
