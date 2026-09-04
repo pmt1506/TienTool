@@ -7,10 +7,15 @@
 #include <QDateTime>
 #include <QSet>
 #include <QSettings>
+#include <QUrl>
+#include <QUrlQuery>
 #include <QDir>
 #include <QFile>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QStringList>
 #include <QTimer>
 #include <QWebPage>
 
@@ -30,11 +35,16 @@ struct Entry { const char *menu; const char *id; const char *text; };
 static const Entry kMenuEntries[] = {
     {"Giao diện", "toggle-overlay", "Hiện bảng cài đặt"},
     {"Giao diện", "reload", "Tải lại game"},
+    {"Tiện ích", "list-bag", "Liệt kê túi đạo cụ (ra log)"},
+    // Tạm thời, để dò số hiệu túi thời trang và tên trường chỉ số trước khi
+    // viết chức năng bán. Gỡ ngay sau khi đã chốt được hai thứ đó.
+    {"Tiện ích", "dump-bags", "Dò các túi (ra log)"},
     {"Tiện ích", "clean-bag", "Dọn túi"},
     {"Tiện ích", "clean-mail", "Dọn thư"},
     {"Tiện ích", "clear-cache", "Xóa cache"},
-    {"Tiện ích", "open-batch", "Mở nhanh (hết số lượng)"},
+    {"Tiện ích", "open-batch", "Mở nhanh items"},
     {"Tiện ích", "use-pet", "Dùng nhanh phụ kiện thú & pet"},
+    {"Tiện ích", "sell-dress", "Bán thời trang 5 chỉ số"},
 };
 
 // Tên hiển thị của một hành động. Vài hành động nằm ngoài bảng menu (nút riêng
@@ -110,6 +120,9 @@ MainWindow::MainWindow(const QString &swfUrl,
         if (m.startsWith(QLatin1String("trangthai"))) {
             onSignStatus(m);
         }
+        if (m.startsWith(QLatin1String("ttdo"))) {
+            onDressScan(m.mid(4).trimmed());
+        }
         showStatus(m, 5000);
         logEvent(m);
     });
@@ -181,6 +194,65 @@ void MainWindow::onSignGiftsLoaded(const QString &error)
     }
 }
 
+// Kết quả quét thời trang: "ttdo <ô>:<TemplateID> …". Hỏi trước khi bán —
+// sendSellGoods là một chiều, không có đường lấy lại món đã bán.
+void MainWindow::onDressScan(const QString &line)
+{
+    // "ttdo n=<số ô đã quét> <ô>:<mã> …" — bỏ phần n= ra khỏi danh sách món.
+    QStringList items = line.split(QLatin1Char(' '), QString::SkipEmptyParts);
+    QString scanned;
+    if (!items.isEmpty() && items.first().startsWith(QLatin1String("n="))) {
+        scanned = items.takeFirst().mid(2);
+    }
+    logEvent(QStringLiteral("Quét thời trang: %1 ô, %2 món khớp")
+                 .arg(scanned, QString::number(items.size())));
+    if (items.isEmpty()) {
+        showStatus(QStringLiteral("Không có thời trang 5 chỉ số nào"), 5000);
+        return;
+    }
+
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Warning);
+    box.setWindowTitle(QStringLiteral("Bán thời trang 5 chỉ số"));
+    box.setText(QStringLiteral("Sẽ bán %1 món. Bán rồi không lấy lại được.")
+                    .arg(items.size()));
+    box.setStandardButtons(QMessageBox::Yes | QMessageBox::Cancel);
+    box.setDefaultButton(QMessageBox::Cancel);
+    box.button(QMessageBox::Yes)->setText(QStringLiteral("Bán"));
+    box.button(QMessageBox::Cancel)->setText(QStringLiteral("Thôi"));
+    if (box.exec() != QMessageBox::Yes) {
+        logEvent(QStringLiteral("Bán thời trang: đã huỷ"));
+        return;
+    }
+
+    logEvent(QStringLiteral("Bán thời trang: %1 món").arg(items.size()));
+    m_bridge->queueCommand(QStringLiteral("j:"));
+    showStatus(QStringLiteral("Đang bán %1 món…").arg(items.size()), 6000);
+}
+
+// Khoá theo tài khoản và theo ngày. Trạng thái từ game không phải lúc nào cũng
+// có (server chưa gửi gói khởi tạo thì mình gửi hết), nên thiếu cái khoá này
+// thì mỗi lần vào lại game là một lượt gửi thừa hai chục gói.
+QString MainWindow::signClaimKey() const
+{
+    const QString user =
+        QUrlQuery(QUrl(m_swfUrl)).queryItemValue(QStringLiteral("user"));
+    return QStringLiteral("sign/claimed/") + (user.isEmpty() ? QStringLiteral("?")
+                                                             : user);
+}
+
+bool MainWindow::signClaimedToday() const
+{
+    return QSettings().value(signClaimKey()).toString()
+           == QDate::currentDate().toString(Qt::ISODate);
+}
+
+void MainWindow::markSignClaimedToday()
+{
+    QSettings().setValue(signClaimKey(),
+                         QDate::currentDate().toString(Qt::ISODate));
+}
+
 // Trả lời của lệnh hỏi trạng thái.
 void MainWindow::onSignStatus(const QString &line)
 {
@@ -211,6 +283,9 @@ void MainWindow::claimSignGifts()
         m_bridge->queueCommand(signactivity::claimCommand(m_signLoader->activityId(), g));
         ++sent;
     }
+    // Ghi cờ cả khi không gửi gì: đã hỏi trạng thái và biết hôm nay không có
+    // gì để nhận, lần vào sau khỏi hỏi lại.
+    markSignClaimedToday();
     if (sent == 0) {
         logEvent(QStringLiteral("Điểm danh: không có gói nào đang nhận được"));
         return;
@@ -396,6 +471,10 @@ void MainWindow::onGameState(const QString &state)
     // bỏ qua lặng lẽ; chỗ nghỉ đó cũng để game tải nốt tài nguyên sảnh.
     if (!m_signClaimed && state == QLatin1String("main")) {
         m_signClaimed = true;
+        if (signClaimedToday()) {
+            logEvent(QStringLiteral("Điểm danh: hôm nay đã nhận rồi, bỏ qua"));
+            return;
+        }
         m_signPending = true;
         QTimer::singleShot(5000, this, [this] { m_signLoader->load(m_swfUrl); });
     }
@@ -505,6 +584,32 @@ void MainWindow::onToolAction(const QString &actionId)
         // vị từ CellMenu dùng để quyết định có hiện nút "Nhiều" hay không.
         m_bridge->queueCommand(QStringLiteral("x:"));
         showStatus(QStringLiteral("Đang mở nhanh…"), 8000);
+        return;
+    }
+
+    if (actionId == QLatin1String("list-bag")) {
+        // Ghi từng ô túi đạo cụ ra %TEMP%\gunny-flash.log. Cần trước khi tự
+        // động mở hộp: phân loại phải dựa trên dữ liệu thật, mở nhầm là mất đồ.
+        m_bridge->queueCommand(QStringLiteral("l:"));
+        showStatus(QStringLiteral("Đang liệt kê túi…"), 4000);
+        return;
+    }
+
+    if (actionId == QLatin1String("sell-dress")) {
+        // Đếm trước, hỏi, rồi mới bán. Bán là không lấy lại được, nên không
+        // bao giờ gửi gói ngay từ cú bấm.
+        m_bridge->queueCommand(QStringLiteral("k:"));
+        showStatus(QStringLiteral("Đang tìm thời trang 5 chỉ số…"), 4000);
+        return;
+    }
+
+    if (actionId == QLatin1String("dump-bags")) {
+        // Chỉ túi 0. Không có túi thời trang riêng: quét 0..12 chỉ thấy 0 và 1
+        // có đồ, còn lại rỗng hoặc không tồn tại; PlayerDressManager cũng
+        // không giữ túi nào. Tab "Thời Trang" là túi 0 lọc bằng
+        // DressUtils.isDress — bản vá gọi thẳng vị từ đó của game.
+        m_bridge->queueCommand(QStringLiteral("t:0"));
+        showStatus(QStringLiteral("Đang dò các túi…"), 4000);
         return;
     }
 

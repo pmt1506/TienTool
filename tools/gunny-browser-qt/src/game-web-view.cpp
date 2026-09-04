@@ -76,6 +76,8 @@ void GameWebView::contextMenuEvent(QContextMenuEvent *event)
     const QList<QPair<QString, QString>> items = {
         {QStringLiteral("clean-bag"), QStringLiteral("Dọn túi")},
         {QStringLiteral("clean-mail"), QStringLiteral("Dọn thư")},
+        {QStringLiteral("open-batch"), QStringLiteral("Mở nhanh items")},
+        {QStringLiteral("sell-dress"), QStringLiteral("Bán thời trang 5 chỉ số")},
         {QStringLiteral("open-magic-store"), QStringLiteral("Mở kho ma pháp")},
         {QStringLiteral("toggle-overlay"), QStringLiteral("Hiện bảng cài đặt")},
     };

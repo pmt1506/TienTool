@@ -49,6 +49,10 @@ private:
     void claimSignGifts();
     void onSignGiftsLoaded(const QString &error);
     void onSignStatus(const QString &line);
+    void onDressScan(const QString &line);
+    QString signClaimKey() const;
+    bool signClaimedToday() const;
+    void markSignClaimedToday();
     void buildGraphicsMenu();
     void buildFlashMenu(QMenu *parent);
     // Đọc lựa chọn đã lưu và chuyển cho khung xem, dùng cho lần nạp đầu tiên.
