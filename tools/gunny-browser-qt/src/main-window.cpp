@@ -1,5 +1,7 @@
 #include "main-window.h"
 
+#include <cstdio>
+
 #include <QActionGroup>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -18,6 +20,40 @@
 #include "speed-dialog.h"
 #include "speed-hack.h"
 #include "tool-bridge.h"
+
+// Bố cục menu theo LazyGunny; hành động thật nối vào onToolAction.
+//
+// Để ở phạm vi tệp vì dùng ở hai chỗ: dựng menu, và đổi mã hành động thành tên
+// tiếng Việt khi ghi log — log mà chỉ có "clean-bag" thì đọc lại chẳng hiểu.
+struct Entry { const char *menu; const char *id; const char *text; };
+static const Entry kMenuEntries[] = {
+    {"Giao diện", "toggle-overlay", "Hiện bảng cài đặt"},
+    {"Giao diện", "reload", "Tải lại game"},
+    {"Tiện ích", "clean-bag", "Dọn túi"},
+    {"Tiện ích", "clean-mail", "Dọn thư"},
+    {"Tiện ích", "clear-cache", "Xóa cache"},
+    {"Tiện ích", "list-bag", "Liệt kê túi (ra log)"},
+    {"Tiện ích", "list-calendar", "Trạng thái điểm danh (ra log)"},
+    {"Tiện ích", "open-slot", "Mở ô túi…"},
+    {"Tiện ích", "slot-info", "Xem thuộc tính ô… (debug)"},
+    {"Tiện ích", "open-batch", "Mở nhanh (hết số lượng)"},
+    {"Tiện ích", "use-pet", "Dùng nhanh phụ kiện thú & pet"},
+};
+
+// Tên hiển thị của một hành động. Vài hành động nằm ngoài bảng menu (nút riêng
+// trên thanh, hoặc gọi từ --auto-magic) nên có thêm nhánh dự phòng.
+static QString actionLabel(const QString &id)
+{
+    for (const Entry &e : kMenuEntries) {
+        if (id == QLatin1String(e.id)) {
+            return QString::fromUtf8(e.text);
+        }
+    }
+    if (id == QLatin1String("open-magic-store")) {
+        return QStringLiteral("Kho ma pháp");
+    }
+    return id;
+}
 
 MainWindow::MainWindow(const QString &swfUrl,
                        const QString &referer,
@@ -74,12 +110,7 @@ MainWindow::MainWindow(const QString &swfUrl,
             }
         }
         showStatus(m, 5000);
-        QFile f(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-flash.log")));
-        if (f.open(QIODevice::Append | QIODevice::Text)) {
-            f.write(QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss ")).toUtf8());
-            f.write(m.toUtf8());
-            f.write("\n");
-        }
+        logEvent(m);
     });
 
     // --auto-magic <giây>: tự bấm "Kho ma pháp" sau khi game tải xong. Để chạy
@@ -108,24 +139,8 @@ void MainWindow::showStatus(const QString &text, int msec)
 
 void MainWindow::buildMenuBar()
 {
-    // Bố cục menu theo LazyGunny; hành động thật sẽ nối dần vào onToolAction.
-    struct Entry { const char *menu; const char *id; const char *text; };
-    static const Entry entries[] = {
-        {"Giao diện", "toggle-overlay", "Hiện bảng cài đặt"},
-        {"Giao diện", "reload", "Tải lại game"},
-        {"Tiện ích", "daily-award", "Nhận quà điểm danh"},
-        {"Tiện ích", "clean-bag", "Dọn túi"},
-        {"Tiện ích", "clean-mail", "Dọn thư"},
-        {"Tiện ích", "clear-cache", "Xóa cache"},
-        {"Tiện ích", "list-bag", "Liệt kê túi (ra log)"},
-        {"Tiện ích", "list-calendar", "Trạng thái điểm danh (ra log)"},
-        {"Tiện ích", "open-slot", "Mở ô túi…"},
-        {"Tiện ích", "open-batch", "Mở nhanh (hết số lượng)"},
-        {"Tiện ích", "use-pet", "Dùng nhanh phụ kiện thú & pet"},
-    };
-
     QHash<QString, QMenu *> menus;
-    for (const Entry &e : entries) {
+    for (const Entry &e : kMenuEntries) {
         const QString name = QString::fromUtf8(e.menu);
         QMenu *&m = menus[name];
         if (!m) {
@@ -361,8 +376,28 @@ void MainWindow::applySpeed(double multiplier)
         6000);
 }
 
+void MainWindow::logEvent(const QString &line)
+{
+    const QString stamped =
+        QDateTime::currentDateTime().toString(QStringLiteral("hh:mm:ss ")) + line;
+
+    QFile f(QDir(QDir::tempPath()).filePath(QStringLiteral("gunny-flash.log")));
+    if (f.open(QIODevice::Append | QIODevice::Text)) {
+        f.write(stamped.toUtf8());
+        f.write("\n");
+    }
+
+    // Tiến trình cha đọc stdout để gộp vào bảng log chung. Phải flush: stdout
+    // khi bị chuyển hướng qua pipe là có đệm, không flush thì log chỉ hiện ra
+    // lúc đóng game.
+    fputs(stamped.toUtf8().constData(), stdout);
+    fputc('\n', stdout);
+    fflush(stdout);
+}
+
 void MainWindow::onToolAction(const QString &actionId)
 {
+    logEvent(QStringLiteral("Bấm: ") + actionLabel(actionId));
     if (actionId == QLatin1String("reload")) {
         m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
         return;
@@ -383,6 +418,21 @@ void MainWindow::onToolAction(const QString &actionId)
         // vị từ CellMenu dùng để quyết định có hiện nút "Nhiều" hay không.
         m_bridge->queueCommand(QStringLiteral("x:"));
         showStatus(QStringLiteral("Đang mở nhanh…"), 8000);
+        return;
+    }
+
+    if (actionId == QLatin1String("slot-info")) {
+        // Đổ mọi thuộc tính của một ô ra log bằng describeType. Dùng khi cần
+        // biết tên trường game đặt cho một trạng thái (khoá, đã dùng…): tên đó
+        // khác nhau giữa các bản game nên đoán mò là hỏng, cứ đọc thẳng.
+        bool ok = false;
+        const int slot = QInputDialog::getInt(
+            this, QStringLiteral("Xem thuộc tính ô"),
+            QStringLiteral("Ô số (1–49):"), 1, 1, 49, 1, &ok);
+        if (ok) {
+            m_bridge->queueCommand(QStringLiteral("t:%1").arg(slot - 1));
+            showStatus(QStringLiteral("Đang đọc thuộc tính ô…"), 4000);
+        }
         return;
     }
 
@@ -416,13 +466,6 @@ void MainWindow::onToolAction(const QString &actionId)
         // một lần thì lớp mới có, trước đó lệnh này chỉ báo được lỗi #1065.
         m_bridge->queueCommand(QStringLiteral("c:"));
         showStatus(QStringLiteral("Đang đọc bảng lịch…"), 4000);
-        return;
-    }
-
-    if (actionId == QLatin1String("daily-award")) {
-        // Bản vá tự gửi một lần sau khi vào sảnh; nút này để gửi lại bằng tay.
-        m_bridge->queueCommand(QStringLiteral("d:"));
-        showStatus(QStringLiteral("Đang điểm danh…"), 4000);
         return;
     }
 

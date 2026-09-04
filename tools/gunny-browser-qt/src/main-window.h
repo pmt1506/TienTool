@@ -33,6 +33,9 @@ private:
     void showStatus(const QString &text, int msec);
 
     void buildMenuBar();
+    // Ghi một dòng vào %TEMP%\gunny-flash.log VÀ ra stdout. Stdout để tiến
+    // trình cha (TienTool) gom vào cùng bảng log với thao tác trên giao diện.
+    void logEvent(const QString &line);
     void buildSpeedMenu();
     void buildOverlayMenu();
     // Bật/tắt thước đo (một thanh ngang, một thanh dọc, có vạch chia).

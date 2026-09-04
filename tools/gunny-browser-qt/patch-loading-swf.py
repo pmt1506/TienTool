@@ -25,8 +25,8 @@ Lệnh nhận qua hàng đợi của trang:
     s:<kiểu>   kiểu co giãn (showAll/noScale), giữ lại và ép mỗi nhịp
     m:         dọn thư: nhận hết đính kèm rồi xếp túi
     b:         xếp túi vào cả 5 két, mỗi két một gói, giãn ra cho server kịp
-    d:         điểm danh + nhận quà ngày (tự chạy một lần sau khi vào sảnh)
     c:         đọc trạng thái bảng lịch ra log (số ngày điểm danh, mốc quà)
+    t:<o>      do moi thuoc tinh cua mot o tui ra log (debug)
     còn lại    mở kho ma pháp, tab Kho báu
 """
 import io
@@ -177,12 +177,6 @@ STATE_BODY = (
     + CLS + get_prop("_toolState") + op("getlocal3") + op("ifeq", "LsEnd") + "\n"
     + CLS + op("getlocal3") + op("setproperty", pub("_toolState")) + "\n"
     + report(op("pushstring", '"state "') + op("getlocal3") + op("add"))
-    # Vừa vào sảnh thì hẹn giờ điểm danh. Chỉ một lần cho cả phiên: state đổi
-    # qua lại mỗi trận đánh, điểm danh lại mỗi lần là gửi gói thừa vô ích.
-    + CLS + get_prop("_toolDailyDone") + op("iftrue", "LsEnd") + "\n"
-    + op("getlocal3") + op("pushstring", '"main"') + op("ifne", "LsEnd") + "\n"
-    + CLS + op("pushtrue") + op("setproperty", pub("_toolDailyDone"))
-    + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolDailyStep")) + "\n"
     + "LsEnd:\n" + op("jump", "LsAfter") + "\n"
     + "LsCatch:\n" + catch_prologue() + op("pop") + "\n"
     + "LsAfter:\n")
@@ -233,24 +227,6 @@ BAG_STEP_BODY = (
 
 # Điểm danh: đợi 5 giây kể từ lúc vào sảnh rồi mới gửi. Gửi ngay lúc state đổi
 # thì gói đi trước khi server dựng xong dữ liệu người chơi và bị bỏ qua lặng lẽ.
-DAILY_STEP_BODY = (
-    "LdTry:\n"
-    + CLS + get_prop("_toolDailyStep") + op("convert_i") + op("setlocal3")
-    + op("getlocal3") + op("iffalse", "LdEnd") + "\n"
-    + op("getlocal3") + op("pushbyte", "20") + op("ifge", "LdRun") + "\n"
-    + CLS + op("getlocal3") + op("increment_i")
-    + op("setproperty", pub("_toolDailyStep")) + op("jump", "LdEnd") + "\n"
-    + "LdRun:\n"
-    + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolDailyStep")) + "\n"
-    + report(CLS + op("pushbyte", "0")
-             + op("callproperty", "%s, 1" % pub("toolDaily")))
-    + "LdEnd:\n" + op("jump", "LdAfter") + "\n"
-    + "LdCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
-    + op("setlocal2") + "\n"
-    + report(op("pushstring", '"diem danh hong: "') + op("getlocal2") + op("add"))
-    + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolDailyStep")) + "\n"
-    + "LdAfter:\n")
-
 # Hỏi hàng đợi lệnh của trang 250ms một lần.
 CMD_BODY = (
     "LcTry:\n"
@@ -295,18 +271,19 @@ CMD_BODY = (
     + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolMailStep"))
     + op("jump", "LcEnd") + "\n"
     + "LcNotBag:\n"
-    + op("getlocal3") + op("pushstring", '"b:"') + op("ifne", "LcNotDaily") + "\n"
+    + op("getlocal3") + op("pushstring", '"b:"') + op("ifne", "LcNotCal") + "\n"
     + CLS + op("pushbyte", "1") + op("setproperty", pub("_toolBagStep"))
     + op("jump", "LcEnd") + "\n"
-    + "LcNotDaily:\n"
-    + op("getlocal3") + op("pushstring", '"d:"') + op("ifne", "LcNotCal") + "\n"
-    + report(CLS + op("pushbyte", "0")
-             + op("callproperty", "%s, 1" % pub("toolDaily")))
-    + op("jump", "LcEnd") + "\n"
     + "LcNotCal:\n"
-    + op("getlocal3") + op("pushstring", '"c:"') + op("ifne", "LcMagic") + "\n"
+    + op("getlocal3") + op("pushstring", '"c:"') + op("ifne", "LcNotInfo") + "\n"
     + report(CLS + op("pushbyte", "0")
              + op("callproperty", "%s, 1" % pub("toolCalendar")))
+    + op("jump", "LcEnd") + "\n"
+    + "LcNotInfo:\n"
+    + op("getlocal3") + op("pushstring", '"t:"') + op("ifne", "LcMagic") + "\n"
+    + report(CLS + op("getlocal2") + op("pushbyte", "2")
+             + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+             + op("callproperty", "%s, 1" % pub("toolSlotInfo")))
     + op("jump", "LcEnd") + "\n"
     + "LcMagic:\n"
     + CLS + op("pushbyte", "1")
@@ -530,58 +507,6 @@ MAIL_STEP_BODY = (
     + "LnAfter:\n")
 
 
-# ------------------------------------------------------------------ toolDaily
-
-# Điểm danh và nhận quà ngày.
-#
-# Cả ba việc đi qua một gói duy nhất, gói 13 mang một số nguyên "getWay"
-# (GameSocketOut.sendDailyAward). Ba giá trị client dùng, đọc từ module lịch:
-#
-#     5 -> điểm danh hôm nay   (CalendarControl.setSignInfo)
-#     0 -> nhận quà ngày       (CalendarControl.reciveDayAward)
-#     3 -> nhận gói quà VIP    (CalendarFrame.__sendReward)
-#
-# Bản gốc chặn trước bằng cờ phía client (dailyAwardState, hasSigned) rồi mới
-# gửi. Ở đây không đọc được những cờ đó — chúng nằm trong calendar.CalendarManager,
-# lớp chỉ hiện ra sau khi người chơi mở bảng lịch — nên cứ gửi và để server tự
-# từ chối. Gửi thừa không mất gì: server chỉ phát quà một lần mỗi ngày.
-#
-# Riêng gói VIP thì hỏi được: cờ nằm trên PlayerManager.Instance.Self.
-#
-# Quà mốc ("đủ 3/7/15… ngày") là gói khác, gói 90 mang số ngày đã điểm danh
-# (sendSignAward). Mốc lấy từ chính tệp cấu hình game đọc lúc đăng nhập,
-# quest2.gnddt.com/dailyawardlist.xml: các Item có GetWay="4", trường AwardDays.
-# Gửi cả năm mốc, server tự từ chối mốc chưa tới hoặc đã nhận — client gốc cũng
-# gửi đúng gói này, chỉ khác là nó lọc trước bằng dữ liệu trong bảng lịch.
-SIGN_MILESTONES = [3, 7, 15, 23, 28]
-
-R_OUT2, R_SELF2 = 2, 3
-
-DAILY_BODY = (
-    "LdaTry:\n"
-    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
-    + store(R_OUT2) + "\n"
-    + local(R_OUT2) + op("pushbyte", "5")
-    + op("callpropvoid", "%s, 1" % pub("sendDailyAward")) + "\n"
-    + local(R_OUT2) + op("pushbyte", "0")
-    + op("callpropvoid", "%s, 1" % pub("sendDailyAward")) + "\n"
-    + "".join(local(R_OUT2) + op("pushbyte", str(n))
-              + op("callpropvoid", "%s, 1" % pub("sendSignAward")) + "\n"
-              for n in SIGN_MILESTONES)
-    + get_class("ddt.manager.PlayerManager") + get_prop("Instance") + get_prop("Self")
-    + store(R_SELF2)
-    + local(R_SELF2) + op("iffalse", "LdaNoVip")
-    + local(R_SELF2) + get_prop("canTakeVipReward") + op("iffalse", "LdaNoVip") + "\n"
-    + local(R_OUT2) + op("pushbyte", "3")
-    + op("callpropvoid", "%s, 1" % pub("sendDailyAward")) + "\n"
-    + ret("diem danh: da gui ngay + moc + goi VIP") + "\n"
-    + "LdaNoVip:\n"
-    + ret("diem danh: da gui ngay + moc") + "\n"
-    + "LdaEnd:\n"
-    + "LdaCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
-    + op("setlocal2") + "\n"
-    + report(op("pushstring", '"diem danh loi: "') + op("getlocal2") + op("add"))
-    + ret("diem danh loi"))
 
 
 # --------------------------------------------------------------- toolCalendar
@@ -847,6 +772,52 @@ OPEN_SLOT_BODY = (
     + op("pushstring", '"mo o loi: "') + local(R_KEY) + op("add")
     + op("returnvalue"))
 
+# -------------------------------------------------------------- toolSlotInfo
+
+# Do toan bo thuoc tinh cua mot o tui bang describeType.
+#
+# Bang liet ke tui chi in vai truong da biet ten (TemplateID, CategoryID,
+# Property1..4, Count). Muon biet mon do co dang khoa hay khong thi phai biet
+# ten truong giu trang thai do, ma ten do khong doan duoc — moi ban game dat
+# mot kieu. describeType tra ve XML liet ke MOI truong cua doi tuong, nen mot
+# lan chay la co du danh sach ten, khoi doan tung cai mot roi build lai.
+# Cac truong nghi la giu trang thai khoa, lay tu ban describeType cua
+# InventoryItemInfo. In het mot luot roi so mon khoa voi mon khong khoa, truong
+# nao doi gia tri thi do la truong that.
+LOCK_FIELDS = ["TemplateID", "lockType", "goodsLock", "cellLocked", "lock",
+               "IsBinds", "BindType", "IsJudge", "isInvalid", "CanUse"]
+
+SLOT_INFO_BODY = (
+    "LsiTry:" + "\n"
+    + bag_and_out()
+    + op("getlocal1") + store(R_I)
+    + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
+    + store(R_ITEM)
+    + local(R_ITEM) + op("iffalse", "LsiEmpty") + "\n"
+    # describeType chi liet ke TEN truong, hai mon khac trang thai van ra chuoi
+    # y het nhau. Nen doc thang GIA TRI cua cac truong nghi la giu trang thai
+    # khoa — ten lay tu chinh ban describeType nen chac chan ton tai, khong so
+    # Error #1069.
+    + op("pushstring", '"o "') + local(R_I) + op("add")
+    + "".join(op("pushstring", '" %s="' % f) + op("add")
+              + local(R_ITEM) + get_prop(f) + op("add")
+              for f in LOCK_FIELDS)
+    + op("coerce_s") + op("returnvalue") + "\n"
+    + "LsiEmpty:" + "\n"
+    + ret("o trong") + "\n"
+    + "LsiEnd:" + "\n"
+    + "LsiCatch:" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + store(R_KEY) + "\n"
+    + op("pushstring", '"do o loi: "') + local(R_KEY) + op("add")
+    + op("returnvalue"))
+
+
+# Property1 bi loai khoi "Mo nhanh":
+#   21 = the bai (6 nuoc kinh nghiem...). "Mo" no la dung the, mat ca chong.
+#   6  = do doi qua. Server tra loi khi gui goi mo.
+# Property1 khai bao kieu String nen so bang ifeq (long), khong ifstricteq.
+BATCH_SKIP_P1 = [21, 6]
+
 # -------------------------------------------------------------- toolOpenBatch
 
 # Mở nhanh: chồng hộp đầu tiên mở nhiều được, mở HẾT số lượng. Điều kiện lấy
@@ -863,6 +834,18 @@ OPEN_BATCH_BODY = (
     + local(R_BANK) + local(R_I) + op("callproperty", "%s, 1" % pub("getItemAt"))
     + store(R_ITEM)
     + local(R_ITEM) + op("iffalse", "Lob1Next") + "\n"
+    # The bai (Property1 21) khong phai hop: "mo" no la dung the, mat luon ca
+    # chong. Chan ngay dau vong lap, truoc ca isPackage/isChest, de khong nhanh
+    # nao lot. Property1 khai bao kieu String nen dung ifeq (so long) chu khong
+    # phai ifstricteq.
+    + "".join(local(R_ITEM) + get_prop("Property1") + op("pushbyte", str(v))
+              + op("ifeq", "Lob1Next") + "\n"
+              for v in BATCH_SKIP_P1)
+    # Chi mo nhanh do DA KHOA. Do chua khoa con giao dich / chuyen sang acc khac
+    # duoc, mo ra la mat cai quyen do — quet ca tui nen lo mot cai la mat ca
+    # chong. IsBinds=true la da khoa; xac nhan bang hai mon cung TemplateID
+    # 11233, moi truong khac giong het nhau, chi rieng IsBinds doi.
+    + local(R_ITEM) + get_prop("IsBinds") + op("iffalse", "Lob1Next") + "\n"
     # Lọc theo đúng vị từ CellMenu hỏi trước khi vẽ nút "Mở": isPackage nhận
     # Property1 6/114/66, isChest nhận 6. Trước đây lọc bằng isOpenBatch — vị từ
     # của nút "Nhiều", chỉ nhận 12/13/21 — nên rương mở từng cái bị bỏ sót hết.
@@ -968,7 +951,6 @@ MENU_ITEMS = [
     ("D\u1ecdn th\u01b0", "mail"),
     ("M\u1edf nhanh h\u1ed9p", "box"),
     ("D\u00f9ng nhanh ph\u1ee5 ki\u1ec7n th\u00fa & pet", "pet"),
-    ("Nh\u1eadn qu\u00e0 \u0111i\u1ec3m danh", "daily"),
 ]
 
 CM = 'QName(PackageNamespace("flash.ui"), "ContextMenu")'
@@ -1043,9 +1025,6 @@ def menu_case(cap, kind, nxt):
     elif kind == "box":
         body = report(CLS + op("pushbyte", "0")
                       + op("callproperty", "%s, 1" % pub("toolOpenBatch")))
-    elif kind == "daily":
-        body = report(CLS + op("pushbyte", "0")
-                      + op("callproperty", "%s, 1" % pub("toolDaily")))
     else:
         body = report(CLS + op("pushbyte", "0")
                       + op("callproperty", "%s, 1" % pub("toolPet")))
@@ -1066,9 +1045,9 @@ PICK_BODY = (
 
 
 TICK_BODY = (STATE_BODY + ENFORCE_BODY + MENU_BODY + BAG_STEP_BODY
-             + MAIL_STEP_BODY + DAILY_STEP_BODY + CMD_BODY)
+             + MAIL_STEP_BODY + CMD_BODY)
 TICK_TRY = (try_block("s") + try_block("e") + try_block("mu")
-            + try_block("b") + try_block("n") + try_block("d") + try_block("c"))
+            + try_block("b") + try_block("n") + try_block("c"))
 
 # ---------------------------------------------------------------------- lắp ráp
 
@@ -1128,17 +1107,15 @@ TRAITS = (
     + slot("_toolMailStep", pub("int"))
     + slot("_toolMailWait", pub("int"))
     + slot("_toolMenuKids", pub("int"))
-    + slot("_toolDailyStep", pub("int"))
-    + slot("_toolDailyDone", pub("Boolean"))
     + (slot("_toolSeen", pub("Object")) if probe else "")
     + method("toolTick", pub("Object"), TICK_BODY, TICK_TRY)
     + method("toolOpenMagicHouse", pub("int"), OPEN_BODY, try_block("o"))
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
     + method("toolMail", pub("int"), MAIL_BODY, try_block("m"))
-    + method("toolDaily", pub("int"), DAILY_BODY, try_block("da"))
     + method("toolCalendar", pub("int"), CALENDAR_BODY, try_block("cl"))
     + method("toolBagList", pub("int"), LIST_BODY, try_block("l"))
     + method("toolOpenSlot", pub("int"), OPEN_SLOT_BODY, try_block("oq"))
+    + method("toolSlotInfo", pub("int"), SLOT_INFO_BODY, try_block("si"))
     + method("toolOpenBatch", pub("int"), OPEN_BATCH_BODY, try_block("ob"))
     + method("toolPet", pub("int"), PET_BODY, try_block("pt"))
     + method("toolMenuPick", pub("Object"), PICK_BODY, try_block("mp"))
