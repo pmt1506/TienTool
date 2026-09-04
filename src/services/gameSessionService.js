@@ -66,7 +66,11 @@ export async function createGameSession(userName, token, serverID) {
     fbapp: 'false',
     v: GAME_VERSION,
     rand: Date.now().toString(),
-    config: `${CONFIG_HOST}/config${server}.xml`,
+    // Server 1 dùng config.xml, không phải config1.xml — trang PlayGame.aspx
+    // gốc phát ra như vậy, và config1.xml trả 404. Ghép số cho mọi server thì
+    // server 1 nạp cấu hình rỗng: game vẫn đăng nhập, log vẫn chạy, nhưng màn
+    // hình đen vì không có đường dẫn tài nguyên nào.
+    config: `${CONFIG_HOST}/config${server === "1" ? "" : server}.xml`,
   });
 
   console.log(`[Session] ${userName}: da dung xong link SWF`);
