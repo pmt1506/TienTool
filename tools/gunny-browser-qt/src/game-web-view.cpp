@@ -25,6 +25,17 @@ GameWebView::GameWebView(ToolBridge *bridge, QWidget *parent)
     pal.setBrush(QPalette::Base, Qt::black);
     setPalette(pal);
 
+    // QWebView đặt sẵn Qt::WheelFocus, nghĩa là Qt tự trao focus cho widget khi
+    // có cú lăn chuột. Flash chạy trong cửa sổ native con và KHÔNG xử lý
+    // WM_MOUSEWHEEL, nên DefWindowProc đẩy thông điệp lên cửa sổ Qt cha; Qt thấy
+    // vậy liền gọi SetFocus sang cửa sổ mình và cướp bàn phím khỏi Flash — lăn
+    // một nấc là game hết nhận phím cho tới khi bấm chuột lại vào khung game.
+    //
+    // Bỏ đúng bit bánh xe, giữ nguyên tab và click, nên mọi cách lấy focus khác
+    // vẫn như cũ. Chặn ở wheelEvent() không ăn thua: Qt trao focus trong lúc phân
+    // phối sự kiện, trước khi widget kịp thấy nó.
+    setFocusPolicy(Qt::StrongFocus);
+
     connect(page()->mainFrame(), &QWebFrame::javaScriptWindowObjectCleared,
             this, &GameWebView::reinstallBridge);
 }
