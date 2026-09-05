@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QColor>
 #include <QPointF>
 #include <QVector>
 #include <QPixmap>
@@ -33,10 +34,19 @@ public:
     void setRuler(bool on);
     bool rulerEnabled() const { return m_ruler; }
 
+    // Một đường đạn kèm màu của nó.
+    struct Line
+    {
+        QVector<QPointF> points;
+        QColor color;
+    };
+
     // Đường đạn, theo toạ độ khung game (gốc góc trên trái). Để trống khi chưa
     // có dữ liệu — chưa đọc được vị trí nhân vật, góc, gió và lực thì không vẽ
     // gì cả còn hơn vẽ một đường sai chỗ.
     void setTrajectory(const QVector<QPointF> &points);
+    // Nhiều đường cùng lúc: đường tới mục tiêu, đường lực tối đa, các tia phụ.
+    void setTrajectories(const QVector<Line> &lines);
 
     // Bám lại theo khung game. Gọi khi cửa sổ chính di chuyển hoặc đổi kích thước.
     void syncGeometry();
@@ -52,7 +62,7 @@ private:
     void drawRuler(QPainter &p);
 
     QWidget *m_target;
-    QVector<QPointF> m_points;
+    QVector<Line> m_lines;
     // Thước vẽ sẵn một lần rồi dán lại: hình nó cố định, chỉ đổi khi cửa sổ
     // đổi kích thước. Vẽ lại 172 ô vuông mỗi lần cửa sổ cần repaint là phí.
     QPixmap m_rulerCache;

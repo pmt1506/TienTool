@@ -15,6 +15,9 @@ QT += core gui widgets network webkit webkitwidgets
 CONFIG += c++11
 TEMPLATE = app
 TARGET = gunny-browser-qt
+# Xuat thang vao thu muc TienTool goi (src/config.js:31), khoi phai chep tay
+# sau moi lan build.
+DESTDIR = $$PWD/build/release
 
 SOURCES += \
     src/main.cpp \
@@ -29,6 +32,7 @@ SOURCES += \
     src/speed-dialog.cpp \
     src/speed-hack.cpp \
     src/tool-bridge.cpp \
+    src/trajectory-solver.cpp \
     src/sign-activity-gifts.cpp \
     src/warehouse-search-dialog.cpp \
     third_party/minhook/src/buffer.c \
@@ -49,6 +53,7 @@ HEADERS += \
     src/speed-dialog.h \
     src/speed-hack.h \
     src/tool-bridge.h \
+    src/trajectory-solver.h \
     src/sign-activity-gifts.h \
     src/warehouse-search-dialog.h
 

@@ -29,6 +29,11 @@ GameWebView::GameWebView(ToolBridge *bridge, QWidget *parent)
             this, &GameWebView::reinstallBridge);
 }
 
+void GameWebView::setWindowMode(const QString &wmode)
+{
+    m_wmode = wmode;
+}
+
 void GameWebView::reinstallBridge()
 {
     QWebFrame *frame = page()->mainFrame();
@@ -49,6 +54,7 @@ void GameWebView::loadGame(const QString &swfUrl, int stageWidth, int stageHeigh
     html.replace(QStringLiteral("__HEIGHT__"), QString::number(stageHeight));
     html.replace(QStringLiteral("__QUALITY__"), m_quality);
     html.replace(QStringLiteral("__SCALE__"), m_scale);
+    html.replace(QStringLiteral("__WMODE__"), m_wmode);
 
     // Phải phục vụ qua HTTP thật, không dùng setHtml(): document do setHtml
     // tạo ra không có URL nên Flash thấy origin rỗng và tự abort

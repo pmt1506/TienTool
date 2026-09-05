@@ -1,8 +1,11 @@
 #pragma once
 
 #include "sign-activity-gifts.h"
+#include "trajectory-solver.h"
 
 #include <QAction>
+#include <QPointF>
+#include <QTimer>
 #include <QMainWindow>
 #include <QString>
 
@@ -47,8 +50,21 @@ private:
     void applyLevel(int level);
     // Dat lai ve “level thật” sau mỗi lần nạp game.
     void resetLevelMenu();
-    // Menu "Thời gian lượt": Bình thường / 15 giây / 30 giây.
+    // Menu "Thời gian lượt": Bình thường / 15 giây.
     void buildTurnTimeMenu();
+    // Menu "Đường đạn": bật/tắt vẽ quỹ đạo.
+    void buildAimMenu();
+    // Bật/tắt: báo cho bản vá biết có cần gửi dữ liệu ngắm không, và xoá đường
+    // đang vẽ khi tắt.
+    void applyAim(bool on);
+    // Đọc một dòng "aim ...", mô phỏng rồi đẩy sang overlay.
+    void onAimData(const QString &line);
+    // Phím bấm trong game, do bản vá bắt ở sân khấu Flash rồi báo ra.
+    void onGameKey(int keyCode);
+    // Cuộn chuột trong game: tăng giảm lực của đường đang vẽ.
+    void onGameWheel(int delta);
+    // Xoá đường vẽ khi hết lượt mình.
+    void clearAim();
     // Gửi số giây xuống bản vá SWF và lưu lại lựa chọn. 0 = để nguyên giá trị
     // server gửi mỗi lượt.
     void applyTurnTime(int seconds);
@@ -69,6 +85,9 @@ private:
     void markSignClaimedToday();
     void buildGraphicsMenu();
     void buildFlashMenu(QMenu *parent);
+    // Chọn wmode của thẻ embed; đổi xong phải nạp lại game.
+    void addWindowModeMenu(QMenu *menu);
+    static QString windowModeValue();
     // Đọc lựa chọn đã lưu và chuyển cho khung xem, dùng cho lần nạp đầu tiên.
     // Đổi lúc đang chạy thì gửi lệnh vào Flash, không nạp lại trang.
     void applyRenderOptions();
@@ -97,6 +116,24 @@ private:
     QAction *m_rulerAction = nullptr;
     QAction *m_rulerAuto = nullptr;
     bool m_scaleSent = false;
+    QAction *m_aimAction = nullptr;
+    // Trạng thái ngắm mới nhất, để lúc bấm Tab còn có cái mà giải.
+    AimState m_lastAim;
+    // Dòng thô gần nhất, để bấm Tab là soi được bản vá gửi gì.
+    QString m_lastAimLine;
+    // Dòng hỏng đã báo, để không ghi lại 25 lần mỗi giây.
+    QString m_lastBadAimLine;
+    // Thông báo chẩn đoán gần nhất, để không ghi lặp.
+    QString m_lastAimNote;
+    // Lực giải ra ở lần bấm Tab gần nhất; 0 = chưa bấm.
+    double m_solvedPower = 0.0;
+    // Đích của lần bấm Tab gần nhất, để cắt cung đúng chỗ.
+    QPointF m_solvedTarget;
+    bool m_solvedTargetValid = false;
+    // Khoảng cách hụt của lần giải gần nhất, quyết định màu đường vẽ.
+    double m_solvedMiss = 0.0;
+    QAction *m_spreadAction = nullptr;
+    QTimer *m_aimIdle = nullptr;
     // Chỉ tự nhận quà một lần mỗi phiên: vào lại sảnh sau mỗi trận đấu thì
     // trạng thái "main" lặp lại liên tục.
     bool m_signClaimed = false;

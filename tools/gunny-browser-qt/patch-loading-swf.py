@@ -34,6 +34,9 @@ Lệnh nhận qua hàng đợi của trang:
     b:         xếp túi vào cả 5 két, mỗi két một gói, giãn ra cho server kịp
     n:<giây>   ép thời gian lượt của mình; 0 = để nguyên giá trị server gửi
     c:<level>  ép level hiển thị của nhân vật; 0 = thôi ép
+    d:<0|1>    báo dữ liệu ngắm mỗi nhịp để tool vẽ đường đạn
+    f:<lực>    bắn ngay bằng lực cho trước, khỏi giữ space
+    e:<0|1>    ghi vị trí từng viên đạn mỗi nhịp, để đo đường đạn thật
     a:<actId>|<giftbagId>|<số món>   nhận một gói quà của hoạt động GM
     g:<actId>  doc trang thai tung goi qua ra log
     t:<loai>   do tam: liet ke mot tui ra log kem bon chi so
@@ -252,7 +255,211 @@ TURN_BODY = (
     + op("getlocal", "2") + op("getlocal", "3") + op("setproperty", pub("turnTime")) + "\n"
     + "LttEnd:\n" + op("jump", "LttAfter") + "\n"
     + "LttCatch:\n" + catch_prologue() + op("pop") + "\n"
-    + "LttAfter:\n" + op("returnvoid"))
+    + "LttAfter:\n")
+
+# Báo dữ liệu ngắm để tool tự dựng đường đạn.
+#
+# Chỉ gửi mấy con số, phần mô phỏng để C++ làm: vòng Euler và chuyện vẽ viết bằng
+# ABC assembly thì tốn gấp nhiều lần, mà tool đã có sẵn lớp vẽ đè
+# (OverlayWindow::setTrajectory).
+#
+# Vì sao không đọc thẳng Living.route mà game đã tính sẵn: showShoot() chỉ chạy khi
+# _useAble bật, mà cờ đó do server bật qua gói __wishofdd (món trợ giúp ngắm có tính
+# phí). Cả cờ lẫn hàm đều protected nên không với tới.
+#
+# Toạ độ trả về là toạ độ MAP; kèm gốc map trên sân khấu và scaleX để bên kia đổi
+# sang toạ độ màn hình. Góc lấy từ calcBombAngle() vì nó đã gộp hướng quay của nhân
+# vật và độ dốc địa hình — tự tính lại từ gunAngle là sai ở mọi sườn dốc.
+AIM_BODY = (
+    "LamTry:\n"
+    + CLS + get_prop("_toolAim") + op("convert_i") + op("setlocal", "3")
+    + op("getlocal", "3") + op("iffalse", "LamEnd") + "\n"
+    + get_class("gameCommon.GameControl") + get_prop("Instance") + op("setlocal", "2") + "\n"
+    + op("getlocal", "2") + get_prop("Current") + op("setlocal", "4") + "\n"
+    + op("getlocal", "4") + op("pushnull") + op("ifeq", "LamEnd") + "\n"
+    + op("getlocal", "4") + get_prop("selfGamePlayer") + op("setlocal", "5") + "\n"
+    + op("getlocal", "5") + op("pushnull") + op("ifeq", "LamEnd") + "\n"
+    # Ngoài lượt mình thì không có gì để ngắm.
+    + op("getlocal", "5") + get_prop("isAttacking") + op("iffalse", "LamEnd") + "\n"
+    + op("getlocal", "2") + get_prop("gameView") + get_prop("map") + op("setlocal", "6") + "\n"
+    + op("getlocal", "6") + op("pushnull") + op("ifeq", "LamEnd") + "\n"
+    # gốc của map trên sân khấu = map.localToGlobal(new Point(0,0))
+    # Neo vào chính vị trí nhân vật trên màn hình, không lấy gốc (0,0) của map: map
+    # còn một _container riêng bên trong (MapView.as:1079) nên gốc map chưa chắc là
+    # gốc mà toạ độ nhân vật quy chiếu tới, và hậu quả là kéo bản đồ thì đường vẽ
+    # đứng im một chỗ. Neo theo nhân vật thì mọi phép dời hình tự đúng.
+    + op("getlocal", "5") + get_prop("pos") + op("setlocal", "8") + "\n"
+    + "LmzTry:\n"
+    + op("getlocal", "6") + op("getlocal", "5") + get_prop("LivingID")
+    + op("callproperty", "%s, 1" % pub("getPhysical")) + op("setlocal", "9") + "\n"
+    + op("getlocal", "9") + op("pushnull") + op("ifeq", "LmzEnd") + "\n"
+    + op("getlocal", "9") + op("callproperty", "%s, 0" % pub("shootPoint"))
+    + op("setlocal", "10") + "\n"
+    + op("getlocal", "10") + op("pushnull") + op("ifeq", "LmzEnd") + "\n"
+    + op("getlocal", "10") + op("setlocal", "8") + "\n"
+    + "LmzEnd:\n" + op("jump", "LmzAfter") + "\n"
+    + "LmzCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + "LmzAfter:\n"
+    + op("getlocal", "6") + op("getlocal", "8")
+    + op("callproperty", "%s, 1" % pub("localToGlobal")) + op("setlocal", "7") + "\n"
+    # Quét danh sách sinh vật trong trận, gom toạ độ của phe địch còn sống thành
+    # chuỗi "x,y;x,y". DictionaryData.list là Array nên duyệt bằng chỉ số.
+    #
+    # Không dùng gameView.currentLivID: nó chỉ được gán trong nhánh _useAble
+    # (GameViewBase.as:2593), tức chỉ khi người chơi có món trợ giúp ngắm mà server
+    # bật, còn lại vĩnh viễn -1.
+    + op("pushstring", '""') + op("setlocal", "16") + "\n"
+    + op("getlocal", "4") + get_prop("livings") + get_prop("list") + op("setlocal", "14") + "\n"
+    + op("pushbyte", "0") + op("setlocal", "15") + "\n"
+    + "LamLoop:\n"
+    + op("getlocal", "15") + op("getlocal", "14") + get_prop("length")
+    + op("ifge", "LamLoopEnd") + "\n"
+    + op("getlocal", "14") + op("getlocal", "15") + op("getproperty", KEY)
+    + op("setlocal", "17") + "\n"
+    + op("getlocal", "17") + op("pushnull") + op("ifeq", "LamNext") + "\n"
+    + op("getlocal", "17") + get_prop("isLiving") + op("iffalse", "LamNext") + "\n"
+    + op("getlocal", "17") + get_prop("isHidden") + op("iftrue", "LamNext") + "\n"
+    + op("getlocal", "17") + get_prop("team")
+    + op("getlocal", "5") + get_prop("team") + op("ifeq", "LamNext") + "\n"
+    + op("getlocal", "17") + get_prop("LivingID")
+    + op("getlocal", "5") + get_prop("LivingID") + op("ifeq", "LamNext") + "\n"
+    + op("getlocal", "16")
+    + op("getlocal", "17") + get_prop("pos") + op("setlocal", "18") + "\n"
+    + op("getlocal", "18") + get_prop("x") + op("add")
+    + op("pushstring", '","') + op("add")
+    + op("getlocal", "18") + get_prop("y") + op("add")
+    + op("pushstring", '";"') + op("add")
+    + op("setlocal", "16") + "\n"
+    + "LamNext:\n"
+    + op("getlocal", "15") + op("increment_i") + op("setlocal", "15")
+    + op("jump", "LamLoop") + "\n"
+    + "LamLoopEnd:\n"
+    # Hệ số của viên đạn: mass, weight (nhân trọng lực), wind (nhân gió),
+    # dragIndex (nhân lực cản). Không tra được thì để 0, bên C++ tự rơi về bộ
+    # hằng số của đường trợ giúp ngắm.
+    + op("pushbyte", "0") + op("setlocal", "20")
+    + op("pushbyte", "0") + op("setlocal", "21")
+    + op("pushbyte", "0") + op("setlocal", "22")
+    + op("pushbyte", "0") + op("setlocal", "23") + "\n"
+    + "LbaTry:\n"
+    + get_class("ddt.manager.BallManager") + get_prop("instance")
+    + op("getlocal", "5") + get_prop("currentBomb")
+    + op("callproperty", "%s, 1" % pub("findBall")) + op("setlocal", "13") + "\n"
+    + op("getlocal", "13") + op("pushnull") + op("ifeq", "LbaEnd") + "\n"
+    + op("getlocal", "13") + get_prop("Template") + op("setlocal", "13") + "\n"
+    + op("getlocal", "13") + op("pushnull") + op("ifeq", "LbaEnd") + "\n"
+    + op("getlocal", "13") + get_prop("Mass") + op("setlocal", "20") + "\n"
+    + op("getlocal", "13") + get_prop("Weight") + op("setlocal", "21") + "\n"
+    + op("getlocal", "13") + get_prop("Wind") + op("setlocal", "22") + "\n"
+    + op("getlocal", "13") + get_prop("DragIndex") + op("setlocal", "23") + "\n"
+    + "LbaEnd:\n" + op("jump", "LbaAfter") + "\n"
+    + "LbaCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + "LbaAfter:\n"
+    + report(op("pushstring", '"aim "')
+             + op("getlocal", "8") + get_prop("x") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "8") + get_prop("y") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "5") + op("callproperty", "%s, 0" % pub("calcBombAngle")) + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "4") + get_prop("wind") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "4") + get_prop("windRate") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "6") + get_prop("gravity") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "6") + get_prop("airResistance") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "7") + get_prop("x") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "7") + get_prop("y") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "6") + get_prop("scaleX") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "20") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "21") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "22") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "23") + op("add")
+             + op("pushstring", '" foes "') + op("add")
+             + op("getlocal", "16") + op("add"))
+    + "LamEnd:\n" + op("jump", "LamAfter") + "\n"
+    + "LamCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + op("setlocal", "19") + "\n"
+    + CLS + get_prop("_toolAim") + op("convert_i") + op("iffalse", "LamAfter") + "\n"
+    + report(op("pushstring", '"aim loi "') + op("getlocal", "19") + op("add"))
+    + "LamAfter:\n")
+
+# Ghi vị trí mọi viên đạn đang bay, mỗi nhịp một dòng cho mỗi viên.
+#
+# Dùng để đo hai thứ không đọc được từ mã: hệ số đổi lực -> vận tốc của server, và
+# độ toả của buff bắn 3 tia. map.objects là Dictionary nên phải duyệt bằng hasnext2.
+BOMB_BODY = (
+    "LboTry:\n"
+    + CLS + get_prop("_toolBomb") + op("convert_i") + op("iffalse", "LboEnd") + "\n"
+    + get_class("gameCommon.GameControl") + get_prop("Instance") + get_prop("gameView")
+    + get_prop("map") + get_prop("objects") + op("setlocal", "2") + "\n"
+    + op("getlocal", "2") + op("pushnull") + op("ifeq", "LboEnd") + "\n"
+    + op("pushbyte", "0") + op("setlocal", "3") + "\n"
+    + "LboLoop:\n"
+    + op("hasnext2", "2, 3") + op("iffalse", "LboEnd") + "\n"
+    + op("getlocal", "2") + op("getlocal", "3") + op("nextvalue") + op("setlocal", "4") + "\n"
+    + op("getlocal", "4") + op("pushnull") + op("ifeq", "LboLoop") + "\n"
+    + op("getlex", 'QName(PackageNamespace("flash.utils"), "getQualifiedClassName")')
+    + op("getglobalscope") + op("getlocal", "4") + op("call", "1")
+    + op("coerce_s") + op("setlocal", "5") + "\n"
+    + op("getlocal", "5") + op("pushstring", '"Bomb"')
+    + op("callproperty", "%s, 1" % pub("indexOf")) + op("convert_i")
+    + op("pushbyte", "0") + op("iflt", "LboLoop") + "\n"
+    + report(op("pushstring", '"bom "') + op("getlocal", "5") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "4") + get_prop("x") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "4") + get_prop("y") + op("add"))
+    + op("jump", "LboLoop") + "\n"
+    + "LboEnd:\n" + op("jump", "LboAfter") + "\n"
+    + "LboCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + "LboAfter:\n")
+
+# Nghe phím trên sân khấu rồi báo mã ra ngoài. Gắn một lần, canh bằng cờ
+# _toolKeyReg. Bắt ở đây chứ không bắt phía Qt vì khi Flash đang giữ con trỏ thì
+# QtWebKit không đẩy phím lên widget nữa.
+KEY_BODY = (
+    "LkyTry:\n"
+    + CLS + get_prop("_toolKeyReg") + op("iftrue", "LkyEnd") + "\n"
+    + CLS + op("pushtrue") + op("setproperty", pub("_toolKeyReg")) + "\n"
+    + STAGE + op("pushstring", '"keyDown"')
+    + CLS + get_prop("toolKey")
+    + op("callpropvoid", "%s, 2" % pub("addEventListener")) + "\n"
+    + STAGE + op("pushstring", '"mouseWheel"')
+    + CLS + get_prop("toolWheel")
+    + op("callpropvoid", "%s, 2" % pub("addEventListener")) + "\n"
+    + "LkyEnd:\n" + op("jump", "LkyAfter") + "\n"
+    # Nuốt: trước khi vào game thì LayerManager chưa có sân khấu, ném liên tục.
+    # Cờ chỉ bật khi đã gắn được thật nên lần sau vẫn thử lại.
+    + "LkyCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + CLS + op("pushfalse") + op("setproperty", pub("_toolKeyReg")) + "\n"
+    + "LkyAfter:\n")
+
+# Thân của toolWheel: báo số nấc cuộn, phía tool dùng để tăng giảm lực.
+WHEEL_HANDLER = (
+    "LwhTry:\n"
+    + report(op("pushstring", '"wheel "')
+             + op("getlocal", "1") + get_prop("delta") + op("convert_i") + op("add"))
+    + "LwhEnd:\n" + op("jump", "LwhAfter") + "\n"
+    + "LwhCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + "LwhAfter:\n" + op("returnvoid"))
+
+# Thân của toolKey: báo mã phím ra ngoài, phía tool quyết định làm gì.
+KEY_HANDLER = (
+    "LkhTry:\n"
+    + report(op("pushstring", '"key "')
+             + op("getlocal", "1") + get_prop("keyCode") + op("convert_i") + op("add"))
+    + "LkhEnd:\n" + op("jump", "LkhAfter") + "\n"
+    + "LkhCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + "LkhAfter:\n" + op("returnvoid"))
 
 
 # ep level hien thi. Ghi THANG vao slot _grade cua BasePlayer chu khong qua
@@ -373,6 +580,25 @@ CMD_BODY = (
     + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
     + op("setproperty", pub("_toolLevel")) + op("jump", "LcEnd") + "\n"
     + "LcNotLevel:\n"
+    + op("getlocal3") + op("pushstring", '"d:"') + op("ifne", "LcNotAim") + "\n"
+    + CLS + op("getlocal2") + op("pushbyte", "2")
+    + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+    + op("setproperty", pub("_toolAim")) + "\n"
+    + report(op("pushstring", '"aim cmd "') + CLS + get_prop("_toolAim") + op("add"))
+    + op("jump", "LcEnd") + "\n"
+    + "LcNotAim:\n"
+    + op("getlocal3") + op("pushstring", '"f:"') + op("ifne", "LcNotFire") + "\n"
+    + get_class("gameCommon.GameControl") + get_prop("Instance") + get_prop("Current")
+    + get_prop("selfGamePlayer")
+    + op("getlocal2") + op("pushbyte", "2")
+    + op("callproperty", "%s, 1" % pub("substr")) + op("convert_d")
+    + op("callpropvoid", "%s, 1" % pub("sendShootAction")) + op("jump", "LcEnd") + "\n"
+    + "LcNotFire:\n"
+    + op("getlocal3") + op("pushstring", '"e:"') + op("ifne", "LcNotBomb") + "\n"
+    + CLS + op("getlocal2") + op("pushbyte", "2")
+    + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+    + op("setproperty", pub("_toolBomb")) + op("jump", "LcEnd") + "\n"
+    + "LcNotBomb:\n"
     + op("getlocal3") + op("pushstring", '"p:"') + op("ifne", "LcNotBatch") + "\n"
     + report(CLS + op("pushbyte", "0")
              + op("callproperty", "%s, 1" % pub("toolPet")))
@@ -1691,13 +1917,22 @@ TRAITS = (
     + slot("_toolTurn", pub("int"))
     + slot("_toolLevel", pub("int"))
     + slot("_toolLevelOrig", pub("int"))
+    + slot("_toolAim", pub("int"))
+    + slot("_toolBomb", pub("int"))
+    + slot("_toolKeyReg", pub("Boolean"))
     + slot("_toolFast", 'QName(PackageNamespace("flash.utils"), "Timer")')
     + slot("_toolMailStep", pub("int"))
     + slot("_toolMailWait", pub("int"))
     + slot("_toolMenuKids", pub("int"))
     + (slot("_toolSeen", pub("Object")) if probe else "")
     + method("toolTick", pub("Object"), TICK_BODY, TICK_TRY)
-    + method("toolTurnTick", pub("Object"), TURN_BODY, try_block("tt"))
+    + method("toolTurnTick", pub("Object"),
+             TURN_BODY + AIM_BODY + BOMB_BODY + KEY_BODY + op("returnvoid"),
+             try_block("mz") + try_block("ba") + try_block("tt") + try_block("am")
+             + try_block("bo") + try_block("ky"),
+             stack=24, locals_=24)
+    + method("toolKey", pub("Object"), KEY_HANDLER, try_block("kh"))
+    + method("toolWheel", pub("Object"), WHEEL_HANDLER, try_block("wh"))
     + method("toolOpenMagicHouse", pub("int"), OPEN_BODY, try_block("o"))
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
     + method("toolMail", pub("int"), MAIL_BODY, try_block("m"))

@@ -12,8 +12,10 @@
   <!--
     Tham số giữ đúng như trang PlayGame.aspx thật:
       allowScriptAccess="always"  -> bắt buộc để JS gọi được ExternalInterface
-      wmode="direct"              -> Stage3D/Starling chạy GPU (đổi sang
-                                     "window" nếu bị giật, xem report về lag)
+      wmode                       -> "direct" cho Stage3D/Starling chạy GPU;
+                                     "window" thì Flash có cửa sổ riêng, hết
+                                     tranh focus với lớp vẽ đè nhưng mất GPU.
+                                     Đổi ở menu Đồ họa, phải nạp lại game.
     __SWF_URL__ / __WIDTH__ / __HEIGHT__ / __QUALITY__ / __SCALE__ do
     GameWebView::loadGame thay vào. Chất lượng và kiểu co giãn phải đặt ở đây
     chứ không đổi được lúc chạy: Flash chỉ đọc chúng khi dựng plugin, nên menu
@@ -27,7 +29,7 @@
          quality="__QUALITY__"
          scale="__SCALE__"
          bgcolor="#000000"
-         wmode="direct"
+         wmode="__WMODE__"
          allowscriptaccess="always"
          allowfullscreen="true"
          type="application/x-shockwave-flash" />

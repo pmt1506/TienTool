@@ -20,6 +20,9 @@ public:
     // Dựng trang wrapper (từ resource) nhúng SWF với wmode/allowScriptAccess
     // đúng như trang game thật, rồi nạp.
     void loadGame(const QString &swfUrl, int stageWidth, int stageHeight);
+    // "direct" (GPU, Stage3D) hoặc "window" (Flash có cửa sổ riêng của nó).
+    // Chỉ có tác dụng ở lần nạp trang kế tiếp.
+    void setWindowMode(const QString &wmode);
 
     // Chất lượng vẽ ("high"/"medium"/"low") và kiểu co giãn ("showall"/
     // "noscale") của plugin Flash. Chỉ có tác dụng ở lần loadGame kế tiếp:
@@ -42,4 +45,5 @@ private:
     LocalPageServer *m_pageServer;
     QString m_quality = QStringLiteral("high");
     QString m_scale = QStringLiteral("noscale");
+    QString m_wmode = QStringLiteral("direct");
 };

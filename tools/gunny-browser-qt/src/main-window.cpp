@@ -7,6 +7,8 @@
 #include <QDateTime>
 #include <QSet>
 #include <QSettings>
+#include <QInputDialog>
+#include <QRectF>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QDir>
@@ -24,6 +26,7 @@
 #include "referer-network-manager.h"
 #include "level-dialog.h"
 #include "speed-dialog.h"
+#include "trajectory-solver.h"
 #include "sign-activity-gifts.h"
 #include "speed-hack.h"
 #include "tool-bridge.h"
@@ -33,6 +36,14 @@
 //
 // Để ở phạm vi tệp vì dùng ở hai chỗ: dựng menu, và đổi mã hành động thành tên
 // tiếng Việt khi ghi log — log mà chỉ có "clean-bag" thì đọc lại chẳng hiểu.
+// Độ lệch góc giả định của hai tia phụ khi bật "3 tia". Chưa đo được từ game nên
+// để một con số dễ nhìn; sửa khi có số thật từ một cú bắn toả.
+static const double kSpreadDegrees = 2.5;
+
+// Coi là trúng khi đường đạn đi qua trong khoảng này quanh tâm địch (đơn vị map,
+// cỡ nửa thân nhân vật).
+static const double kHitRadius = 40.0;
+
 struct Entry { const char *menu; const char *id; const char *text; };
 static const Entry kMenuEntries[] = {
     {"Giao diện", "toggle-overlay", "Hiện bảng cài đặt"},
@@ -102,6 +113,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     buildSpeedMenu();
     buildLevelMenu();
     buildTurnTimeMenu();
+    buildAimMenu();
     buildOverlayMenu();
     buildMagicAction();
     setupSignClaim();
@@ -124,6 +136,10 @@ MainWindow::MainWindow(const QString &swfUrl,
                 // nói một lần cho mỗi lần nạp game.
                 m_bridge->queueCommand(QStringLiteral("n:")
                                        + QString::number(turnTimeValue()));
+                m_bridge->queueCommand(
+                    QStringLiteral("d:")
+                    + (m_aimAction && m_aimAction->isChecked() ? QStringLiteral("1")
+                                                               : QStringLiteral("0")));
             }
         }
         if (m.startsWith(QLatin1String("trangthai"))) {
@@ -134,6 +150,34 @@ MainWindow::MainWindow(const QString &swfUrl,
         }
         if (m.startsWith(QLatin1String("kho ")) && m_warehouse) {
             m_warehouse->addWarehouse(m);
+        }
+        // Hai dòng chẩn đoán của bản vá cũng mở đầu bằng "aim " nên phải bắt trước
+        // bộ lọc dữ liệu bên dưới, không thì chúng bị nuốt mất.
+        if (m.startsWith(QLatin1String("aim cmd")) || m.startsWith(QLatin1String("aim loi"))) {
+            // Lỗi trong khối ngắm lặp lại 25 lần mỗi giây; chỉ ghi khi nội dung
+            // đổi, không thì log ngập trong một thông báo duy nhất.
+            if (m_lastAimNote != m) {
+                m_lastAimNote = m;
+                showStatus(m, 5000);
+                logEvent(m);
+            }
+            return;
+        }
+        // Dữ liệu ngắm về 25 lần mỗi giây: xử lý rồi thoát ngay, đừng để nó chạy
+        // xuống thanh tiêu đề và tệp log.
+        if (m.startsWith(QLatin1String("aim "))) {
+            onAimData(m);
+            return;
+        }
+        // Phím bấm: xử lý rồi thoát. Không ghi log — người chơi còn gõ chat trong
+        // game, ghi ra tệp là ghi lại cả câu chat.
+        if (m.startsWith(QLatin1String("key "))) {
+            onGameKey(m.mid(4).trimmed().toInt());
+            return;
+        }
+        if (m.startsWith(QLatin1String("wheel "))) {
+            onGameWheel(m.mid(6).trimmed().toInt());
+            return;
         }
         showStatus(m, 5000);
         logEvent(m);
@@ -158,6 +202,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     });
 
     adjustSize();
+    m_view->setWindowMode(windowModeValue());
     applyRenderOptions();
     m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
 }
@@ -477,6 +522,261 @@ void MainWindow::applyTurnTime(int seconds)
                4000);
 }
 
+void MainWindow::addWindowModeMenu(QMenu *menu)
+{
+    QMenu *sub = menu->addMenu(QStringLiteral("Chế độ vẽ Flash"));
+    auto *group = new QActionGroup(this);
+    group->setExclusive(true);
+
+    const QString current = windowModeValue();
+    struct Mode { const char *text; const char *value; };
+    static const Mode modes[] = {
+        {"direct (GPU, mặc định)", "direct"},
+        {"window (Flash cửa sổ riêng)", "window"},
+    };
+    for (const Mode &m : modes) {
+        QAction *a = sub->addAction(QString::fromUtf8(m.text));
+        a->setCheckable(true);
+        const QString value = QString::fromLatin1(m.value);
+        a->setChecked(value == current);
+        group->addAction(a);
+        connect(a, &QAction::triggered, this, [this, value] {
+            QSettings().setValue(QStringLiteral("render/wmode"), value);
+            m_view->setWindowMode(value);
+            // Flash chỉ đọc wmode lúc dựng plugin nên phải nạp lại trang.
+            m_scaleSent = false;
+            m_view->loadGame(m_swfUrl, m_stageWidth, m_stageHeight);
+            showStatus(QStringLiteral("Chế độ vẽ: %1 — đang nạp lại game").arg(value), 5000);
+        });
+    }
+}
+
+void MainWindow::buildAimMenu()
+{
+    trajectory::velocityScale =
+        QSettings().value(QStringLiteral("battle/velocityScale"), 1.0).toDouble();
+
+    // Ngừng nhận dữ liệu ngắm quá 400ms là đã sang lượt người khác: xoá đường vẽ.
+    m_aimIdle = new QTimer(this);
+    m_aimIdle->setSingleShot(true);
+    m_aimIdle->setInterval(400);
+    connect(m_aimIdle, &QTimer::timeout, this, &MainWindow::clearAim);
+
+    QMenu *menu = menuBar()->addMenu(QStringLiteral("Đường đạn"));
+    m_aimAction = menu->addAction(QStringLiteral("Vẽ quỹ đạo (lực tối đa)"));
+    m_aimAction->setCheckable(true);
+    m_aimAction->setChecked(QSettings().value(QStringLiteral("battle/aim"), false).toBool());
+    connect(m_aimAction, &QAction::toggled, this, &MainWindow::applyAim);
+
+    // Núm hiệu chỉnh: quan hệ lực -> vận tốc nằm ở server nên chỉ khớp được bằng
+    // quan sát. Bắn xa hơn đường vẽ thì tăng, ngắn hơn thì giảm.
+    QAction *calib = menu->addAction(QStringLiteral("Hiệu chỉnh lực…"));
+    connect(calib, &QAction::triggered, this, [this] {
+        bool ok = false;
+        const double percent = QInputDialog::getDouble(
+            this, QStringLiteral("Hiệu chỉnh đường đạn"),
+            QStringLiteral("Đạn bay xa hơn đường vẽ thì tăng số này (%):"),
+            trajectory::velocityScale * 100.0, 80.0, 130.0, 1, &ok);
+        if (!ok) {
+            return;
+        }
+        trajectory::velocityScale = percent / 100.0;
+        QSettings().setValue(QStringLiteral("battle/velocityScale"), trajectory::velocityScale);
+        showStatus(QStringLiteral("Hiệu chỉnh lực: %1%").arg(percent), 4000);
+    });
+
+    // Ghi vị trí từng viên đạn ra log để đo đường đạn thật: hệ số đổi lực -> vận tốc
+    // và độ toả của buff bắn 3 tia đều nằm ở server, chỉ đo mới ra số đúng.
+    m_spreadAction = menu->addAction(QStringLiteral("Xem 3 tia (buff bắn 3 nhánh)"));
+    m_spreadAction->setCheckable(true);
+    m_spreadAction->setChecked(QSettings().value(QStringLiteral("battle/aimSpread"), false).toBool());
+    connect(m_spreadAction, &QAction::toggled, this, [](bool on) {
+        QSettings().setValue(QStringLiteral("battle/aimSpread"), on);
+    });
+
+    QAction *bombLog = menu->addAction(QStringLiteral("Ghi log đạn thật (để đo)"));
+    bombLog->setCheckable(true);
+    connect(bombLog, &QAction::toggled, this, [this](bool on) {
+        m_bridge->queueCommand(on ? QStringLiteral("e:1") : QStringLiteral("e:0"));
+        showStatus(on ? QStringLiteral("Đang ghi log đạn — bắn một phát rồi tắt")
+                      : QStringLiteral("Đã tắt ghi log đạn"),
+                   4000);
+    });
+}
+
+void MainWindow::applyAim(bool on)
+{
+    QSettings().setValue(QStringLiteral("battle/aim"), on);
+    m_bridge->queueCommand(on ? QStringLiteral("d:1") : QStringLiteral("d:0"));
+    if (!on) {
+        m_solvedPower = 0.0;
+        m_solvedTargetValid = false;
+        if (m_overlay) {
+            m_overlay->setTrajectory(QVector<QPointF>());
+        }
+    }
+    showStatus(on ? QStringLiteral("Đường đạn: bật") : QStringLiteral("Đường đạn: tắt"), 3000);
+}
+
+void MainWindow::onAimData(const QString &line)
+{
+    if (!m_overlay || !m_aimAction || !m_aimAction->isChecked()) {
+        return;
+    }
+
+    // Lưu trước khi parse: dòng hỏng mới là dòng cần nhìn, mà lưu sau thì đúng lúc
+    // hỏng lại không có gì để xem.
+    m_lastAimLine = line;
+    // Bản vá ngừng gửi ngay khi hết lượt mình (isAttacking tắt). Không có đồng hồ
+    // này thì đường vẽ đứng nguyên giữa màn hình suốt lượt của người khác.
+    m_aimIdle->start();
+
+    const AimState state = AimState::parse(line);
+    if (!state.valid) {
+        // Báo đúng một lần cho mỗi dòng hỏng khác nhau: 25 dòng mỗi giây, ghi hết
+        // là ngập log.
+        if (m_lastBadAimLine != line) {
+            m_lastBadAimLine = line;
+            logEvent(QStringLiteral("aim khong doc duoc: ") + line);
+        }
+        return;
+    }
+    m_lastAim = state;
+
+    // Toạ độ map -> sân khấu -> widget. Sân khấu và widget thường bằng nhau
+    // (setFixedSize theo đúng kích thước sân khấu) nhưng vẫn tính tỉ lệ: chế độ co
+    // giãn showAll làm sân khấu khác cỡ khung.
+    const double rx = m_stageWidth > 0 ? (double)m_view->width() / m_stageWidth : 1.0;
+    const double ry = m_stageHeight > 0 ? (double)m_view->height() / m_stageHeight : 1.0;
+    auto toScreen = [&](const QVector<QPointF> &mapPoints) {
+        QVector<QPointF> screen;
+        screen.reserve(mapPoints.size());
+        for (const QPointF &p : mapPoints) {
+            // Độ lệch so với nhân vật, quy về pixel màn hình rồi cộng vào điểm neo.
+            screen.append(QPointF((state.anchorX + (p.x() - state.x) * state.scale) * rx,
+                                  (state.anchorY + (p.y() - state.y) * state.scale) * ry));
+        }
+        return screen;
+    };
+
+    QVector<OverlayWindow::Line> lines;
+    auto addLine = [&](const QVector<QPointF> &mapPoints, const QColor &color) {
+        if (mapPoints.size() >= 2) {
+            OverlayWindow::Line line;
+            line.points = toScreen(mapPoints);
+            line.color = color;
+            lines.append(line);
+        }
+    };
+
+    // Không cắt theo khung nhìn nữa: kéo bản đồ cho nhân vật ra ngoài lề là điểm
+    // xuất phát đã nằm ngoài, cắt từ đó thì mất sạch tia. QPainter tự xén phần thừa,
+    // còn độ dài đường thì vòng mô phỏng đã tự dừng khi đạn rơi khỏi bản đồ.
+
+    // Buff "bắn 3 tia": server sinh đúng ba viên theo công thức dưới, chép từ
+    // Game.Logic/Living.cs hàm ShootImp của mã nguồn máy chủ DDTank 4.1 —
+    //   viên 1: lực x1.0, góc +0
+    //   viên 2: lực x0.9, góc -5
+    //   viên 3: lực x1.1, góc +5
+    // (vx = force * hệ số * cos(góc + lệch), vy = tương tự với sin).
+    struct Shot { double powerMul; double angleOffset; QColor color; };
+    static const Shot kShots[3] = {
+        {1.0, 0.0, QColor(90, 210, 255, 235)},
+        {0.9, -5.0, QColor(255, 190, 60, 205)},
+        {1.1, 5.0, QColor(255, 120, 200, 205)},
+    };
+
+    if (m_solvedPower > 0.0) {
+        const int count = (m_spreadAction && m_spreadAction->isChecked()) ? 3 : 1;
+        for (int i = 0; i < count; ++i) {
+            AimState shot = state;
+            shot.angleDeg = state.angleDeg + kShots[i].angleOffset;
+            addLine(trajectory::simulate(shot, m_solvedPower * kShots[i].powerMul),
+                    kShots[i].color);
+        }
+    }
+
+    m_overlay->setTrajectories(lines);
+}
+
+void MainWindow::onGameKey(int keyCode)
+{
+    if (!m_aimAction || !m_aimAction->isChecked()) {
+        return;
+    }
+
+    // V (86): bắn luôn bằng lực đang vẽ, khỏi giữ space. Bản vá gọi
+    // sendShootAction — đúng đường mà chế độ uỷ thác của game vẫn dùng.
+    if (keyCode == 86) {
+        if (m_solvedPower <= 0.0) {
+            showStatus(QStringLiteral("Chưa có lực nào để bắn — bấm Tab trước"), 3000);
+            return;
+        }
+        m_bridge->queueCommand(QStringLiteral("f:") + QString::number(qRound(m_solvedPower)));
+        showStatus(QStringLiteral("Đã bắn ở lực %1").arg(qRound(m_solvedPower)), 3000);
+        return;
+    }
+
+    // Tab (9): giải lực để đường đạn đi qua mục tiêu, ở đúng góc hiện tại. Bấm lại
+    // là tính lại — sau khi xoay nòng thì lực cũ không còn đúng.
+    if (keyCode != 9) {
+        return;
+    }
+    // Ghi dòng thô mỗi lần bấm Tab: đây là cách duy nhất nhìn được bản vá thực sự
+    // gửi gì, vì dòng "aim" bị chặn trước khi vào log (25 dòng mỗi giây).
+    logEvent(m_lastAimLine.isEmpty() ? QStringLiteral("Tab: chưa nhận được dòng aim nào")
+                                     : QStringLiteral("Tab: ") + m_lastAimLine);
+
+    QPointF target;
+    if (!m_lastAim.valid || !m_lastAim.nearestFoe(&target)) {
+        showStatus(QStringLiteral("Chưa thấy địch (%1 dòng, %2 địch) — xem log")
+                       .arg(m_lastAim.valid ? QStringLiteral("có") : QStringLiteral("không"))
+                       .arg(m_lastAim.foes.size()),
+                   6000);
+        return;
+    }
+
+    double missDistance = 0.0;
+    m_solvedPower = trajectory::solvePower(m_lastAim, target, &missDistance);
+    m_solvedTarget = target;
+    m_solvedTargetValid = true;
+    m_solvedMiss = missDistance;
+    showStatus(missDistance <= kHitRadius
+                   ? QStringLiteral("Lực cần: %1 (%2%)")
+                         .arg(qRound(m_solvedPower))
+                         .arg(qRound(m_solvedPower / trajectory::kMaxPower * 100))
+                   // Góc quá cao hoặc quá thấp thì không lực nào qua được tâm địch.
+                   // Vẫn vẽ đường tốt nhất, nhưng nói rõ còn hụt bao nhiêu.
+                   : QStringLiteral("Lực %1 — góc này còn hụt ~%2, xoay nòng rồi bấm lại")
+                         .arg(qRound(m_solvedPower))
+                         .arg(qRound(missDistance)),
+               6000);
+}
+
+void MainWindow::clearAim()
+{
+    m_solvedPower = 0.0;
+    m_solvedTargetValid = false;
+    if (m_overlay) {
+        m_overlay->setTrajectory(QVector<QPointF>());
+    }
+}
+
+void MainWindow::onGameWheel(int delta)
+{
+    // Cuộn để dò lực quanh mức Tab vừa tính. Một nấc = 25 đơn vị trên thang 2000,
+    // đủ mịn để nhích mà không phải cuộn cả buổi.
+    if (!m_aimAction || !m_aimAction->isChecked() || m_solvedPower <= 0.0) {
+        return;
+    }
+    m_solvedPower = qBound(20.0, m_solvedPower + (delta > 0 ? 25.0 : -25.0),
+                           trajectory::kMaxPower);
+    showStatus(QStringLiteral("Lực: %1 (%2%)")
+                   .arg(qRound(m_solvedPower))
+                   .arg(qRound(m_solvedPower / trajectory::kMaxPower * 100)),
+               2000);
+}
+
 void MainWindow::buildOverlayMenu()
 {
     m_overlay = new OverlayWindow(m_view);
@@ -535,7 +835,17 @@ void MainWindow::buildGraphicsMenu()
                       : QStringLiteral("Vừa khung hình: tắt"), 3000);
     });
 
+    addWindowModeMenu(menu);
     buildFlashMenu(menu);
+}
+
+QString MainWindow::windowModeValue()
+{
+    // "direct" là mặc định của trang game thật; "window" cho Flash một cửa sổ
+    // riêng của hệ điều hành, hết cảnh tranh giành focus với lớp vẽ đè nhưng mất
+    // tăng tốc GPU cho Stage3D.
+    return QSettings().value(QStringLiteral("render/wmode"), QStringLiteral("direct"))
+                       .toString();
 }
 
 void MainWindow::buildFlashMenu(QMenu *parent)

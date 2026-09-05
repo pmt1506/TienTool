@@ -50,12 +50,20 @@ OverlayWindow::OverlayWindow(QWidget *target)
     // Cửa sổ Tool có cha là cửa sổ game: nó chỉ nổi trên đúng cửa sổ cha, và tự
     // thu/ẩn theo cha. KHÔNG dùng WindowStaysOnTopHint với cha là nullptr —
     // làm thế thì thước nổi trên mọi ứng dụng khác của máy, không riêng gì game.
+    // Qt::Window thay cho Qt::Tool: cửa sổ Tool bị Windows coi là bảng công cụ nổi
+    // của ứng dụng, mỗi lần nó hiện lên hoặc bị xếp lại lớp là cửa sổ game mất
+    // activation. WindowDoesNotAcceptFocus mới là cờ ánh xạ sang WS_EX_NOACTIVATE,
+    // tức hệ điều hành không bao giờ trao focus cho nó.
     : QWidget(target ? target->window() : nullptr,
-              Qt::FramelessWindowHint | Qt::Tool | Qt::WindowTransparentForInput),
+              Qt::FramelessWindowHint | Qt::Window | Qt::WindowTransparentForInput
+                  | Qt::WindowDoesNotAcceptFocus),
       m_target(target)
 {
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_TransparentForMouseEvents);
+    // Hiện mà không giành quyền kích hoạt. Thiếu cờ này thì mỗi lần show() cửa sổ
+    // game bị mất focus — đường đạn cập nhật 25 lần mỗi giây nên nó cướp liên tục.
+    setAttribute(Qt::WA_ShowWithoutActivating);
     // Không nhận focus, nếu không mỗi lần vẽ lại sẽ cướp bàn phím của game.
     setFocusPolicy(Qt::NoFocus);
 
@@ -74,18 +82,30 @@ void OverlayWindow::setRuler(bool on)
 
 void OverlayWindow::setTrajectory(const QVector<QPointF> &points)
 {
-    m_points = points;
+    Line line;
+    line.points = points;
+    line.color = QColor(60, 220, 120, 230);
+    setTrajectories(points.isEmpty() ? QVector<Line>() : QVector<Line>{line});
+}
+
+void OverlayWindow::setTrajectories(const QVector<Line> &lines)
+{
+    m_lines = lines;
     refreshVisibility();
 }
 
 void OverlayWindow::refreshVisibility()
 {
-    if (!m_ruler && m_points.size() < 2) {
+    if (!m_ruler && m_lines.isEmpty()) {
         hide();
         return;
     }
     syncGeometry();
-    show();
+    // Chỉ gọi show() khi đang ẩn: gọi lại trên cửa sổ đã hiện là thừa, mà mỗi lần
+    // gọi lại một lần trình quản lý cửa sổ có cớ xếp lại lớp và đổi focus.
+    if (!isVisible()) {
+        show();
+    }
     update();
 }
 
@@ -190,19 +210,28 @@ void OverlayWindow::paintEvent(QPaintEvent *)
         paintRuler(p);
     }
 
-    if (m_points.size() >= 2) {
-        QPainterPath path(m_points.first());
-        for (int i = 1; i < m_points.size(); ++i) {
-            path.lineTo(m_points.at(i));
+    // Viền đen trước cho tất cả rồi mới tới ruột màu: nền game nhiều chỗ sáng,
+    // đường mảnh một màu là mất hút.
+    for (const Line &line : m_lines) {
+        if (line.points.size() < 2) {
+            continue;
+        }
+        QPainterPath path(line.points.first());
+        for (int i = 1; i < line.points.size(); ++i) {
+            path.lineTo(line.points.at(i));
         }
         p.setPen(QPen(QColor(0, 0, 0, 150), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         p.drawPath(path);
-        p.setPen(QPen(QColor(60, 220, 120, 230), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.setPen(QPen(line.color, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         p.drawPath(path);
 
-        const QPointF end = m_points.last();
-        p.setBrush(QColor(60, 220, 120, 200));
-        p.setPen(QPen(QColor(0, 0, 0, 180), 1.5));
-        p.drawEllipse(end, 4.5, 4.5);
+        // Chấm cuối chỉ vẽ khi đường kết thúc trong khung: đường chạy xuyên ra
+        // ngoài thì cái chấm nằm ngoài màn hình, vẽ cũng vô nghĩa.
+        const QPointF end = line.points.last();
+        if (rect().contains(end.toPoint())) {
+            p.setBrush(line.color);
+            p.setPen(QPen(QColor(0, 0, 0, 180), 1.5));
+            p.drawEllipse(end, 4.5, 4.5);
+        }
     }
 }
