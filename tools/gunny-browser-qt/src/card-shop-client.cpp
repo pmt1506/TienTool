@@ -55,6 +55,27 @@ QString netError(QNetworkReply *reply)
     return reply->errorString();
 }
 
+// Hop co that tren webshop nhung GetShopItem khong tra ve, kem ten the trong
+// game khi ten hop khong suy ra duoc no.
+//
+// "Hop The Dung Si Thi Dau" cho ra the ten "The Dau Truong Dung Si": lech han
+// mot tu ("thi" vs "truong") nen khong co phep so ten nao ghep duoc, phai chi tay.
+// Gia o day la gia doc duoc luc ghi bang; hop nao co trong danh sach shop thi
+// gia server van thang.
+struct UnlistedBox
+{
+    int templateId;
+    const char *boxName;
+    const char *cardName;
+    const char *image;
+    int price;
+};
+
+const UnlistedBox kUnlistedBoxes[] = {
+    {20149, "Hộp Thẻ Dũng Sĩ Thi Đấu", "Thẻ Đấu Trường Dũng Sĩ",
+     "https://gunny.vcdn.vn/image/cardbox/yzjjc-jjc/icon.png", 15},
+};
+
 }  // namespace
 
 QString normalizeCardName(const QString &raw)
@@ -85,6 +106,9 @@ QString normalizeCardName(const QString &raw)
 
 QString ShopItem::cardName() const
 {
+    if (!cardAlias.isEmpty()) {
+        return cardAlias;
+    }
     QString n = name.trimmed();
     if (n.startsWith(QStringLiteral("Hộp Thẻ "), Qt::CaseInsensitive)) {
         return n.mid(QStringLiteral("Hộp Thẻ ").size()).trimmed();
@@ -147,6 +171,29 @@ void CardShopClient::fetchPage(int page, QList<ShopItem> collected)
             fetchPage(page + 1, collected);
             return;
         }
+        // Chen not may hop shop khong liet ke. Kiem trung theo TemplateID phong
+        // khi server bat dau tra ve chung.
+        for (const UnlistedBox &extra : kUnlistedBoxes) {
+            bool seen = false;
+            for (const ShopItem &have : collected) {
+                if (have.templateId == extra.templateId) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen) {
+                continue;
+            }
+            ShopItem item;
+            item.templateId = extra.templateId;
+            item.name = QString::fromUtf8(extra.boxName);
+            item.cardAlias = QString::fromUtf8(extra.cardName);
+            item.image = QString::fromUtf8(extra.image);
+            item.price = extra.price;
+            item.maxCount = 999;
+            collected.append(item);
+        }
+
         emit boxesReady(collected);
     });
 }

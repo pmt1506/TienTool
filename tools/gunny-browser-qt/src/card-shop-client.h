@@ -14,6 +14,8 @@ struct ShopItem
     QString image;
     int price = 0;
     int maxCount = 999;
+    // Tên thẻ trong game, khi không suy ra được từ tên hộp. Xem kBoxAliases.
+    QString cardAlias;
 
     // Tên thẻ mà hộp này cho ra: bỏ tiền tố "Hộp Thẻ ".
     QString cardName() const;
