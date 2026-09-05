@@ -33,6 +33,7 @@ Lệnh nhận qua hàng đợi của trang:
     m:         dọn thư: nhận hết đính kèm rồi xếp túi
     b:         xếp túi vào cả 5 két, mỗi két một gói, giãn ra cho server kịp
     n:<giây>   ép thời gian lượt của mình; 0 = để nguyên giá trị server gửi
+    c:<level>  ép level hiển thị của nhân vật; 0 = thôi ép
     a:<actId>|<giftbagId>|<số món>   nhận một gói quà của hoạt động GM
     g:<actId>  doc trang thai tung goi qua ra log
     t:<loai>   do tam: liet ke mot tui ra log kem bon chi so
@@ -253,6 +254,54 @@ TURN_BODY = (
     + "LttCatch:\n" + catch_prologue() + op("pop") + "\n"
     + "LttAfter:\n" + op("returnvoid"))
 
+
+# ep level hien thi. Ghi THANG vao slot _grade cua BasePlayer chu khong qua
+# setter Grade cua SelfInfo: setter do goi BagAndInfoManager.hideBagAndInfo() moi
+# lan doi (dang mo bang nhan vat la bi dong ngay), va o DUNG muc 11 con ban
+# syncWeakStep(132) len server kem mot luot saveNoviceData. Cheat Engine sua
+# thang o nho nen khong cham nhanh nao trong do; ghi thang slot moi giu dung
+# hanh vi ay.
+#
+# Phai ep LIEN TUC: moi lan server lam moi thong tin nhan vat (tieu xu, doi trang
+# bi) la _grade tro lai gia tri that -- dung ly do Cheat Engine phai tich Active.
+# Ghi mot lan la mat ngay o lan lam moi ke.
+#
+# Chi bao khi co chenh lech, nen yen lang luc binh thuong ma van cho biet level
+# that la bao nhieu.
+GRADE = 'QName(ProtectedNamespace("ddt.data.player:BasePlayer"), "_grade")'
+
+LEVEL_BODY = (
+    "LlvTry:\n"
+    + get_class("ddt.manager.PlayerManager") + get_prop("Instance") + get_prop("Self")
+    + op("setlocal", "2") + "\n"
+    + op("getlocal", "2") + op("pushnull") + op("ifeq", "LlvEnd") + "\n"
+    + CLS + get_prop("_toolLevel") + op("convert_i") + op("setlocal", "3")
+    + op("getlocal", "2") + op("getproperty", GRADE) + op("convert_i")
+    + op("setlocal", "4")
+    + CLS + get_prop("_toolLevelOrig") + op("convert_i") + op("setlocal", "5") + "\n"
+    + op("getlocal", "3") + op("iffalse", "LlvOff") + "\n"
+    # Dang ep: bo qua khi da dung so, con lai thi nho level that (chi lan dau)
+    # roi ghi de.
+    + op("getlocal", "4") + op("getlocal", "3") + op("ifeq", "LlvEnd") + "\n"
+    + op("getlocal", "5") + op("iftrue", "LlvSet") + "\n"
+    + CLS + op("getlocal", "4") + op("setproperty", pub("_toolLevelOrig")) + "\n"
+    + "LlvSet:\n"
+    + report(op("pushstring", '"level that "') + op("getlocal", "4") + op("add"))
+    + op("getlocal", "2") + op("getlocal", "3") + op("setproperty", GRADE)
+    + op("jump", "LlvEnd") + "\n"
+    # Thoi ep: tra lai so da nho. Khong co gi de tra thi thoi -- chua tung ep,
+    # hoac vua tra xong. Thieu nhanh nay thi bam "Binh thuong" chi lam khoi ep
+    # dung tay, con con so ep van nam nguyen den luc server tinh co lam moi.
+    + "LlvOff:\n"
+    + op("getlocal", "5") + op("iffalse", "LlvEnd") + "\n"
+    + op("getlocal", "4") + op("getlocal", "5") + op("ifeq", "LlvClear") + "\n"
+    + op("getlocal", "2") + op("getlocal", "5") + op("setproperty", GRADE) + "\n"
+    + "LlvClear:\n"
+    + CLS + op("pushbyte", "0") + op("setproperty", pub("_toolLevelOrig")) + "\n"
+    + "LlvEnd:\n" + op("jump", "LlvAfter") + "\n"
+    + "LlvCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + "LlvAfter:\n")
+
 # Xếp túi: _toolBagStep đếm 1..40, cứ 4 nhịp (1 giây) đẩy một két. Mười lượt:
 # năm két cho túi đạo cụ, rồi năm két cho túi trang bị. Giãn ra vì
 # server phải trả lời xong thì mô hình túi mới đúng cho két kế tiếp; bắn 5 gói
@@ -318,6 +367,12 @@ CMD_BODY = (
     + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
     + op("setproperty", pub("_toolTurn")) + op("jump", "LcEnd") + "\n"
     + "LcNotTurn:\n"
+    # Cung chi nho con so; khoi ep lo phan ghi vao nhan vat.
+    + op("getlocal3") + op("pushstring", '"c:"') + op("ifne", "LcNotLevel") + "\n"
+    + CLS + op("getlocal2") + op("pushbyte", "2")
+    + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+    + op("setproperty", pub("_toolLevel")) + op("jump", "LcEnd") + "\n"
+    + "LcNotLevel:\n"
     + op("getlocal3") + op("pushstring", '"p:"') + op("ifne", "LcNotBatch") + "\n"
     + report(CLS + op("pushbyte", "0")
              + op("callproperty", "%s, 1" % pub("toolPet")))
@@ -1573,9 +1628,9 @@ _prefixes = re.findall(r'pushstring\s+.{1,3}([a-z]:)', CMD_BODY)
 _dupes = sorted({c for c in _prefixes if _prefixes.count(c) > 1})
 assert not _dupes, "lenh trung ky tu: %s" % _dupes
 
-TICK_BODY = (STATE_BODY + ENFORCE_BODY + MENU_BODY + BAG_STEP_BODY
+TICK_BODY = (STATE_BODY + ENFORCE_BODY + LEVEL_BODY + MENU_BODY + BAG_STEP_BODY
              + MAIL_STEP_BODY + CMD_BODY)
-TICK_TRY = (try_block("s") + try_block("e") + try_block("mu")
+TICK_TRY = (try_block("s") + try_block("e") + try_block("lv") + try_block("mu")
             + try_block("b") + try_block("n") + try_block("c"))
 
 # ---------------------------------------------------------------------- lắp ráp
@@ -1634,6 +1689,8 @@ TRAITS = (
     + slot("_toolScale", pub("String"))
     + slot("_toolBagStep", pub("int"))
     + slot("_toolTurn", pub("int"))
+    + slot("_toolLevel", pub("int"))
+    + slot("_toolLevelOrig", pub("int"))
     + slot("_toolFast", 'QName(PackageNamespace("flash.utils"), "Timer")')
     + slot("_toolMailStep", pub("int"))
     + slot("_toolMailWait", pub("int"))
