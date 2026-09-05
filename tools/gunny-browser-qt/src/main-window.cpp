@@ -184,6 +184,10 @@ MainWindow::MainWindow(const QString &swfUrl,
             onGameWheel(m.mid(6).trimmed().toInt());
             return;
         }
+        if (m.startsWith(QLatin1String("pick "))) {
+            onGamePick(m.mid(5));
+            return;
+        }
         showStatus(m, 5000);
         logEvent(m);
     });
@@ -784,6 +788,40 @@ void MainWindow::clearAim()
     if (m_overlay) {
         m_overlay->setTrajectory(QVector<QPointF>());
     }
+}
+
+void MainWindow::onGamePick(const QString &payload)
+{
+    // Shift + bấm chuột: ngắm vào đúng chỗ vừa bấm thay vì địch gần nhất. Bản vá
+    // đã đổi sang toạ độ map giúp, nên ở đây chỉ việc giải lực.
+    if (!m_aimAction || !m_aimAction->isChecked() || !m_lastAim.valid) {
+        return;
+    }
+
+    const QStringList xy = payload.trimmed().split(QLatin1Char(' '), QString::SkipEmptyParts);
+    if (xy.size() != 2) {
+        return;
+    }
+    bool okx = false;
+    bool oky = false;
+    const QPointF target(xy.at(0).toDouble(&okx), xy.at(1).toDouble(&oky));
+    if (!okx || !oky) {
+        return;
+    }
+
+    double miss = 0.0;
+    m_solvedPower = trajectory::solvePower(m_lastAim, target, &miss);
+    m_solvedTarget = target;
+    m_solvedTargetValid = true;
+    m_solvedMiss = miss;
+    showStatus(miss <= kHitRadius
+                   ? QStringLiteral("Ngắm điểm đã chọn — lực %1 (%2%)")
+                         .arg(qRound(m_solvedPower))
+                         .arg(qRound(m_solvedPower / trajectory::kMaxPower * 100))
+                   : QStringLiteral("Lực %1 — điểm này còn hụt ~%2, xoay nòng rồi bấm lại")
+                         .arg(qRound(m_solvedPower))
+                         .arg(qRound(miss)),
+               6000);
 }
 
 void MainWindow::onGameWheel(int delta)

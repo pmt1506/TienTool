@@ -460,12 +460,36 @@ KEY_BODY = (
     + STAGE + op("pushstring", '"mouseWheel"')
     + CLS + get_prop("toolWheel")
     + op("callpropvoid", "%s, 2" % pub("addEventListener")) + "\n"
+    + STAGE + op("pushstring", '"mouseDown"')
+    + CLS + get_prop("toolClick")
+    + op("callpropvoid", "%s, 2" % pub("addEventListener")) + "\n"
     + "LkyEnd:\n" + op("jump", "LkyAfter") + "\n"
     # Nuốt: trước khi vào game thì LayerManager chưa có sân khấu, ném liên tục.
     # Cờ chỉ bật khi đã gắn được thật nên lần sau vẫn thử lại.
     + "LkyCatch:\n" + catch_prologue() + op("pop") + "\n"
     + CLS + op("pushfalse") + op("setproperty", pub("_toolKeyReg")) + "\n"
     + "LkyAfter:\n")
+
+# Thân của toolClick: chỉ báo khi giữ Shift, kèm toạ độ map của chỗ bấm.
+CLICK_HANDLER = (
+    "LclTry:\n"
+    + op("getlocal", "1") + get_prop("shiftKey") + op("iffalse", "LclEnd") + "\n"
+    + get_class("gameCommon.GameControl") + get_prop("Instance") + get_prop("gameView")
+    + get_prop("map") + op("setlocal", "2") + "\n"
+    + op("getlocal", "2") + op("pushnull") + op("ifeq", "LclEnd") + "\n"
+    + op("getlocal", "2")
+    + op("findpropstrict", 'QName(PackageNamespace("flash.geom"), "Point")')
+    + op("getlocal", "1") + get_prop("stageX")
+    + op("getlocal", "1") + get_prop("stageY")
+    + op("constructprop", 'QName(PackageNamespace("flash.geom"), "Point"), 2')
+    + op("callproperty", "%s, 1" % pub("globalToLocal")) + op("setlocal", "3") + "\n"
+    + report(op("pushstring", '"pick "')
+             + op("getlocal", "3") + get_prop("x") + op("add")
+             + op("pushstring", '" "') + op("add")
+             + op("getlocal", "3") + get_prop("y") + op("add"))
+    + "LclEnd:\n" + op("jump", "LclAfter") + "\n"
+    + "LclCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + "LclAfter:\n" + op("returnvoid"))
 
 # Thân của toolWheel: báo số nấc cuộn, phía tool dùng để tăng giảm lực.
 WHEEL_HANDLER = (
@@ -1964,6 +1988,7 @@ TRAITS = (
              stack=24, locals_=24)
     + method("toolKey", pub("Object"), KEY_HANDLER, try_block("kh"))
     + method("toolWheel", pub("Object"), WHEEL_HANDLER, try_block("wh"))
+    + method("toolClick", pub("Object"), CLICK_HANDLER, try_block("cl"))
     + method("toolOpenMagicHouse", pub("int"), OPEN_BODY, try_block("o"))
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
     + method("toolMail", pub("int"), MAIL_BODY, try_block("m"))

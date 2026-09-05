@@ -66,6 +66,8 @@ private:
     void onGameKey(int keyCode);
     // Cuộn chuột trong game: tăng giảm lực của đường đang vẽ.
     void onGameWheel(int delta);
+    // Shift + bấm chuột: ngắm vào đúng điểm vừa bấm (toạ độ map).
+    void onGamePick(const QString &payload);
     // Xoá đường vẽ khi hết lượt mình.
     void clearAim();
     // Gửi số giây xuống bản vá SWF và lưu lại lựa chọn. 0 = để nguyên giá trị
