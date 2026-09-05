@@ -22,6 +22,7 @@
 #include "game-web-view.h"
 #include "overlay-window.h"
 #include "referer-network-manager.h"
+#include "level-dialog.h"
 #include "speed-dialog.h"
 #include "sign-activity-gifts.h"
 #include "speed-hack.h"
@@ -99,6 +100,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     buildGraphicsMenu();
     buildMenuBar();
     buildSpeedMenu();
+    buildLevelMenu();
     buildTurnTimeMenu();
     buildOverlayMenu();
     buildMagicAction();
@@ -146,6 +148,7 @@ MainWindow::MainWindow(const QString &swfUrl,
                            [this] { onToolAction(QStringLiteral("open-magic-store")); });
     }
     connect(m_view, &QWebView::loadFinished, this, [this](bool ok) {
+        resetLevelMenu();
         // Nạp lại trang là SWF mới: slot tĩnh giữ tỉ lệ và thời gian lượt về 0,
         // nên phải cho phép gửi lại hai lệnh ấy, không thì lựa chọn của người
         // dùng mất im lặng sau mỗi lần bấm "Tải lại".
@@ -361,6 +364,66 @@ void MainWindow::buildSpeedMenu()
         connect(&dlg, &SpeedDialog::multiplierPreview, this, &MainWindow::applySpeed);
         dlg.exec();
     });
+}
+
+void MainWindow::buildLevelMenu()
+{
+    QMenu *menu = menuBar()->addMenu(QStringLiteral("Cheat Level"));
+
+    // Hai muc loai tru nhau -> nhom lai de Qt tu quan dau tich.
+    auto *group = new QActionGroup(this);
+    group->setExclusive(true);
+
+    const int saved = m_level;
+
+    m_levelOff = menu->addAction(QStringLiteral("Bình thường (level thật)"));
+    m_levelOff->setCheckable(true);
+    m_levelOff->setChecked(saved == 0);
+    group->addAction(m_levelOff);
+    connect(m_levelOff, &QAction::triggered, this, [this] { applyLevel(0); });
+
+    m_levelPick = menu->addAction(QStringLiteral("Chọn level…"));
+    m_levelPick->setCheckable(true);
+    m_levelPick->setChecked(saved != 0);
+    group->addAction(m_levelPick);
+    connect(m_levelPick, &QAction::triggered, this, [this] {
+        LevelDialog dlg(m_level, this);
+        if (dlg.exec() == QDialog::Accepted) {
+            applyLevel(dlg.value());
+        }
+        // Nhom loai tru da doi dau tich ngay luc bam, truoc khi biet nguoi dung
+        // co Huy hay khong. Dat lai theo gia tri thuc te de dau tich khong noi
+        // doi.
+        m_levelOff->setChecked(m_level == 0);
+        m_levelPick->setChecked(m_level != 0);
+    });
+}
+
+void MainWindow::resetLevelMenu()
+{
+    // Moi lan nap game, ban va SWF bat dau lai voi slot rong nen nhan vat dang o
+    // level that. Dat lai dau tich cho khop, neu khong menu se noi la dang ep
+    // trong khi khong ep gi ca.
+    m_level = 0;
+    if (m_levelOff) {
+        m_levelOff->setChecked(true);
+    }
+    if (m_levelPick) {
+        m_levelPick->setChecked(false);
+    }
+}
+
+void MainWindow::applyLevel(int level)
+{
+    m_level = level;
+
+    // Ban va chi nho con so roi tu ep moi nhip. Gui ca khi chua vao san: luc vao
+    // la co san.
+    m_bridge->queueCommand(QStringLiteral("c:") + QString::number(level));
+
+    showStatus(level == 0 ? QStringLiteral("Level: theo server")
+                          : QStringLiteral("Level: %1").arg(level),
+               4000);
 }
 
 void MainWindow::buildTurnTimeMenu()

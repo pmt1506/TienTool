@@ -40,6 +40,13 @@ private:
     // trình cha (TienTool) gom vào cùng bảng log với thao tác trên giao diện.
     void logEvent(const QString &line);
     void buildSpeedMenu();
+    // Menu "Cheat Level": theo server, hoặc chọn một mức 1..70.
+    void buildLevelMenu();
+    // Gửi level xuống bản vá SWF và lưu lại lựa chọn. 0 = thôi ép, để
+    // nguyên level thật server gửi.
+    void applyLevel(int level);
+    // Dat lai ve “level thật” sau mỗi lần nạp game.
+    void resetLevelMenu();
     // Menu "Thời gian lượt": Bình thường / 15 giây / 30 giây.
     void buildTurnTimeMenu();
     // Gửi số giây xuống bản vá SWF và lưu lại lựa chọn. 0 = để nguyên giá trị
@@ -81,6 +88,11 @@ private:
     QAction *m_speedNormal = nullptr;
     QAction *m_speedTurbo = nullptr;
     QAction *m_speedCustom = nullptr;
+
+    QAction *m_levelOff = nullptr;
+    QAction *m_levelPick = nullptr;
+    // 0 = không ép. Chỉ sống trong một lần nạp game.
+    int m_level = 0;
     OverlayWindow *m_overlay = nullptr;
     QAction *m_rulerAction = nullptr;
     QAction *m_rulerAuto = nullptr;
