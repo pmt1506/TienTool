@@ -68,6 +68,10 @@ Thêm nữa: `EnergyView.__enterFrame` gọi `_self.beginShoot()` mỗi khung kh
 `Player.beginShoot()` dispatch `"beginShoot"` → `SelfMarkBar.__beginShoot` → `pause()`. Tức
 **đồng hồ lượt dừng trong lúc kéo lực**, còn server vẫn đếm giây thật.
 
+**Đo xong (2026-09-05): server đếm wall-clock, tính cả lúc giữ space.** Ngồi im 22 giây rồi mới giữ
+space thì chỉ kéo được ~1,7 giây (lực tới ~40%) là mất lượt — tổng ~24 giây thật. Nghĩa là quỹ của
+một lượt là một cục thời gian thật duy nhất, không có phần nào miễn phí cho việc nạp lực.
+
 Hệ quả cho việc chọn mốc:
 - Mốc client chỉ là trần cho phần **không** giữ space; nó không mua thêm giây kéo lực nào.
 - Muốn nạp đủ lực thì phải bắt đầu giữ space khi trần server còn ~9 giây (nghĩ tối đa ~13 giây) —
@@ -105,8 +109,6 @@ của nó và `ChangePlayerAction` cắt lượt giữa chừng — client khôn
 
 ## Câu hỏi chưa giải đáp
 
-- Server có tính thời gian giữ space vào trần ~22s không? Phép thử: đặt mốc, ngồi im 20 giây rồi
-  giữ space — giữ được ~2 giây là có tính, giữ trọn 8,3 giây là không.
-- Cheat Speed x2 có thật sự rút chu kỳ lực xuống ~4,2 giây thật không? Chưa đo.
 - Trần ~22s đo ở một phòng timeType 3. Trần ở timeType khác là hằng số hay tỉ lệ theo turnTime? Chưa đo.
+- Cheat Speed x2 có rút chu kỳ lực xuống ~4,2 giây thật không? Chưa đo — không định đụng tới. Trần ở timeType khác là hằng số hay tỉ lệ theo turnTime? Chưa đo.
 - Có cần phân biệt chế độ trận (dungeon, campBattle...) không — hiện chạy ở mọi trận có `selfGamePlayer`.
