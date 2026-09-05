@@ -38,6 +38,8 @@ Lệnh nhận qua hàng đợi của trang:
     f:<lực>    bắn ngay bằng lực cho trước, khỏi giữ space
     e:<0|1>    ghi vị trí từng viên đạn mỗi nhịp, để đo đường đạn thật
     h:<0|1>    gỡ cờ tàng hình để thấy người đang ẩn
+    u:<ngày>   nhận một ô của bảng Điểm danh — sendSignIn(ngày); u:0 = tự tính
+    z:         hỏi trạng thái bảng Điểm danh — sendSignInData()
     a:<actId>|<giftbagId>|<số món>   nhận một gói quà của hoạt động GM
     g:<actId>  doc trang thai tung goi qua ra log
     t:<loai>   do tam: liet ke mot tui ra log kem bon chi so
@@ -652,6 +654,34 @@ CMD_BODY = (
     + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
     + op("setproperty", pub("_toolShow")) + op("jump", "LcEnd") + "\n"
     + "LcNotShow:\n"
+    + op("getlocal3") + op("pushstring", '"u:"') + op("ifne", "LcNotDay") + "\n"
+    + op("getlocal2") + op("pushbyte", "2")
+    + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+    + op("setlocal", "4") + "\n"
+    + op("getlocal", "4") + op("iffalse", "LcSignAuto") + "\n"
+    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
+    + op("getlocal", "4")
+    + op("callpropvoid", "%s, 1" % pub("sendSignIn")) + op("jump", "LcEnd") + "\n"
+    + "LcSignAuto:\n"
+    + get_class("activity.signin.SignInManager") + get_prop("instance")
+    + op("setlocal", "5") + "\n"
+    + op("getlocal", "5") + get_prop("canGetReward") + op("iftrue", "LcSignGo") + "\n"
+    + report(op("pushstring", '"diemdanh hom nay da nhan, ngay hien tai "')
+             + op("getlocal", "5") + get_prop("currentID") + op("add"))
+    + op("jump", "LcEnd") + "\n"
+    + "LcSignGo:\n"
+    + op("getlocal", "5") + get_prop("getRewardID") + op("convert_i")
+    + op("setlocal", "6") + "\n"
+    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
+    + op("getlocal", "6")
+    + op("callpropvoid", "%s, 1" % pub("sendSignIn")) + "\n"
+    + report(op("pushstring", '"diemdanh nhan ngay "') + op("getlocal", "6") + op("add"))
+    + op("jump", "LcEnd") + "\n"
+    + "LcNotDay:\n"
+    + op("getlocal3") + op("pushstring", '"z:"') + op("ifne", "LcNotSignData") + "\n"
+    + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
+    + op("callpropvoid", "%s, 0" % pub("sendSignInData")) + op("jump", "LcEnd") + "\n"
+    + "LcNotSignData:\n"
     + op("getlocal3") + op("pushstring", '"p:"') + op("ifne", "LcNotBatch") + "\n"
     + report(CLS + op("pushbyte", "0")
              + op("callproperty", "%s, 1" % pub("toolPet")))
@@ -1697,6 +1727,15 @@ OPEN_BATCH_BODY = (
     # Property1 6/114/66, isChest nhận 6. Trước đây lọc bằng isOpenBatch — vị từ
     # của nút "Nhiều", chỉ nhận 12/13/21 — nên rương mở từng cái bị bỏ sót hết.
     # Hai vị từ này không đụng tới vật liệu (Property1 0) hay phụ kiện thú (82).
+    # Hộp thẻ bài (cat 18) và hộp thẻ đặc biệt (cat 66) không lọt qua hai vị từ
+    # dưới: cả isPackage lẫn isChest đều xét Property1, mà hai loại này để
+    # Property1 = 0. Nhận theo CategoryID, đúng như hộp thoại "Nhiều" của game phân
+    # nhánh (OpenBatchView.as:144-152); gói tin cho chúng đã có sẵn trong
+    # open_dispatch.
+    + local(R_ITEM) + get_prop("CategoryID") + op("pushbyte", "18")
+    + op("ifeq", "LobTake") + "\n"
+    + local(R_ITEM) + get_prop("CategoryID") + op("pushbyte", "66")
+    + op("ifeq", "LobTake") + "\n"
     + get_class("ddt.data.EquipType") + local(R_ITEM)
     + op("callproperty", "%s, 1" % pub("isPackage"))
     + op("iftrue", "LobTake") + "\n"

@@ -115,6 +115,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     buildTurnTimeMenu();
     buildAimMenu();
     buildStealthMenu();
+    buildSignProbeMenu();
     buildOverlayMenu();
     buildMagicAction();
     setupSignClaim();
@@ -560,6 +561,25 @@ void MainWindow::addWindowModeMenu(QMenu *menu)
     }
 }
 
+void MainWindow::buildSignProbeMenu()
+{
+    // Bảng "Điểm danh" là hệ riêng, khác hẳn quà điểm danh của hoạt động GM: gói
+    // 632 byte 1 hỏi trạng thái, byte 2 nhận một ô. Chạy tự động khi vào sảnh;
+    // để thêm mục menu cho ai muốn bấm lại giữa chừng.
+    QMenu *menu = menuBar()->addMenu(QStringLiteral("Điểm danh"));
+    QAction *autoSign = menu->addAction(QStringLiteral("Điểm danh ngay"));
+    connect(autoSign, &QAction::triggered, this, [this] { claimSignInDay(); });
+}
+
+void MainWindow::claimSignInDay()
+{
+    // Hai bước: hỏi trạng thái (gói 632/1) rồi mới đọc được currentID/lastDate mà
+    // server trả về; bản vá tự tính ngày cần nhận nên không phải rải 1..28.
+    m_bridge->queueCommand(QStringLiteral("z:"));
+    showStatus(QStringLiteral("Đang hỏi trạng thái điểm danh…"), 3000);
+    QTimer::singleShot(2000, this, [this] { m_bridge->queueCommand(QStringLiteral("u:0")); });
+}
+
 void MainWindow::buildStealthMenu()
 {
     QMenu *menu = menuBar()->addMenu(QStringLiteral("Tàng hình"));
@@ -986,6 +1006,10 @@ void MainWindow::onGameState(const QString &state)
     // bỏ qua lặng lẽ; chỗ nghỉ đó cũng để game tải nốt tài nguyên sảnh.
     if (!m_signClaimed && state == QLatin1String("main")) {
         m_signClaimed = true;
+        // Bảng "Điểm danh" là hệ riêng, server tự từ chối nếu hôm nay đã nhận, nên
+        // cứ gửi mỗi lần vào sảnh — không dùng chung cờ với quà hoạt động.
+        QTimer::singleShot(6000, this, [this] { claimSignInDay(); });
+
         if (signClaimedToday()) {
             logEvent(QStringLiteral("Điểm danh: hôm nay đã nhận rồi, bỏ qua"));
             return;
