@@ -19,7 +19,15 @@
       {
         "from": "src/resources/clickermann",
         "to": "clickermann"
+      },
+      {
+        "from": "src/resources/tessdata",
+        "to": "tessdata"
       }
+    ],
+    "asarUnpack": [
+      "node_modules/tesseract.js/**",
+      "node_modules/tesseract.js-core/**"
     ],
     "asar": true,
     "files": [

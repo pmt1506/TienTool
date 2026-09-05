@@ -15,9 +15,10 @@ const config = {
     base: runtimeEnv.GNDDT_API_BASE || (typeof __GNDDT_API_BASE__ !== 'undefined' ? __GNDDT_API_BASE__ : 'https://api.gnddt.com'),
     webshop: runtimeEnv.GNDDT_WEBSHOP_URL || (typeof __GNDDT_WEBSHOP_URL__ !== 'undefined' ? __GNDDT_WEBSHOP_URL__ : 'https://gnddt.com/cua-hang'),
   },
-  // Captcha giải qua API Ninjas (imagetotext).
+  // Captcha giải cục bộ bằng Tesseract (xem services/captchaService.js).
+  // Không còn khoá dịch vụ ngoài nào ở đây: khoá api-ninjas hết hạn là mọi bản
+  // đã phát hành cùng chết, mà người dùng không có cách nào tự thay.
   captcha: {
-    apiNinjaKey: 'vIy9pRLKzP79Aedv9lMGLWiRZDLXlYlxyvSfsvNH',
     retryDelayMs: 1200,
     minLength: 4,
     maxAttempts: 15,

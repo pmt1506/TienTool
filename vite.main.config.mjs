@@ -25,6 +25,10 @@ export default defineConfig(({ mode }) => {
           'electron-log',
           'electron-updater',
           'electron-squirrel-startup',
+          // OCR captcha cục bộ: có worker/wasm, không bundle — nạp từ node_modules lúc chạy.
+          'tesseract.js',
+          'tesseract.js-core',
+          'jimp',
         ],
       },
       emptyOutDir: false,

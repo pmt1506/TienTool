@@ -4,18 +4,12 @@ import config from '../config.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { ocrCaptchaLocal } from './captchaService.js';
 
 // fix __dirname cho ES module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function cleanCaptchaText(raw) {
-    return (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-}
-
-function getCaptchaApiKey() {
-    return config.captcha.apiNinjaKey;
-}
 
 // PARENT_DIR should be resolved inside functions to ensure app is ready
 function getParentDir() {
@@ -46,50 +40,29 @@ export async function getCaptchaImage() {
     return filePath;
 }
 
-// OCR captcha qua api-ninjas
-export async function ocrCaptchaNinja(imgPath, apiKey) {
-    const apiUrl = 'https://api.api-ninjas.com/v1/imagetotext';
-    const fileBuffer = await fs.readFile(imgPath);
-    const formData = new FormData();
-    formData.append('image', new Blob([fileBuffer]), 'download.png');
-
-    const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'X-Api-Key': apiKey },
-        body: formData,
-    });
-
-    const json = await res.text();
-    try {
-        const data = JSON.parse(json);
-        if (Array.isArray(data) && data.length > 0) {
-            return cleanCaptchaText(data[0]?.text || '');
-        }
-        if (data?.error) {
-            console.log(`⚠️ api-ninjas lỗi: ${data.error}`);
-        }
-    } catch {
-        // phản hồi không phải JSON — coi như đọc thất bại
-    }
-    return '';
-}
-
-// Lấy + giải captcha bằng API Ninja
+// Lấy + giải captcha bằng Tesseract cục bộ. Không gọi dịch vụ ngoài nào:
+// key api-ninjas hết hạn là cả tool chết, mà captcha này chỉ có 4 chữ in hoa
+// nên OCR tại chỗ đọc được.
+//
+// Có TRẦN số lần để không bao giờ treo: hết trần trả null, caller xử lý như
+// thất bại. OCR sai một lần là bình thường — lấy ảnh mới rồi thử lại.
 export async function getCaptcha(checkStop) {
     const { retryDelayMs, minLength, maxAttempts } = config.captcha;
     const cap = maxAttempts || 15;
-    const apiKey = getCaptchaApiKey();
-
-    if (!apiKey) {
-        console.log('❌ Chưa cấu hình API_NINJA — không thể giải captcha.');
-        return null;
-    }
 
     for (let attempt = 0; attempt < cap; attempt++) {
         if (checkStop && checkStop()) return null;
 
         const imgPath = await getCaptchaImage();
-        const captcha = await ocrCaptchaNinja(imgPath, apiKey);
+        let captcha = '';
+        try {
+            captcha = await ocrCaptchaLocal(imgPath);
+        } catch (err) {
+            // Worker Tesseract không dựng được (thiếu traineddata/wasm) là lỗi
+            // cài đặt, thử lại cũng vậy -> dừng luôn thay vì quay 15 vòng.
+            console.log(`❌ OCR captcha không chạy được: ${err.message}`);
+            return null;
+        }
 
         if (captcha && captcha.length >= minLength) {
             return captcha;
