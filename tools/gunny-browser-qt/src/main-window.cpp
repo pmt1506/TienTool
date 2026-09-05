@@ -26,6 +26,7 @@
 #include "referer-network-manager.h"
 #include "level-dialog.h"
 #include "speed-dialog.h"
+#include "card-shop-client.h"
 #include "trajectory-solver.h"
 #include "sign-activity-gifts.h"
 #include "speed-hack.h"
@@ -115,6 +116,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     buildTurnTimeMenu();
     buildAimMenu();
     buildStealthMenu();
+    buildCardMenu();
     buildOverlayMenu();
     buildMagicAction();
     setupSignClaim();
@@ -186,6 +188,14 @@ MainWindow::MainWindow(const QString &swfUrl,
         }
         if (m.startsWith(QLatin1String("pick "))) {
             onGamePick(m.mid(5));
+            return;
+        }
+        // Dữ liệu thẻ về hàng trăm dòng một lượt: nhớ vào bộ nhớ rồi ghi log,
+        // đừng để nó chạy qua thanh tiêu đề.
+        if (m.startsWith(QLatin1String("sothe ")) || m.startsWith(QLatin1String("cothe "))
+            || m.startsWith(QLatin1String("bothe "))) {
+            onCardData(m);
+            logEvent(m);
             return;
         }
         showStatus(m, 5000);
@@ -569,6 +579,179 @@ void MainWindow::claimSignInDay()
     m_bridge->queueCommand(QStringLiteral("z:"));
     showStatus(QStringLiteral("Đang hỏi trạng thái điểm danh…"), 3000);
     QTimer::singleShot(2000, this, [this] { m_bridge->queueCommand(QStringLiteral("u:0")); });
+}
+
+void MainWindow::setWebshopAccount(const QString &token, int userId, int serverId)
+{
+    m_webToken = token;
+    m_webUserId = userId;
+    m_webServerId = serverId;
+    if (m_shop) {
+        m_shop->setAccount(token, userId, serverId);
+    }
+}
+
+void MainWindow::buildCardMenu()
+{
+    m_shop = new CardShopClient(this);
+    m_shop->setAccount(m_webToken, m_webUserId, m_webServerId);
+    connect(m_shop, &CardShopClient::failed, this, [this](const QString &msg) {
+        showStatus(msg, 6000);
+        logEvent(QStringLiteral("The bai: ") + msg);
+    });
+    connect(m_shop, &CardShopClient::bought, this, [this](bool ok, const QString &msg) {
+        const QString line = (ok ? QStringLiteral("Mua the xong: ")
+                                 : QStringLiteral("Mua the hong: ")) + msg;
+        showStatus(line, 8000);
+        logEvent(line);
+    });
+
+    QMenu *menu = menuBar()->addMenu(QStringLiteral("Thẻ bài"));
+
+    QAction *dump = menu->addAction(QStringLiteral("Đọc thẻ trong game (mở bảng thẻ trước)"));
+    connect(dump, &QAction::triggered, this, [this] {
+        m_cardProfile.clear();
+        m_bridge->queueCommand(QStringLiteral("C:"));
+        showStatus(QStringLiteral("Đang đọc dữ liệu thẻ…"), 5000);
+    });
+
+    menu->addSeparator();
+
+    QAction *gold = menu->addAction(QStringLiteral("Mua full thẻ Vàng (999 hộp/loại)"));
+    connect(gold, &QAction::triggered, this, [this] {
+        // Vàng là bậc 1, tức chỉ cần SỞ HỮU thẻ; thẻ đã có thì nút này không đụng.
+        buyCardBoxes(1, 999, QStringLiteral("full Vàng"));
+    });
+
+    QAction *plat = menu->addAction(QStringLiteral("Mua full Bạch Kim (4995 hộp/loại)"));
+    connect(plat, &QAction::triggered, this, [this] {
+        buyCardBoxes(4, 4995, QStringLiteral("full Bạch Kim"));
+    });
+}
+
+void MainWindow::onCardData(const QString &line)
+{
+    const int sep = line.indexOf(QLatin1Char(' '));
+    const QStringList f = line.mid(sep + 1).split(QLatin1Char('|'));
+    if (f.size() < 3) {
+        return;
+    }
+    const int id = f.at(0).toInt();
+    if (id <= 0) {
+        return;
+    }
+
+    if (line.startsWith(QLatin1String("sothe "))) {
+        m_cardName.insert(id, f.at(1).trimmed());
+    } else if (line.startsWith(QLatin1String("cothe "))) {
+        m_cardName.insert(id, f.at(1).trimmed());
+        m_cardProfile.insert(id, f.at(2).toInt());
+    }
+}
+
+void MainWindow::buyCardBoxes(int targetProfile, int count, const QString &what)
+{
+    if (!m_shop || !m_shop->ready()) {
+        showStatus(QStringLiteral("Chưa có token webshop — mở game từ TienTool."), 6000);
+        return;
+    }
+    if (m_cardName.isEmpty()) {
+        showStatus(QStringLiteral("Chưa có dữ liệu thẻ — bấm \"Đọc thẻ trong game\" trước."), 6000);
+        return;
+    }
+    // Có sổ thẻ mà không có thẻ đang sở hữu nghĩa là chưa mở bảng thẻ trong game.
+    // Chạy tiếp thì mọi thẻ trông như "chưa có" và mua thừa cả loạt.
+    if (m_cardProfile.isEmpty()) {
+        showStatus(QStringLiteral("Chưa đọc được thẻ đang có — mở bảng thẻ trong game rồi đọc lại."),
+                   8000);
+        return;
+    }
+
+    // Tên thẻ cần nâng, chuẩn hoá sẵn để so với tên hộp.
+    QHash<QString, QString> wanted;
+    for (auto it = m_cardName.constBegin(); it != m_cardName.constEnd(); ++it) {
+        if (m_cardProfile.value(it.key(), 0) < targetProfile) {
+            wanted.insert(normalizeCardName(it.value()), it.value());
+        }
+    }
+    if (wanted.isEmpty()) {
+        showStatus(QStringLiteral("Không có thẻ nào dưới mức yêu cầu."), 5000);
+        return;
+    }
+
+    // Hỏi số dư trước, rồi mới tới danh sách hộp: có cả hai mới nói được "đủ tiền
+    // hay không" ngay trong bảng xác nhận, thay vì để server từ chối giữa chừng
+    // sau khi đã trừ mất một phần.
+    disconnect(m_shop, &CardShopClient::balanceReady, this, nullptr);
+    connect(m_shop, &CardShopClient::balanceReady, this,
+            [this, wanted, count, what](qint64 cash, qint64 cashFree) {
+                m_shopCash = cash;
+                m_shopCashFree = cashFree;
+                m_shop->fetchCardBoxes();
+            });
+
+    // Chờ danh sách hộp rồi mới chốt đơn: giá gửi lên phải là giá server niêm yết.
+    disconnect(m_shop, &CardShopClient::boxesReady, this, nullptr);
+    connect(m_shop, &CardShopClient::boxesReady, this,
+            [this, wanted, count, what](const QList<ShopItem> &boxes) {
+                QList<QPair<ShopItem, int>> order;
+                long long total = 0;
+                for (const ShopItem &box : boxes) {
+                    if (wanted.contains(normalizeCardName(box.cardName()))) {
+                        order.append(qMakePair(box, count));
+                        total += (long long)box.price * count;
+                    }
+                }
+                if (order.isEmpty()) {
+                    showStatus(QStringLiteral("Không thẻ nào cần nâng có hộp trên shop."), 6000);
+                    return;
+                }
+
+                const int noBox = wanted.size() - order.size();
+                QString msg = QStringLiteral("Mua %1:\n\n%2 loại hộp x %3 = %4 hộp\nTổng tiền: %5\n")
+                                  .arg(what)
+                                  .arg(order.size())
+                                  .arg(count)
+                                  .arg((long long)order.size() * count)
+                                  .arg(total);
+                if (noBox > 0) {
+                    msg += QStringLiteral("\n%1 thẻ cần nâng KHÔNG có hộp trên shop, bỏ qua.\n")
+                               .arg(noBox);
+                }
+                const qint64 have = m_shopCash + m_shopCashFree;
+                msg += QStringLiteral("\nCoin: %1 + Coin tặng: %2 = %3\n")
+                           .arg(m_shopCash)
+                           .arg(m_shopCashFree)
+                           .arg(have);
+
+                // Không đủ thì chặn hẳn chứ không chỉ nhắc: gửi đơn quá tiền,
+                // server rất có thể trừ được bao nhiêu thì mua bấy nhiêu rồi
+                // dừng, để lại một mớ nửa vời không biết đã mua tới đâu.
+                if (total > have) {
+                    QMessageBox::warning(
+                        this, QStringLiteral("Không đủ coin"),
+                        QStringLiteral("Cần %1 nhưng chỉ có %2 (thiếu %3).\n\n"
+                                       "Giảm số lượng mỗi loại rồi thử lại.")
+                            .arg(total)
+                            .arg(have)
+                            .arg(total - have));
+                    return;
+                }
+
+                msg += QStringLiteral("\nMua là không hoàn lại. Tiếp tục?");
+
+                if (QMessageBox::question(this, QStringLiteral("Xác nhận mua"), msg,
+                                          QMessageBox::Yes | QMessageBox::No)
+                    != QMessageBox::Yes) {
+                    return;
+                }
+                logEvent(QStringLiteral("The bai: gui lenh mua %1 loai, %2 hop moi loai")
+                             .arg(order.size())
+                             .arg(count));
+                m_shop->buy(order);
+            });
+
+    m_shop->fetchBalance();
 }
 
 void MainWindow::buildStealthMenu()

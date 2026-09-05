@@ -1,5 +1,6 @@
 #pragma once
 
+#include "card-shop-client.h"
 #include "sign-activity-gifts.h"
 #include "trajectory-solver.h"
 
@@ -26,6 +27,10 @@ public:
                int stageWidth,
                int stageHeight,
                QWidget *parent = nullptr);
+
+public:
+    // Token webshop + nhân vật nhận hàng, do TienTool truyền qua dòng lệnh.
+    void setWebshopAccount(const QString &token, int userId, int serverId);
 
 private slots:
     void onToolAction(const QString &actionId);
@@ -54,6 +59,12 @@ private:
     void buildTurnTimeMenu();
     // Hỏi trạng thái bảng Điểm danh rồi nhận đúng ngày đang tới lượt.
     void claimSignInDay();
+    // Menu "Thẻ bài": xuất dữ liệu và mua hộp trên webshop.
+    void buildCardMenu();
+    // Đọc một dòng sothe/cothe/bothe do bản vá xuất ra.
+    void onCardData(const QString &line);
+    // Mua hộp cho những thẻ dưới `targetProfile`, mỗi loại `count` hộp.
+    void buyCardBoxes(int targetProfile, int count, const QString &what);
     // Menu "Tàng hình": gỡ cờ ẩn để thấy người dùng đồ tàng hình.
     void buildStealthMenu();
     void applyShowHidden(bool on);
@@ -141,6 +152,17 @@ private:
     double m_solvedMiss = 0.0;
     QAction *m_spreadAction = nullptr;
     QAction *m_stealthAction = nullptr;
+    CardShopClient *m_shop = nullptr;
+    // Số dư đọc được ngay trước khi chốt đơn.
+    qint64 m_shopCash = 0;
+    qint64 m_shopCashFree = 0;
+    // id thẻ -> phẩm chất đang có (0..4). Rỗng khi chưa mở bảng thẻ trong game.
+    QHash<int, int> m_cardProfile;
+    // id thẻ -> tên, lấy từ sổ thẻ đầy đủ.
+    QHash<int, QString> m_cardName;
+    QString m_webToken;
+    int m_webUserId = 0;
+    int m_webServerId = 0;
     QTimer *m_aimIdle = nullptr;
     // Chỉ tự nhận quà một lần mỗi phiên: vào lại sảnh sau mỗi trận đấu thì
     // trạng thái "main" lặp lại liên tục.

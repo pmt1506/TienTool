@@ -32,6 +32,7 @@ SOURCES += \
     src/speed-dialog.cpp \
     src/speed-hack.cpp \
     src/tool-bridge.cpp \
+    src/card-shop-client.cpp \
     src/trajectory-solver.cpp \
     src/sign-activity-gifts.cpp \
     src/warehouse-search-dialog.cpp \
@@ -53,6 +54,7 @@ HEADERS += \
     src/speed-dialog.h \
     src/speed-hack.h \
     src/tool-bridge.h \
+    src/card-shop-client.h \
     src/trajectory-solver.h \
     src/sign-activity-gifts.h \
     src/warehouse-search-dialog.h

@@ -96,8 +96,21 @@ int main(int argc, char *argv[])
         QStringLiteral("Tự bấm \"Kho ma pháp\" sau chừng này giây."),
         QStringLiteral("giây"));
 
+    // Token webshop do TienTool giải captcha rồi truyền sang; launcher chỉ dùng
+    // lại chứ không tự đăng nhập web. Thiếu thì mấy nút mua thẻ tự tắt.
+    const QCommandLineOption webTokenOpt(
+        QStringLiteral("webtoken"), QStringLiteral("JWT của webshop (api.gnddt.com)."),
+        QStringLiteral("jwt"));
+    const QCommandLineOption userIdOpt(
+        QStringLiteral("userid"), QStringLiteral("UserId nhận hàng mua từ webshop."),
+        QStringLiteral("id"), QStringLiteral("0"));
+    const QCommandLineOption serverIdOpt(
+        QStringLiteral("serverid"), QStringLiteral("ServerId nhận hàng mua từ webshop."),
+        QStringLiteral("id"), QStringLiteral("0"));
+
     parser.addOptions(
-        {swfOpt, titleOpt, widthOpt, heightOpt, refererOpt, flashOpt, autoMagicOpt});
+        {swfOpt, titleOpt, widthOpt, heightOpt, refererOpt, flashOpt, autoMagicOpt,
+         webTokenOpt, userIdOpt, serverIdOpt});
     parser.process(app);
 
     const QString swfUrl = parser.value(swfOpt);
@@ -109,6 +122,9 @@ int main(int argc, char *argv[])
                       parser.value(refererOpt),
                       parser.value(widthOpt).toInt(),
                       parser.value(heightOpt).toInt());
+    window.setWebshopAccount(parser.value(webTokenOpt),
+                             parser.value(userIdOpt).toInt(),
+                             parser.value(serverIdOpt).toInt());
     window.setWindowTitle(parser.value(titleOpt));
     window.show();
 

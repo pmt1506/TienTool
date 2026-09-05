@@ -7,6 +7,7 @@ import { getSerialNumber } from "../utils.js";
 import { ensureCharacterExists } from "./registerService.js";
 import { createGameSession } from "./gameSessionService.js";
 import config from "../config.js";
+import { getWebToken } from './web-token-cache.js';
 
 
 export async function loginApi(userName, password, serialNumber) {
@@ -137,6 +138,20 @@ export async function loginGame(userName, password, serverID, accountType, prefi
                 return { success: false, msg: session.msg };
             }
             args = ["--swf", session.swfUrl, "--title", `Gunny - ${userName}`];
+
+            // Kèm token webshop để launcher gọi được API mua hộp thẻ. Lấy qua
+            // cache nên chỉ giải captcha lần đầu trong ngày; hỏng thì bỏ qua,
+            // game vẫn mở bình thường, chỉ mất mấy nút mua thẻ.
+            try {
+                const web = await getWebToken(userName, password);
+                if (web?.token) {
+                    args.push("--webtoken", web.token,
+                              "--userid", String(web.userId ?? 0),
+                              "--serverid", String(serverID));
+                }
+            } catch (webErr) {
+                console.log(`[Login] Khong lay duoc token webshop: ${webErr.message}`);
+            }
         } else {
             filePath = `${config.game.clientDir}/GunnyBrowser.exe`;
             args = [userName, token, serverID.toString(), "0", serialNumber, "0"];

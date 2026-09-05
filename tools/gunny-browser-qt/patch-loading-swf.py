@@ -40,6 +40,7 @@ Lệnh nhận qua hàng đợi của trang:
     h:<0|1>    gỡ cờ tàng hình để thấy người đang ẩn
     u:<ngày>   nhận một ô của bảng Điểm danh — sendSignIn(ngày); u:0 = tự tính
     z:         hỏi trạng thái bảng Điểm danh — sendSignInData()
+    C:         xuất bộ thẻ và thẻ đang có (kèm phẩm chất) ra log
     a:<actId>|<giftbagId>|<số món>   nhận một gói quà của hoạt động GM
     g:<actId>  doc trang thai tung goi qua ra log
     t:<loai>   do tam: liet ke mot tui ra log kem bon chi so
@@ -395,6 +396,87 @@ AIM_BODY = (
     + report(op("pushstring", '"aim loi "') + op("getlocal", "19") + op("add"))
     + "LamAfter:\n")
 
+# Xuất dữ liệu thẻ bài ra log để bên ngoài tính xem cần mua hộp nào.
+CARD_BODY = (
+    "LcdTry:\n"
+    + get_class("cardNewSystem.CardNewManager") + get_prop("ins") + get_prop("model")
+    + op("setlocal", "2") + "\n"
+    + op("getlocal", "2") + op("pushnull") + op("ifeq", "LcdEnd") + "\n"
+    # Số đếm trước tiên: hasCards rỗng là do gói 648 CARD_INFO chưa về (chưa mở
+    # bảng thẻ trong game), chứ không phải lệnh hỏng — không in ra thì không phân
+    # biệt được hai trường hợp.
+    + report(op("pushstring", '"the dem bo="')
+             + op("getlocal", "2") + get_prop("cardSuitTempInfos") + get_prop("length")
+             + op("add")
+             + op("pushstring", '" so="') + op("add")
+             + op("getlocal", "2") + get_prop("cardBookTempInfos") + get_prop("length")
+             + op("add")
+             + op("pushstring", '" init="') + op("add")
+             + op("getlocal", "2") + get_prop("isInitData") + op("add"))
+    # Sổ thẻ: mọi thẻ ở mọi phẩm chất. Đây là chỗ duy nhất có TÊN thẻ, mà tên mới
+    # là thứ nối được với "Hộp Thẻ ..." trên webshop — id thẻ (314xxx) và id hộp
+    # (20145+) không liên quan gì nhau.
+    + op("getlocal", "2") + get_prop("cardBookTempInfos") + op("setlocal", "10") + "\n"
+    + op("getlocal", "10") + op("pushnull") + op("ifeq", "LcdSuits") + "\n"
+    + op("pushbyte", "0") + op("setlocal", "11") + "\n"
+    + "LcdBook:\n"
+    + op("getlocal", "11") + op("getlocal", "10") + get_prop("length")
+    + op("ifge", "LcdSuits") + "\n"
+    + op("getlocal", "10") + op("getlocal", "11") + op("getproperty", KEY)
+    + op("setlocal", "12") + "\n"
+    + op("getlocal", "12") + op("pushnull") + op("ifeq", "LcdBookNext") + "\n"
+    + report(op("pushstring", '"sothe "')
+             + op("getlocal", "12") + get_prop("TemplateId") + op("add")
+             + op("pushstring", '"|"') + op("add")
+             + op("getlocal", "12") + get_prop("TemplateName") + op("add")
+             + op("pushstring", '"|"') + op("add")
+             + op("getlocal", "12") + get_prop("Profile") + op("add"))
+    + "LcdBookNext:\n"
+    + op("getlocal", "11") + op("increment_i") + op("setlocal", "11")
+    + op("jump", "LcdBook") + "\n"
+    + "LcdSuits:\n"
+    # Các bộ thẻ.
+    + op("getlocal", "2") + get_prop("cardSuitTempInfos") + op("setlocal", "3") + "\n"
+    + op("getlocal", "3") + op("pushnull") + op("ifeq", "LcdCards") + "\n"
+    + op("pushbyte", "0") + op("setlocal", "4") + "\n"
+    + "LcdSuit:\n"
+    + op("getlocal", "4") + op("getlocal", "3") + get_prop("length")
+    + op("ifge", "LcdCards") + "\n"
+    + op("getlocal", "3") + op("getlocal", "4") + op("getproperty", KEY)
+    + op("setlocal", "5") + "\n"
+    + op("getlocal", "5") + op("pushnull") + op("ifeq", "LcdSuitNext") + "\n"
+    + report(op("pushstring", '"bothe "')
+             + op("getlocal", "5") + get_prop("SuitTemplateId") + op("add")
+             + op("pushstring", '"|"') + op("add")
+             + op("getlocal", "5") + get_prop("SuitName") + op("add")
+             + op("pushstring", '"|"') + op("add")
+             + op("getlocal", "5") + get_prop("NeedCardTempIds") + op("add"))
+    + "LcdSuitNext:\n"
+    + op("getlocal", "4") + op("increment_i") + op("setlocal", "4")
+    + op("jump", "LcdSuit") + "\n"
+    # Thẻ đang có: Dictionary nên duyệt bằng hasnext2.
+    + "LcdCards:\n"
+    + op("getlocal", "2") + get_prop("hasCards") + op("setlocal", "6") + "\n"
+    + op("getlocal", "6") + op("pushnull") + op("ifeq", "LcdEnd") + "\n"
+    + op("pushbyte", "0") + op("setlocal", "7") + "\n"
+    + "LcdHas:\n"
+    + op("hasnext2", "6, 7") + op("iffalse", "LcdEnd") + "\n"
+    + op("getlocal", "6") + op("getlocal", "7") + op("nextvalue")
+    + op("setlocal", "8") + "\n"
+    + op("getlocal", "8") + op("pushnull") + op("ifeq", "LcdHas") + "\n"
+    + report(op("pushstring", '"cothe "')
+             + op("getlocal", "8") + get_prop("TemplateId") + op("add")
+             + op("pushstring", '"|"') + op("add")
+             + op("getlocal", "8") + get_prop("TemplateName") + op("add")
+             + op("pushstring", '"|"') + op("add")
+             + op("getlocal", "8") + get_prop("Profile") + op("add"))
+    + op("jump", "LcdHas") + "\n"
+    + "LcdEnd:\n" + op("jump", "LcdAfter") + "\n"
+    + "LcdCatch:\n" + catch_prologue() + get_prop("message") + op("coerce_s")
+    + op("setlocal", "9") + "\n"
+    + report(op("pushstring", '"the loi "') + op("getlocal", "9") + op("add"))
+    + "LcdAfter:\n" + op("returnvoid"))
+
 # Gỡ cờ tàng hình của mọi sinh vật đang ẩn.
 SHOW_BODY = (
     "LshTry:\n"
@@ -682,6 +764,10 @@ CMD_BODY = (
     + get_class("ddt.manager.SocketManager") + get_prop("Instance") + get_prop("out")
     + op("callpropvoid", "%s, 0" % pub("sendSignInData")) + op("jump", "LcEnd") + "\n"
     + "LcNotSignData:\n"
+    + op("getlocal3") + op("pushstring", '"C:"') + op("ifne", "LcNotCard") + "\n"
+    + CLS + op("pushbyte", "0")
+    + op("callpropvoid", "%s, 1" % pub("toolCardDump")) + op("jump", "LcEnd") + "\n"
+    + "LcNotCard:\n"
     + op("getlocal3") + op("pushstring", '"p:"') + op("ifne", "LcNotBatch") + "\n"
     + report(CLS + op("pushbyte", "0")
              + op("callproperty", "%s, 1" % pub("toolPet")))
@@ -2027,6 +2113,8 @@ TRAITS = (
              stack=24, locals_=24)
     + method("toolKey", pub("Object"), KEY_HANDLER, try_block("kh"))
     + method("toolWheel", pub("Object"), WHEEL_HANDLER, try_block("wh"))
+    + method("toolCardDump", pub("Object"), CARD_BODY, try_block("cd"),
+             stack=20, locals_=20)
     + method("toolClick", pub("Object"), CLICK_HANDLER, try_block("cl"))
     + method("toolOpenMagicHouse", pub("int"), OPEN_BODY, try_block("o"))
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
