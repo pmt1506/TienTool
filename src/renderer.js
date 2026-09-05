@@ -1080,6 +1080,28 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
         toast(`Account ${acc.username} chưa có server.`, 'error');
         continue;
       }
+
+      // Cùng cảnh báo như login đơn lẻ. Kiểm ngay trước khi login TỪNG tài khoản
+      // chứ không quét cả danh sách từ đầu: mỗi lượt kiểm tốn một captcha, quét
+      // trước là bắt chờ hết N lượt rồi mới thấy game đầu tiên mở lên.
+      // Không kiểm được thì vẫn login — đây là cảnh báo, không phải cổng chặn.
+      let onlineRes;
+      try {
+        onlineRes = await api.checkAccountOnline(acc.username, acc.password);
+      } catch {
+        onlineRes = { status: 'unknown' };
+      }
+      if (onlineRes?.status === 'online') {
+        const proceed = await asyncConfirm(
+          `Tài khoản "${acc.username}" đang có người online.\nVẫn muốn đăng nhập không?`,
+          { title: 'Tài khoản đang online', okText: 'Vẫn đăng nhập', cancelText: 'Bỏ qua' }
+        );
+        if (!proceed) {
+          toast(`Đã bỏ qua ${acc.username} (đang online).`, 'info');
+          continue;
+        }
+      }
+
       try {
         const result = await api.loginGame(acc.username, acc.password, acc.server, acc.accountType, config.regPrefix, 14, config.regCheckEnable);
         if (result.success) {
@@ -1112,6 +1134,29 @@ dom.btnLoginLauncher.addEventListener('click', async () => {
   const data = getFormData();
   if (!data.username || !data.password || !data.server) {
     return toast('Vui lòng chọn tài khoản và server hợp lệ.', 'error');
+  }
+
+  // Kiểm tra online trước khi mở launcher (chỉ áp dụng login đơn lẻ).
+  // Đang online -> hỏi xác nhận. Không kiểm tra được thì vẫn cho login bình
+  // thường: đây là cảnh báo tiện tay, không phải cổng chặn.
+  dom.btnLoginLauncher.disabled = true;
+  toast('Đang kiểm tra trạng thái online...', 'info');
+  let onlineRes;
+  try {
+    onlineRes = await api.checkAccountOnline(data.username, data.password);
+  } catch {
+    onlineRes = { status: 'unknown' };
+  }
+  dom.btnLoginLauncher.disabled = false;
+
+  if (onlineRes?.status === 'online') {
+    const proceed = await asyncConfirm(
+      `Tài khoản "${data.username}" đang có người online.\nVẫn muốn đăng nhập không?`,
+      { title: 'Tài khoản đang online', okText: 'Vẫn đăng nhập', cancelText: 'Bỏ qua' }
+    );
+    if (!proceed) {
+      return toast('Đã bỏ qua (tài khoản đang online).', 'info');
+    }
   }
 
   toast('Đang mở Launcher...', 'info');

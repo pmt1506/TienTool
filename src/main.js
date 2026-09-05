@@ -35,7 +35,9 @@ import { startResetMark } from './services/resetMarkService.js';
 import { startVipRewardWeek } from './services/vipRewardService.js';
 import * as koffiService from './koffiService.js';
 import { getLoginToken } from './services/apiService.js';
+import { terminateCaptcha } from './services/captchaService.js';
 import { getAllCode, getWeeklyCode } from './services/autoService.js';
+import { checkAccountOnline } from './services/onlineService.js';
 import { clearGameCache } from './services/cacheService.js';
 import { updateGameResources } from './services/updateService.js';
 import config from './config.js';
@@ -968,6 +970,13 @@ ipcMain.handle('game:stop-vip-reward-week', async () => {
 });
 
 
+// Kiểm tra tài khoản có đang online không (dùng trước khi login launcher đơn lẻ).
+// Tốn 1 captcha vì phải đăng nhập lấy JWT; giải cục bộ nên không phụ thuộc
+// dịch vụ ngoài và chạy được cả trong bản đóng gói.
+ipcMain.handle('game:check-online', async (_event, username, password) => {
+  return await checkAccountOnline({ username, password });
+});
+
 // Xoá cache game (Flash + shader) — như nút "Xóa Cache" của launcher gốc.
 ipcMain.handle('game:clear-cache', async () => {
   try {
@@ -1022,6 +1031,11 @@ app.whenReady().then(async () => {
   }, 2000);
 });
 
+
+// Dọn worker Tesseract (nếu đã khởi tạo) trước khi thoát.
+app.on('before-quit', () => {
+  terminateCaptcha();
+});
 
 app.on('window-all-closed', async () => {
   await disconnect();

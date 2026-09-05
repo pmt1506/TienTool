@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   registerAccount: (username, password, options) => ipcRenderer.invoke('game:register-account', username, password, options),
   claimAndUseSubscriberCodes: (username, password, token, targetServer) => ipcRenderer.invoke('game:claim-and-use-subscriber-codes', username, password, token, targetServer),
   onSubscriberCodesProgress: (callback) => ipcRenderer.on('subscriber-codes:progress', (_event, data) => callback(data)),
+  checkAccountOnline: (username, password) => ipcRenderer.invoke('game:check-online', username, password),
   clearCache: () => ipcRenderer.invoke('game:clear-cache'),
   updateResources: () => ipcRenderer.invoke('game:update-resources'),
   stopUpdate: () => ipcRenderer.invoke('game:stop-update'),

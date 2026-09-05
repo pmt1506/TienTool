@@ -5,7 +5,8 @@ import { app } from 'electron';
 import config from '../config.js';
 import { loginApi } from './loginService.js';
 import { getSerialNumber } from '../utils.js';
-import { getCaptcha, ocrCaptchaNinja, getAllNickName, getLoginToken } from './apiService.js';
+import { getCaptcha, getAllNickName, getLoginToken } from './apiService.js';
+import { ocrCaptchaLocal } from './captchaService.js';
 
 // ─────────────────────────────────────────────────────────────
 // 🔐 GNDDT Crypto Helpers (RSA-1024 PKCS1 v1.5 + MD5)
@@ -353,13 +354,7 @@ export function convertStringToHex(str) {
 export async function getSubscriberCaptcha(keyCapcha, checkStop) {
   const { retryDelayMs, minLength, maxAttempts } = config.captcha;
   const cap = maxAttempts || 10;
-  const apiKey = config.captcha.apiNinjaKey;
   const apiBase = config.api.base || 'https://api.gnddt.com';
-
-  if (!apiKey) {
-    console.log('❌ Chưa cấu hình API_NINJA — không thể giải captcha.');
-    return null;
-  }
 
   const parentDir = (typeof app !== 'undefined' && app?.getPath) ? app.getPath('userData') : process.cwd();
   const filePath = path.join(parentDir, 'sub_captcha.png');
@@ -383,7 +378,7 @@ export async function getSubscriberCaptcha(keyCapcha, checkStop) {
       const base64 = imgString.replace(/"/g, '').trim();
       if (base64 && base64.length > 50) {
         await fs.writeFile(filePath, Buffer.from(base64, 'base64'));
-        const text = await ocrCaptchaNinja(filePath, apiKey);
+        const text = await ocrCaptchaLocal(filePath);
         if (text && text.length >= minLength) {
           return text;
         }
