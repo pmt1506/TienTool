@@ -156,6 +156,7 @@ private:
     // Số dư đọc được ngay trước khi chốt đơn.
     qint64 m_shopCash = 0;
     qint64 m_shopCashFree = 0;
+    int m_shopVipReduction = 0;
     // id thẻ -> phẩm chất đang có (0..4). Rỗng khi chưa mở bảng thẻ trong game.
     QHash<int, int> m_cardProfile;
     // id thẻ -> tên, lấy từ sổ thẻ đầy đủ.

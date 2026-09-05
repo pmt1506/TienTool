@@ -39,7 +39,8 @@ public:
     void fetchCardBoxes();
 
     // Số dư của tài khoản: Cash là coin nạp, CashFree là coin tặng. Cả hai đều
-    // tiêu được nên chỗ kiểm tra "đủ tiền không" phải cộng lại.
+    // tiêu được nên chỗ kiểm tra "đủ tiền không" phải cộng lại. Kèm luôn mức
+    // giảm giá theo VIP vì giỏ hàng tính tiền thật từ nó.
     void fetchBalance();
 
     // Gửi một lần mua nhiều loại; mỗi phần tử là món và số lượng.
@@ -47,7 +48,7 @@ public:
 
 signals:
     void boxesReady(const QList<ShopItem> &boxes);
-    void balanceReady(qint64 cash, qint64 cashFree);
+    void balanceReady(qint64 cash, qint64 cashFree, int vipReduction);
     void bought(bool ok, const QString &message);
     void failed(const QString &message);
 

@@ -223,7 +223,8 @@ void CardShopClient::fetchBalance()
                                      .value(QStringLiteral("UserInfo"))
                                      .toObject();
         emit balanceReady((qint64)info.value(QStringLiteral("Cash")).toDouble(),
-                          (qint64)info.value(QStringLiteral("CashFree")).toDouble());
+                          (qint64)info.value(QStringLiteral("CashFree")).toDouble(),
+                          info.value(QStringLiteral("VipReduction")).toInt());
     });
 }
 

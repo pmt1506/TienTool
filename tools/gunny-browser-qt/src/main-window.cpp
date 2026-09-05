@@ -45,6 +45,15 @@ static const double kSpreadDegrees = 2.5;
 // cỡ nửa thân nhân vật).
 static const double kHitRadius = 40.0;
 
+// Dòng "giảm VIP / thực trả" trong bảng xác nhận mua, viết giống chỗ giỏ hàng
+// của webshop để hai bên đọc ra cùng một con số.
+static QString vipLine(int reduction, double payable)
+{
+    return QStringLiteral("\nGiảm VIP: %1%\nThực trả: %2\n")
+        .arg(reduction)
+        .arg(qRound64(payable));
+}
+
 struct Entry { const char *menu; const char *id; const char *text; };
 static const Entry kMenuEntries[] = {
     {"Giao diện", "toggle-overlay", "Hiện bảng cài đặt"},
@@ -684,9 +693,10 @@ void MainWindow::buyCardBoxes(int targetProfile, int count, const QString &what)
     // sau khi đã trừ mất một phần.
     disconnect(m_shop, &CardShopClient::balanceReady, this, nullptr);
     connect(m_shop, &CardShopClient::balanceReady, this,
-            [this, wanted, count, what](qint64 cash, qint64 cashFree) {
+            [this, wanted, count, what](qint64 cash, qint64 cashFree, int vipReduction) {
                 m_shopCash = cash;
                 m_shopCashFree = cashFree;
+                m_shopVipReduction = vipReduction;
                 m_shop->fetchCardBoxes();
             });
 
@@ -718,7 +728,12 @@ void MainWindow::buyCardBoxes(int targetProfile, int count, const QString &what)
                     msg += QStringLiteral("\n%1 thẻ cần nâng KHÔNG có hộp trên shop, bỏ qua.\n")
                                .arg(noBox);
                 }
+                // Gio hang web tinh tien that theo VipReduction (phan tram) chu
+                // khong theo tong gia niem yet - bam dung cong thuc cua ho de con
+                // so o day khop voi luc bam mua tren web.
                 const qint64 have = m_shopCash + m_shopCashFree;
+                const double payable = (double)total * (100 - m_shopVipReduction) / 100.0;
+                msg += vipLine(m_shopVipReduction, payable);
                 msg += QStringLiteral("\nCoin: %1 + Coin tặng: %2 = %3\n")
                            .arg(m_shopCash)
                            .arg(m_shopCashFree)
@@ -727,14 +742,14 @@ void MainWindow::buyCardBoxes(int targetProfile, int count, const QString &what)
                 // Không đủ thì chặn hẳn chứ không chỉ nhắc: gửi đơn quá tiền,
                 // server rất có thể trừ được bao nhiêu thì mua bấy nhiêu rồi
                 // dừng, để lại một mớ nửa vời không biết đã mua tới đâu.
-                if (total > have) {
+                if (payable > (double)have) {
                     QMessageBox::warning(
                         this, QStringLiteral("Không đủ coin"),
                         QStringLiteral("Cần %1 nhưng chỉ có %2 (thiếu %3).\n\n"
                                        "Giảm số lượng mỗi loại rồi thử lại.")
-                            .arg(total)
+                            .arg(qRound64(payable))
                             .arg(have)
-                            .arg(total - have));
+                            .arg(qRound64(payable) - have));
                     return;
                 }
 
