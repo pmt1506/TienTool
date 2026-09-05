@@ -115,7 +115,6 @@ MainWindow::MainWindow(const QString &swfUrl,
     buildTurnTimeMenu();
     buildAimMenu();
     buildStealthMenu();
-    buildSignProbeMenu();
     buildOverlayMenu();
     buildMagicAction();
     setupSignClaim();
@@ -561,18 +560,10 @@ void MainWindow::addWindowModeMenu(QMenu *menu)
     }
 }
 
-void MainWindow::buildSignProbeMenu()
-{
-    // Bảng "Điểm danh" là hệ riêng, khác hẳn quà điểm danh của hoạt động GM: gói
-    // 632 byte 1 hỏi trạng thái, byte 2 nhận một ô. Chạy tự động khi vào sảnh;
-    // để thêm mục menu cho ai muốn bấm lại giữa chừng.
-    QMenu *menu = menuBar()->addMenu(QStringLiteral("Điểm danh"));
-    QAction *autoSign = menu->addAction(QStringLiteral("Điểm danh ngay"));
-    connect(autoSign, &QAction::triggered, this, [this] { claimSignInDay(); });
-}
-
 void MainWindow::claimSignInDay()
 {
+    // Chạy tự động sau khi vào sảnh, không có nút nào để bấm.
+    //
     // Hai bước: hỏi trạng thái (gói 632/1) rồi mới đọc được currentID/lastDate mà
     // server trả về; bản vá tự tính ngày cần nhận nên không phải rải 1..28.
     m_bridge->queueCommand(QStringLiteral("z:"));

@@ -52,8 +52,6 @@ private:
     void resetLevelMenu();
     // Menu "Thời gian lượt": Bình thường / 15 giây.
     void buildTurnTimeMenu();
-    // Menu dò ba luồng điểm danh, để tìm ra luồng còn thiếu.
-    void buildSignProbeMenu();
     // Hỏi trạng thái bảng Điểm danh rồi nhận đúng ngày đang tới lượt.
     void claimSignInDay();
     // Menu "Tàng hình": gỡ cờ ẩn để thấy người dùng đồ tàng hình.
