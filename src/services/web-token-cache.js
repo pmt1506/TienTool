@@ -7,6 +7,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { app } from 'electron';
 
+import config from '../config.js';
 import { getLoginToken } from './apiService.js';
 
 // Đọc `exp` trong payload JWT. Token hỏng thì coi như hết hạn.
@@ -17,6 +18,22 @@ function readExpiry(token) {
         return JSON.parse(json).exp || 0;
     } catch {
         return 0;
+    }
+}
+
+// Token bi server thu hoi truoc han la chuyen thuong: chi can dang nhap lai tai
+// khoan do o cho khac la token cu chet, du `exp` con nguyen. Vi vay phai goi thu
+// mot API can auth thay vi chi doc `exp`.
+async function stillWorks(token) {
+    try {
+        const res = await fetch(`${config.api.base}/api/oauth/GetUserInfo`, {
+            headers: { Authorization: token },
+        });
+        return res.ok;
+    } catch {
+        // Mat mang thi coi nhu con dung duoc: xin token moi luc nay cung hong,
+        // ma con ton them mot vong giai captcha.
+        return true;
     }
 }
 
@@ -42,7 +59,7 @@ export async function getWebToken(username, password) {
 
     // Trừ hao 5 phút: token sắp hết hạn mà đem đi mua hàng thì hỏng giữa chừng.
     const now = Math.floor(Date.now() / 1000);
-    if (hit?.token && readExpiry(hit.token) > now + 300) {
+    if (hit?.token && readExpiry(hit.token) > now + 300 && (await stillWorks(hit.token))) {
         return hit;
     }
 

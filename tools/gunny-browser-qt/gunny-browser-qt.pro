@@ -10,6 +10,11 @@
 #   - Bản 64-bit: NPSWF32.dll là 32-bit nên không nạp được plugin.
 # Đây cũng đúng tổ hợp mà GunnyClient và LazyGunny dùng.
 
+# Qt 5.5.1 nap OpenSSL luc chay chu khong link san. Thieu no thi moi request
+# https deu chet voi "Error creating SSL context" — API webshop dung https nen
+# phai chep libeay32.dll va ssleay32.dll (32-bit, OpenSSL 1.0.x) tu
+# C:\Qt5.5.1\Tools\QtCreator\bin vao canh file exe.
+
 QT += core gui widgets network webkit webkitwidgets
 # Qt 5.5.1 đi kèm MinGW 4.9.2 (GCC 4.9) — chưa có C++17.
 CONFIG += c++11

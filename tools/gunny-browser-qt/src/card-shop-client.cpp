@@ -44,6 +44,17 @@ QJsonObject pageBody(int page, int rows)
     return body;
 }
 
+// Doi loi mang thanh cau nguoi dung lam duoc gi. 401 o day gan nhu luon la token
+// bi thu hoi, ma dong "Host requires authentication" cua Qt khong noi len dieu do.
+QString netError(QNetworkReply *reply)
+{
+    if (reply->error() == QNetworkReply::AuthenticationRequiredError
+        || reply->error() == QNetworkReply::ContentAccessDenied) {
+        return QStringLiteral("Token webshop bị từ chối — đóng game rồi mở lại từ TienTool.");
+    }
+    return reply->errorString();
+}
+
 }  // namespace
 
 QString normalizeCardName(const QString &raw)
@@ -111,7 +122,7 @@ void CardShopClient::fetchPage(int page, QList<ShopItem> collected)
     connect(reply, &QNetworkReply::finished, this, [this, reply, page, collected]() mutable {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
-            emit failed(QStringLiteral("Lỗi mạng khi đọc shop: ") + reply->errorString());
+            emit failed(QStringLiteral("Lỗi khi đọc shop: ") + netError(reply));
             return;
         }
 
@@ -157,7 +168,7 @@ void CardShopClient::fetchBalance()
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
-            emit failed(QStringLiteral("Không đọc được số dư: ") + reply->errorString());
+            emit failed(QStringLiteral("Không đọc được số dư: ") + netError(reply));
             return;
         }
         const QJsonObject info = QJsonDocument::fromJson(reply->readAll())
@@ -212,7 +223,7 @@ void CardShopClient::buy(const QList<QPair<ShopItem, int>> &order)
         reply->deleteLater();
         const QByteArray raw = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
-            emit bought(false, QStringLiteral("Lỗi mạng: ") + reply->errorString()
+            emit bought(false, QStringLiteral("Lỗi mạng: ") + netError(reply)
                                    + QLatin1Char(' ') + QString::fromUtf8(raw.left(200)));
             return;
         }
