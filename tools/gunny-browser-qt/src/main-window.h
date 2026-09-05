@@ -52,6 +52,9 @@ private:
     void resetLevelMenu();
     // Menu "Thời gian lượt": Bình thường / 15 giây.
     void buildTurnTimeMenu();
+    // Menu "Tàng hình": gỡ cờ ẩn để thấy người dùng đồ tàng hình.
+    void buildStealthMenu();
+    void applyShowHidden(bool on);
     // Menu "Đường đạn": bật/tắt vẽ quỹ đạo.
     void buildAimMenu();
     // Bật/tắt: báo cho bản vá biết có cần gửi dữ liệu ngắm không, và xoá đường
@@ -133,6 +136,7 @@ private:
     // Khoảng cách hụt của lần giải gần nhất, quyết định màu đường vẽ.
     double m_solvedMiss = 0.0;
     QAction *m_spreadAction = nullptr;
+    QAction *m_stealthAction = nullptr;
     QTimer *m_aimIdle = nullptr;
     // Chỉ tự nhận quà một lần mỗi phiên: vào lại sảnh sau mỗi trận đấu thì
     // trạng thái "main" lặp lại liên tục.

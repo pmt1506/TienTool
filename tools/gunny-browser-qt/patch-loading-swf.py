@@ -37,6 +37,7 @@ Lệnh nhận qua hàng đợi của trang:
     d:<0|1>    báo dữ liệu ngắm mỗi nhịp để tool vẽ đường đạn
     f:<lực>    bắn ngay bằng lực cho trước, khỏi giữ space
     e:<0|1>    ghi vị trí từng viên đạn mỗi nhịp, để đo đường đạn thật
+    h:<0|1>    gỡ cờ tàng hình để thấy người đang ẩn
     a:<actId>|<giftbagId>|<số món>   nhận một gói quà của hoạt động GM
     g:<actId>  doc trang thai tung goi qua ra log
     t:<loai>   do tam: liet ke mot tui ra log kem bon chi so
@@ -392,6 +393,29 @@ AIM_BODY = (
     + report(op("pushstring", '"aim loi "') + op("getlocal", "19") + op("add"))
     + "LamAfter:\n")
 
+# Gỡ cờ tàng hình của mọi sinh vật đang ẩn.
+SHOW_BODY = (
+    "LshTry:\n"
+    + CLS + get_prop("_toolShow") + op("convert_i") + op("iffalse", "LshEnd") + "\n"
+    + get_class("gameCommon.GameControl") + get_prop("Instance") + get_prop("Current")
+    + get_prop("livings") + get_prop("list") + op("setlocal", "2") + "\n"
+    + op("getlocal", "2") + op("pushnull") + op("ifeq", "LshEnd") + "\n"
+    + op("pushbyte", "0") + op("setlocal", "3") + "\n"
+    + "LshLoop:\n"
+    + op("getlocal", "3") + op("getlocal", "2") + get_prop("length")
+    + op("ifge", "LshEnd") + "\n"
+    + op("getlocal", "2") + op("getlocal", "3") + op("getproperty", KEY)
+    + op("setlocal", "4") + "\n"
+    + op("getlocal", "4") + op("pushnull") + op("ifeq", "LshNext") + "\n"
+    + op("getlocal", "4") + get_prop("isHidden") + op("iffalse", "LshNext") + "\n"
+    + op("getlocal", "4") + op("pushfalse") + op("setproperty", pub("isHidden")) + "\n"
+    + "LshNext:\n"
+    + op("getlocal", "3") + op("increment_i") + op("setlocal", "3")
+    + op("jump", "LshLoop") + "\n"
+    + "LshEnd:\n" + op("jump", "LshAfter") + "\n"
+    + "LshCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + "LshAfter:\n")
+
 # Ghi vị trí mọi viên đạn đang bay, mỗi nhịp một dòng cho mỗi viên.
 #
 # Dùng để đo hai thứ không đọc được từ mã: hệ số đổi lực -> vận tốc của server, và
@@ -599,6 +623,11 @@ CMD_BODY = (
     + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
     + op("setproperty", pub("_toolBomb")) + op("jump", "LcEnd") + "\n"
     + "LcNotBomb:\n"
+    + op("getlocal3") + op("pushstring", '"h:"') + op("ifne", "LcNotShow") + "\n"
+    + CLS + op("getlocal2") + op("pushbyte", "2")
+    + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+    + op("setproperty", pub("_toolShow")) + op("jump", "LcEnd") + "\n"
+    + "LcNotShow:\n"
     + op("getlocal3") + op("pushstring", '"p:"') + op("ifne", "LcNotBatch") + "\n"
     + report(CLS + op("pushbyte", "0")
              + op("callproperty", "%s, 1" % pub("toolPet")))
@@ -1919,6 +1948,7 @@ TRAITS = (
     + slot("_toolLevelOrig", pub("int"))
     + slot("_toolAim", pub("int"))
     + slot("_toolBomb", pub("int"))
+    + slot("_toolShow", pub("int"))
     + slot("_toolKeyReg", pub("Boolean"))
     + slot("_toolFast", 'QName(PackageNamespace("flash.utils"), "Timer")')
     + slot("_toolMailStep", pub("int"))
@@ -1927,9 +1957,10 @@ TRAITS = (
     + (slot("_toolSeen", pub("Object")) if probe else "")
     + method("toolTick", pub("Object"), TICK_BODY, TICK_TRY)
     + method("toolTurnTick", pub("Object"),
-             TURN_BODY + AIM_BODY + BOMB_BODY + KEY_BODY + op("returnvoid"),
+             TURN_BODY + AIM_BODY + SHOW_BODY + BOMB_BODY + KEY_BODY
+             + op("returnvoid"),
              try_block("mz") + try_block("ba") + try_block("tt") + try_block("am")
-             + try_block("bo") + try_block("ky"),
+             + try_block("sh") + try_block("bo") + try_block("ky"),
              stack=24, locals_=24)
     + method("toolKey", pub("Object"), KEY_HANDLER, try_block("kh"))
     + method("toolWheel", pub("Object"), WHEEL_HANDLER, try_block("wh"))

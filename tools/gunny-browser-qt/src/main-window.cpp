@@ -114,6 +114,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     buildLevelMenu();
     buildTurnTimeMenu();
     buildAimMenu();
+    buildStealthMenu();
     buildOverlayMenu();
     buildMagicAction();
     setupSignClaim();
@@ -140,6 +141,10 @@ MainWindow::MainWindow(const QString &swfUrl,
                     QStringLiteral("d:")
                     + (m_aimAction && m_aimAction->isChecked() ? QStringLiteral("1")
                                                                : QStringLiteral("0")));
+                m_bridge->queueCommand(
+                    QStringLiteral("h:")
+                    + (m_stealthAction && m_stealthAction->isChecked() ? QStringLiteral("1")
+                                                                       : QStringLiteral("0")));
             }
         }
         if (m.startsWith(QLatin1String("trangthai"))) {
@@ -549,6 +554,25 @@ void MainWindow::addWindowModeMenu(QMenu *menu)
             showStatus(QStringLiteral("Chế độ vẽ: %1 — đang nạp lại game").arg(value), 5000);
         });
     }
+}
+
+void MainWindow::buildStealthMenu()
+{
+    QMenu *menu = menuBar()->addMenu(QStringLiteral("Tàng hình"));
+    m_stealthAction = menu->addAction(QStringLiteral("Hiện người đang tàng hình"));
+    m_stealthAction->setCheckable(true);
+    m_stealthAction->setChecked(
+        QSettings().value(QStringLiteral("battle/showHidden"), false).toBool());
+    connect(m_stealthAction, &QAction::toggled, this, &MainWindow::applyShowHidden);
+}
+
+void MainWindow::applyShowHidden(bool on)
+{
+    QSettings().setValue(QStringLiteral("battle/showHidden"), on);
+    m_bridge->queueCommand(on ? QStringLiteral("h:1") : QStringLiteral("h:0"));
+    showStatus(on ? QStringLiteral("Tàng hình: hiện tất cả")
+                  : QStringLiteral("Tàng hình: để nguyên như game"),
+               3000);
 }
 
 void MainWindow::buildAimMenu()
