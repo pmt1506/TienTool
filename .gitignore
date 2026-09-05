@@ -107,3 +107,9 @@ tools/rabcdasm/
 tools/gunny-browser-qt/work*/
 __pycache__/
 .tokensave/
+
+# Qt shell build output khi chay qmake ngay trong thu muc nguon
+tools/gunny-browser-qt/Makefile*
+tools/gunny-browser-qt/object_script.*
+tools/gunny-browser-qt/release/
+tools/gunny-browser-qt/debug/

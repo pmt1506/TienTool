@@ -32,6 +32,7 @@ Lệnh nhận qua hàng đợi của trang:
     o:<ô>      mở một ô túi
     m:         dọn thư: nhận hết đính kèm rồi xếp túi
     b:         xếp túi vào cả 5 két, mỗi két một gói, giãn ra cho server kịp
+    n:<giây>   ép thời gian lượt của mình; 0 = để nguyên giá trị server gửi
     a:<actId>|<giftbagId>|<số món>   nhận một gói quà của hoạt động GM
     g:<actId>  doc trang thai tung goi qua ra log
     t:<loai>   do tam: liet ke mot tui ra log kem bon chi so
@@ -157,6 +158,21 @@ PROLOGUE = (
     + op("getlocal0") + get_prop("toolTick")
     + op("callpropvoid", "%s, 2" % pub("addEventListener"))
     + op("callpropvoid", "%s, 0" % pub("start")) + "\n"
+    # Nhịp thứ hai, 40ms, chỉ để ép thời gian lượt. Không gộp vào nhịp 250ms vì
+    # cửa sổ ghi đè rất hẹp: server đặt turnTime trong ChangePlayerAction.syncMap,
+    # chỉ ~5 khung hình sau SelfMarkBar mới đọc nó để dựng đồng hồ đếm ngược.
+    # 250ms thì trượt cửa sổ ấy gần như mọi lượt.
+    + op("getlocal0")
+    + op("findpropstrict", 'QName(PackageNamespace("flash.utils"), "Timer")')
+    + op("pushshort", "40")
+    + op("constructprop", 'QName(PackageNamespace("flash.utils"), "Timer"), 1')
+    + op("setproperty", pub("_toolFast")) + "\n"
+    + op("getlocal0") + get_prop("_toolFast")
+    + op("dup")
+    + op("pushstring", '"timer"')
+    + op("getlocal0") + get_prop("toolTurnTick")
+    + op("callpropvoid", "%s, 2" % pub("addEventListener"))
+    + op("callpropvoid", "%s, 0" % pub("start")) + "\n"
     + ((op("getlocal0") + op("pushbyte", "1")
         + op("setproperty", pub("_toolBagStep")) + "\n") if auto_bag else "")
     + "LtoolSkip:\n")
@@ -207,6 +223,35 @@ ENFORCE_BODY = (
     + "LeEnd:\n" + op("jump", "LeAfter") + "\n"
     + "LeCatch:\n" + catch_prologue() + op("pop") + "\n"
     + "LeAfter:\n")
+
+# Ép thời gian lượt của mình. Mỗi lượt server ghi đè turnTime (xem
+# ChangePlayerAction.syncMap: đọc một int từ gói, rơi về
+# RoomManager.getTurnTimeByType khi int đó <= 0), rồi SelfMarkBar.startup mới đọc
+# turnTime dựng đồng hồ 1000ms/nhịp. Nên phải ghi đè LIÊN TỤC — ghi một lần lúc
+# vào trận là bị gói đổi lượt xoá ngay ở lượt kế.
+#
+# Báo giá trị server vừa đặt ra log trước khi ghi đè: đó là bằng chứng duy nhất
+# cho biết phòng thực sự cho bao nhiêu giây. Ngoài trận thì Current /
+# selfGamePlayer ném lỗi — nuốt, vì nhịp này chạy suốt phiên.
+TURN_BODY = (
+    "LttTry:\n"
+    + CLS + get_prop("_toolTurn") + op("convert_i") + op("setlocal", "3")
+    + op("getlocal", "3") + op("iffalse", "LttEnd") + "\n"
+    # Kiểm Current rỗng trước rồi mới lấy người chơi: ngoài trận Current là null,
+    # mà lấy thuộc tính trên null thì ném lỗi — 25 lần mỗi giây chỉ để rơi vào
+    # catch là dùng ngoại lệ làm luồng điều khiển, đắt vô ích.
+    + get_class("gameCommon.GameControl") + get_prop("Instance")
+    + get_prop("Current") + op("setlocal", "2") + "\n"
+    + op("getlocal", "2") + op("pushnull") + op("ifeq", "LttEnd") + "\n"
+    + op("getlocal", "2") + get_prop("selfGamePlayer") + op("setlocal", "2") + "\n"
+    + op("getlocal", "2") + op("pushnull") + op("ifeq", "LttEnd") + "\n"
+    + op("getlocal", "2") + get_prop("turnTime") + op("convert_i") + op("setlocal", "4")
+    + op("getlocal", "4") + op("getlocal", "3") + op("ifeq", "LttEnd") + "\n"
+    + report(op("pushstring", '"luot server "') + op("getlocal", "4") + op("add"))
+    + op("getlocal", "2") + op("getlocal", "3") + op("setproperty", pub("turnTime")) + "\n"
+    + "LttEnd:\n" + op("jump", "LttAfter") + "\n"
+    + "LttCatch:\n" + catch_prologue() + op("pop") + "\n"
+    + "LttAfter:\n" + op("returnvoid"))
 
 # Xếp túi: _toolBagStep đếm 1..40, cứ 4 nhịp (1 giây) đẩy một két. Mười lượt:
 # năm két cho túi đạo cụ, rồi năm két cho túi trang bị. Giãn ra vì
@@ -267,6 +312,12 @@ CMD_BODY = (
     + op("callproperty", "%s, 1" % pub("substr"))
     + op("setproperty", pub("_toolScale")) + op("jump", "LcEnd") + "\n"
     + "LcNotPet:\n"
+    # Chỉ nhớ con số; khối ép ở nhịp 40ms lo phần ghi vào người chơi.
+    + op("getlocal3") + op("pushstring", '"n:"') + op("ifne", "LcNotTurn") + "\n"
+    + CLS + op("getlocal2") + op("pushbyte", "2")
+    + op("callproperty", "%s, 1" % pub("substr")) + op("convert_i")
+    + op("setproperty", pub("_toolTurn")) + op("jump", "LcEnd") + "\n"
+    + "LcNotTurn:\n"
     + op("getlocal3") + op("pushstring", '"p:"') + op("ifne", "LcNotBatch") + "\n"
     + report(CLS + op("pushbyte", "0")
              + op("callproperty", "%s, 1" % pub("toolPet")))
@@ -1582,11 +1633,14 @@ TRAITS = (
     + slot("_toolState", pub("String"))
     + slot("_toolScale", pub("String"))
     + slot("_toolBagStep", pub("int"))
+    + slot("_toolTurn", pub("int"))
+    + slot("_toolFast", 'QName(PackageNamespace("flash.utils"), "Timer")')
     + slot("_toolMailStep", pub("int"))
     + slot("_toolMailWait", pub("int"))
     + slot("_toolMenuKids", pub("int"))
     + (slot("_toolSeen", pub("Object")) if probe else "")
     + method("toolTick", pub("Object"), TICK_BODY, TICK_TRY)
+    + method("toolTurnTick", pub("Object"), TURN_BODY, try_block("tt"))
     + method("toolOpenMagicHouse", pub("int"), OPEN_BODY, try_block("o"))
     + method("toolPushBank", pub("int"), PUSH_BANK_BODY, try_block("p"))
     + method("toolMail", pub("int"), MAIL_BODY, try_block("m"))

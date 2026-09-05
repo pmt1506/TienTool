@@ -40,6 +40,12 @@ private:
     // trình cha (TienTool) gom vào cùng bảng log với thao tác trên giao diện.
     void logEvent(const QString &line);
     void buildSpeedMenu();
+    // Menu "Thời gian lượt": Bình thường / 15 giây / 30 giây.
+    void buildTurnTimeMenu();
+    // Gửi số giây xuống bản vá SWF và lưu lại lựa chọn. 0 = để nguyên giá trị
+    // server gửi mỗi lượt.
+    void applyTurnTime(int seconds);
+    static int turnTimeValue();
     void buildOverlayMenu();
     // Bật/tắt thước đo (một thanh ngang, một thanh dọc, có vạch chia).
     void toggleRuler(bool on);

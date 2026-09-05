@@ -99,6 +99,7 @@ MainWindow::MainWindow(const QString &swfUrl,
     buildGraphicsMenu();
     buildMenuBar();
     buildSpeedMenu();
+    buildTurnTimeMenu();
     buildOverlayMenu();
     buildMagicAction();
     setupSignClaim();
@@ -117,6 +118,10 @@ MainWindow::MainWindow(const QString &swfUrl,
             if (!m_scaleSent) {
                 m_scaleSent = true;
                 m_bridge->queueCommand(QStringLiteral("s:") + scaleValue());
+                // Cùng lý do: bản vá giữ con số rồi tự ép mỗi nhịp, nên chỉ cần
+                // nói một lần cho mỗi lần nạp game.
+                m_bridge->queueCommand(QStringLiteral("n:")
+                                       + QString::number(turnTimeValue()));
             }
         }
         if (m.startsWith(QLatin1String("trangthai"))) {
@@ -141,6 +146,10 @@ MainWindow::MainWindow(const QString &swfUrl,
                            [this] { onToolAction(QStringLiteral("open-magic-store")); });
     }
     connect(m_view, &QWebView::loadFinished, this, [this](bool ok) {
+        // Nạp lại trang là SWF mới: slot tĩnh giữ tỉ lệ và thời gian lượt về 0,
+        // nên phải cho phép gửi lại hai lệnh ấy, không thì lựa chọn của người
+        // dùng mất im lặng sau mỗi lần bấm "Tải lại".
+        m_scaleSent = false;
         showStatus(ok ? QStringLiteral("Đã nạp Flash")
                                     : QStringLiteral("Nạp trang thất bại"), 5000);
     });
@@ -352,6 +361,57 @@ void MainWindow::buildSpeedMenu()
         connect(&dlg, &SpeedDialog::multiplierPreview, this, &MainWindow::applySpeed);
         dlg.exec();
     });
+}
+
+void MainWindow::buildTurnTimeMenu()
+{
+    QMenu *menu = menuBar()->addMenu(QStringLiteral("Thời gian lượt"));
+
+    auto *group = new QActionGroup(this);
+    group->setExclusive(true);
+
+    const int saved = turnTimeValue();
+    auto addMode = [&](const QString &text, int seconds) {
+        QAction *a = menu->addAction(text);
+        a->setCheckable(true);
+        a->setChecked(saved == seconds);
+        group->addAction(a);
+        connect(a, &QAction::triggered, this, [this, seconds] { applyTurnTime(seconds); });
+    };
+
+    // 0 = tắt ghi đè: mỗi lượt server gửi số giây của phòng và bản vá không đụng
+    // vào, đúng như game gốc.
+    // Chỉ hai mức, bật hoặc tắt. Đặt cao hơn 15 gần như không đổi gì trong thực
+    // chiến: trần thật là của server (đo được ~22 giây, tính cả lúc giữ space),
+    // mà nạp đầy thanh lực ngốn 8,3 giây, nên dù mốc là bao nhiêu thì cũng phải
+    // bắt đầu giữ space quanh giây thứ 13. Thêm mốc chỉ tổ phải cân nhắc.
+    addMode(QStringLiteral("Bình thường (theo server)"), 0);
+    addMode(QStringLiteral("15 giây"), 15);
+}
+
+int MainWindow::turnTimeValue()
+{
+    // Kẹp về 0 khi giá trị lưu lạc mốc: sửa tay registry hoặc đổi mốc ở bản sau
+    // sẽ để menu không mục nào được tích mà vẫn âm thầm ép số cũ.
+    const int saved = QSettings().value(QStringLiteral("battle/turnTime"), 0).toInt();
+    if (saved == 22 || saved == 30) {
+        return 15;  // mốc của các bản trước, dồn về mốc còn lại thay vì tắt lặng lẽ
+    }
+    return saved == 15 ? 15 : 0;
+}
+
+void MainWindow::applyTurnTime(int seconds)
+{
+    QSettings().setValue(QStringLiteral("battle/turnTime"), seconds);
+
+    // Bản vá SWF chỉ nhớ con số rồi ép vào người chơi ở nhịp 40ms của nó. Gửi
+    // ngay cả khi chưa vào trận: lúc vào trận là có sẵn.
+    m_bridge->queueCommand(QStringLiteral("n:") + QString::number(seconds));
+
+    showStatus(seconds == 0
+                   ? QStringLiteral("Thời gian lượt: theo server")
+                   : QStringLiteral("Thời gian lượt: %1 giây").arg(seconds),
+               4000);
 }
 
 void MainWindow::buildOverlayMenu()
